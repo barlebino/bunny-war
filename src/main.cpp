@@ -11,6 +11,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define TINYOBJLOADER_IMPLEMENTATION
+#define INCLUDE_TEXTURE
+
 #include "tiny_obj_loader.h"
 
 #include <unistd.h>
@@ -29,7 +31,7 @@ GLFWwindow *window; // Main application window
 
 // Location of camera
 float camLocation[] = {
-  0.f, 0.f, 1.f
+  0.f, 0.f, 2.f
 };
 
 std::vector<float> posBuf;
@@ -290,7 +292,7 @@ static void resizeMesh(std::vector<float>& posBuf) {
 }
 
 static void getMesh(const std::string &meshName) {
-  /* std::vector<tinyobj::shape_t> shapes;
+  std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> objMaterials;
 	std::string errStr;
 	bool rc = tinyobj::LoadObj(shapes, objMaterials, errStr, meshName.c_str());
@@ -301,11 +303,11 @@ static void getMesh(const std::string &meshName) {
 		posBuf = shapes[0].mesh.positions;
     texCoordBuf = shapes[0].mesh.texcoords;
 		eleBuf = shapes[0].mesh.indices;
-	} */
+	}
 
-  copy(&posArr[0], &posArr[12], back_inserter(posBuf));
+  /*copy(&posArr[0], &posArr[12], back_inserter(posBuf));
   copy(&texCoordArr[0], &texCoordArr[8], back_inserter(texCoordBuf));
-  copy(&eleArr[0], &eleArr[6], back_inserter(eleBuf));
+  copy(&eleArr[0], &eleArr[6], back_inserter(eleBuf));*/
 }
 
 static void sendMesh() {
@@ -315,6 +317,7 @@ static void sendMesh() {
   glBufferData(GL_ARRAY_BUFFER, posBuf.size() * sizeof(float), &posBuf[0],
     GL_STATIC_DRAW);
 
+  #ifdef INCLUDE_TEXTURE
   // Error if texture buffer is empty
   if(texCoordBuf.empty()) {
     fprintf(stderr, "Could not find texture coordinate buffer.\n");
@@ -326,6 +329,7 @@ static void sendMesh() {
   glBindBuffer(GL_ARRAY_BUFFER, texCoordBufID);
   glBufferData(GL_ARRAY_BUFFER, texCoordBuf.size() * sizeof(float),
     &texCoordBuf[0], GL_STATIC_DRAW);
+  #endif
 
   // Send element array to GPU
   glGenBuffers(1, &eleBufID);
@@ -349,13 +353,15 @@ static void init() {
   glEnable(GL_BLEND);
 
   // Get mesh
-  // getMesh("../resources/sphere.obj");
-  getMesh("../resources/cube.obj");
+  getMesh("../resources/sphere.obj");
+  // getMesh("../resources/cube.obj");
+  // getMesh("../resources/bunny.obj");
   resizeMesh(posBuf);
 
   // Send mesh to GPU
   sendMesh();
 
+  #ifdef INCLUDE_TEXTURE
   // Read texture into CPU memory
   struct Image image;
   imageLoad("../resources/world.bmp", &image);
@@ -386,6 +392,7 @@ static void init() {
 
   // Unbind from texture buffer object from current texture unit
   glBindTexture(GL_TEXTURE_2D, 0);
+  #endif
 
   // Initialize shader program
   GLint rc;
@@ -433,7 +440,9 @@ static void init() {
 
   // Attribs
   vertPosLoc = glGetAttribLocation(pid, "vertPos");
+  #ifdef INCLUDE_TEXTURE
   texCoordLoc = glGetAttribLocation(pid, "texCoord");
+  #endif
 
   // Create vertex array object
   glGenVertexArrays(1, &vaoID);
@@ -445,11 +454,13 @@ static void init() {
   glVertexAttribPointer(vertPosLoc, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT) * 3,
     (const void *) 0);
 
+  #ifdef INCLUDE_TEXTURE
   // Bind texture coordinate buffer
   glEnableVertexAttribArray(texCoordLoc);
   glBindBuffer(GL_ARRAY_BUFFER, texCoordBufID);
   glVertexAttribPointer(texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
     sizeof(GL_FLOAT) * 2, (const void *) 0);
+  #endif
 
   // Bind element buffer
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eleBufID);
@@ -459,7 +470,9 @@ static void init() {
 
   // Disable
   glDisableVertexAttribArray(vertPosLoc);
+  #ifdef INCLUDE_TEXTURE
   glDisableVertexAttribArray(texCoordLoc);
+  #endif
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -470,7 +483,9 @@ static void init() {
   placementLoc = glGetUniformLocation(pid, "placement");
 
   // Get the location of the sampler2D in fragment shader (???)
+  #ifdef INCLUDE_TEXTURE
   texLoc = glGetUniformLocation(pid, "tex");
+  #endif
 }
 
 static void render() {
@@ -497,14 +512,13 @@ static void render() {
   matPlacement = glm::scale(glm::mat4(1.f),
     glm::vec3(1.f, 1.f, 1.f)) * 
     matPlacement;
-  // TESTING
   matPlacement = glm::rotate(glm::mat4(1.f), yRot,
     glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
   // yRot = yRot + 0.01;
   matPlacement = glm::translate(glm::mat4(1.f), 
     glm::vec3(-camLocation[0], -camLocation[1], -camLocation[2])) *
     matPlacement;
-  camLocation[2] = camLocation[2] + 0.01;
+  // camLocation[2] = camLocation[2] + 0.01;
 
   // Bind shader program
   glUseProgram(pid);
