@@ -33,6 +33,10 @@ GLFWwindow *window; // Main application window
 float camLocation[] = {
   0.f, 0.f, 2.f
 };
+// Rotation of camera
+float camRotation[] = {
+  0.f, 0.f
+};
 
 std::vector<float> posBuf;
 std::vector<float> norBuf;
@@ -62,9 +66,6 @@ GLint texLoc;
 
 // Height of window ???
 int g_width, g_height;
-
-// TESTING
-float yRot = 0.f;
 
 static const float posArr[] = {
   1.f, 1.f, 0.f,
@@ -509,16 +510,31 @@ static void render() {
 
   // Placement matrix
   matPlacement = glm::mat4(1.f);
+
+  // Put object into world
   matPlacement = glm::scale(glm::mat4(1.f),
     glm::vec3(1.f, 1.f, 1.f)) * 
     matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), yRot,
+  
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
-  // yRot = yRot + 0.01;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+  
+  matPlacement = glm::translate(glm::mat4(1.f),
+    glm::vec3(0.f, 0.f, -2.f)); // Object position is (0, 0, -2)
+  
+  // Modify object relative to the eye
   matPlacement = glm::translate(glm::mat4(1.f), 
     glm::vec3(-camLocation[0], -camLocation[1], -camLocation[2])) *
     matPlacement;
-  // camLocation[2] = camLocation[2] + 0.01;
+
+  matPlacement = glm::rotate(glm::mat4(1.f), -camRotation[0],
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), -camRotation[1],
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
 
   // Bind shader program
   glUseProgram(pid);
