@@ -12,6 +12,7 @@
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #define INCLUDE_TEXTURE
+#define PI 3.14159
 
 #include "tiny_obj_loader.h"
 
@@ -30,13 +31,16 @@ struct RGB {
 GLFWwindow *window; // Main application window
 
 // Location of camera
-float camLocation[] = {
-  0.f, 0.f, 2.f
-};
+glm::vec3 camLocation = glm::vec3(0.f, 0.f, 2.f);
 // Rotation of camera
-float camRotation[] = {
-  0.f, 0.f
-};
+glm::vec2 camRotation = glm::vec2(0.f, 0.f);
+// Forward direction
+glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
+// Sideways direction
+glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
+
+// Input
+char keys[6] = {0, 0, 0, 0};
 
 std::vector<float> posBuf;
 std::vector<float> norBuf;
@@ -60,31 +64,14 @@ GLint vertPosLoc;
 GLint perspectiveLoc;
 GLint placementLoc;
 
-// Texture testing
+// Textures
 GLint texCoordLoc;
 GLint texLoc;
 
 // Height of window ???
 int g_width, g_height;
 
-static const float posArr[] = {
-  1.f, 1.f, 0.f,
-  1.f, -1.f, 0.f,
-  -1.f, 1.f, 0.f,
-  -1.f, -1.f, 0.f
-};
-
-static const float texCoordArr[] = {
-  1.f, 1.f,
-  1.f, 0.f,
-  0.f, 1.f,
-  0.f, 0.f
-};
-
-static const unsigned int eleArr[] = {
-  3, 0, 2,
-  3, 1, 0
-};
+// Head rotation
 
 // Helper functions for image load
 static unsigned int getint(FILE *fp) {
@@ -198,6 +185,42 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action,
   int mods) {
   if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, GL_TRUE);
+  } else if(key == GLFW_KEY_W) {
+    if(action == GLFW_PRESS) {
+      keys[0] = 1;
+    } else if(action == GLFW_RELEASE) {
+      keys[0] = 0;
+    }
+  } else if(key == GLFW_KEY_A) {
+    if(action == GLFW_PRESS) {
+      keys[1] = 1;
+    } else if(action == GLFW_RELEASE) {
+      keys[1] = 0;
+    }
+  } else if(key == GLFW_KEY_S) {
+    if(action == GLFW_PRESS) {
+      keys[2] = 1;
+    } else if(action == GLFW_RELEASE) {
+      keys[2] = 0;
+    }
+  } else if(key == GLFW_KEY_D) {
+    if(action == GLFW_PRESS) {
+      keys[3] = 1;
+    } else if(action == GLFW_RELEASE) {
+      keys[3] = 0;
+    }
+  } else if(key == GLFW_KEY_Q) {
+    if(action == GLFW_PRESS) {
+      keys[4] = 1;
+    } else if(action == GLFW_RELEASE) {
+      keys[4] = 0;
+    }
+  } else if(key == GLFW_KEY_E) {
+    if(action == GLFW_PRESS) {
+      keys[5] = 1;
+    } else if(action == GLFW_RELEASE) {
+      keys[5] = 0;
+    }
   }
 }
 
@@ -492,6 +515,8 @@ static void init() {
 static void render() {
   int width, height;
   float aspect;
+  glm::dvec2 cursorPos;
+  glm::dvec2 screenPos;
 
   // Create matrices
   glm::mat4 matPlacement;
@@ -503,6 +528,72 @@ static void render() {
 
   // Clear framebuffer
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  // Detect and set the current rotation of the camera
+  glfwGetCursorPos(window, &cursorPos.x, &cursorPos.y);
+  screenPos.x = cursorPos.x / (double) width;
+  screenPos.y = cursorPos.y / (double) height;
+
+  // Rotation along y axis
+  if(screenPos.x > .9f && screenPos.x < 1.f &&
+    screenPos.y > 0.f && screenPos.y < 1.f) {
+    camRotation.y = camRotation.y - .01f;
+  } else if(screenPos.x < .1f && screenPos.x > 0.f &&
+    screenPos.y > 0.f && screenPos.y < 1.f) {
+    camRotation.y = camRotation.y + .01f;
+  }
+
+  if(camRotation.y <= 0.00001f) {
+    camRotation.y = 2.f * PI;
+  } else if(camRotation.y >= 2.f * PI) {
+    camRotation.y = 0.00001f;
+  }
+
+  // Rotation along x axis
+  // NOTE POSITIVE DIRECTION
+  if(screenPos.y > .9f && screenPos.y < 1.f &&
+    camRotation.x > -PI / 2.f &&
+    screenPos.x > 0.f && screenPos.x < 1.f) {
+    camRotation.x = camRotation.x - .01f;
+  } else if(screenPos.y < .1f && screenPos.y > 0.f &&
+    camRotation.x < PI / 2.f &&
+    screenPos.x > 0.f && screenPos.x < 1.f) {
+    camRotation.x = camRotation.x + .01f;
+  }
+
+  // Update the forward direction
+  forward = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
+    glm::vec3(0.f, 1.f, 0.f)) *
+    glm::rotate(glm::mat4(1.f), camRotation.x,
+    glm::vec3(1.f, 0.f, 0.f)) *
+    glm::vec4(0.f, 0.f, -1.f, 1.f));
+  forward = glm::normalize(glm::vec3(forward.x, 0.f, forward.z));
+  // Update the side direction
+  sideways = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
+    glm::vec3(0.f, 1.f, 0.f)) *
+    glm::rotate(glm::mat4(1.f), camRotation.x,
+    glm::vec3(1.f, 0.f, 0.f)) *
+    glm::vec4(1.f, 0.f, 0.f, 1.f));
+  sideways = glm::normalize(glm::vec3(sideways.x, 0.f, sideways.z));
+  // Update position
+  if(keys[0]) {
+    camLocation = camLocation + forward * 0.05f;
+  }
+  if(keys[1]) {
+    camLocation = camLocation - sideways * 0.05f;
+  }
+  if(keys[2]) {
+    camLocation = camLocation - forward * 0.05f;
+  }
+  if(keys[3]) {
+    camLocation = camLocation + sideways * 0.05f;
+  }
+  if(keys[4]) {
+    camLocation = camLocation + glm::vec3(0.f, 0.05f, 0.f);
+  }
+  if(keys[5]) {
+    camLocation = camLocation - glm::vec3(0.f, 0.05f, 0.f);
+  }
 
   // Perspective matrix
   aspect = width / (float) height;
@@ -527,13 +618,14 @@ static void render() {
     glm::vec3(0.f, 0.f, -2.f)); // Object position is (0, 0, -2)
   
   // Modify object relative to the eye
-  matPlacement = glm::translate(glm::mat4(1.f), 
-    glm::vec3(-camLocation[0], -camLocation[1], -camLocation[2])) *
+  matPlacement = glm::translate(glm::mat4(1.f), -camLocation) *
     matPlacement;
 
-  matPlacement = glm::rotate(glm::mat4(1.f), -camRotation[0],
-    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), -camRotation[1],
+  /*matPlacement = glm::rotate(glm::mat4(1.f), -camRotation.x,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;*/
+  matPlacement = glm::rotate(glm::mat4(1.f), -camRotation.x,
+    sideways) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), -camRotation.y,
     glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
 
   // Bind shader program
