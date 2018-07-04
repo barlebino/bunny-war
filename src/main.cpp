@@ -40,8 +40,9 @@ glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
 glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 
 // Input
-char keys[6] = {0, 0, 0, 0};
+char keys[6] = {0, 0, 0, 0, 0, 0};
 
+// CPU buffers
 std::vector<float> posBuf;
 std::vector<float> norBuf;
 std::vector<float> texCoordBuf;
@@ -70,8 +71,6 @@ GLint texLoc;
 
 // Height of window ???
 int g_width, g_height;
-
-// Head rotation
 
 // Helper functions for image load
 static unsigned int getint(FILE *fp) {
@@ -328,10 +327,6 @@ static void getMesh(const std::string &meshName) {
     texCoordBuf = shapes[0].mesh.texcoords;
 		eleBuf = shapes[0].mesh.indices;
 	}
-
-  /*copy(&posArr[0], &posArr[12], back_inserter(posBuf));
-  copy(&texCoordArr[0], &texCoordArr[8], back_inserter(texCoordBuf));
-  copy(&eleArr[0], &eleArr[6], back_inserter(eleBuf));*/
 }
 
 static void sendMesh() {
@@ -378,8 +373,6 @@ static void init() {
 
   // Get mesh
   getMesh("../resources/sphere.obj");
-  // getMesh("../resources/cube.obj");
-  // getMesh("../resources/bunny.obj");
   resizeMesh(posBuf);
 
   // Send mesh to GPU
@@ -621,8 +614,6 @@ static void render() {
   matPlacement = glm::translate(glm::mat4(1.f), -camLocation) *
     matPlacement;
 
-  /*matPlacement = glm::rotate(glm::mat4(1.f), -camRotation.x,
-    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;*/
   matPlacement = glm::rotate(glm::mat4(1.f), -camRotation.x,
     sideways) * matPlacement;
   matPlacement = glm::rotate(glm::mat4(1.f), -camRotation.y,
