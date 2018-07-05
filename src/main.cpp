@@ -363,7 +363,7 @@ static void sendMesh() {
 
 static void init() {
   // Set background color
-  glClearColor(.25f, .75f, 1.f, 0.f);
+  glClearColor(.125f, .375f, .5f, 0.f);
   // Enable z-buffer test ???
   glEnable(GL_DEPTH_TEST);
 
@@ -421,7 +421,11 @@ static void init() {
 
   // Read shader source code
   const char *vsSource = textfileRead("../resources/vertexShader.glsl");
-  const char *fsSource = textfileRead("../resources/fragmentShader.glsl");
+  #ifdef INCLUDE_TEXTURE
+  const char *fsSource = textfileRead("../resources/fragTextureOnly.glsl");
+  #else
+  const char *fsSource = textfileRead("../resources/fragPinkOnly.glsl");
+  #endif
 
   glShaderSource(vsHandle, 1, &vsSource, NULL);
   glShaderSource(fsHandle, 1, &fsSource, NULL);
@@ -633,18 +637,22 @@ static void render() {
   // Bind vertex array object
   glBindVertexArray(vaoID);
 
+  #ifdef INCLUDE_TEXTURE
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, texBufID);
   glUniform1i(texLoc, 0);
+  #endif
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, (int) eleBuf.size(), GL_UNSIGNED_INT,
     (const void *) 0);
 
+  #ifdef INCLUDE_TEXTURE
   // Unbind texture
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, 0);
+  #endif
 
   // Unbind vertex array object
   glBindVertexArray(0);
