@@ -11,7 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define TINYOBJLOADER_IMPLEMENTATION
-#define INCLUDE_TEXTURE
+//#define INCLUDE_TEXTURE
 #define PI 3.14159
 
 #include "tiny_obj_loader.h"
@@ -372,7 +372,8 @@ static void init() {
   glEnable(GL_BLEND);
 
   // Get mesh
-  getMesh("../resources/sphere.obj");
+  //getMesh("../resources/sphere.obj");
+  getMesh("../resources/bunny.obj");
   resizeMesh(posBuf);
 
   // Send mesh to GPU
@@ -590,7 +591,8 @@ static void render() {
 
   // Perspective matrix
   aspect = width / (float) height;
-  matPerspective = glm::perspective(70.f, aspect, .1f, 100.f);
+  //matPerspective = glm::perspective(70.f, aspect, .1f, 100.f);
+  matPerspective = glm::perspective(70.f, aspect, .1f, 10.f);
 
   // Placement matrix
   matPlacement = glm::mat4(1.f);
