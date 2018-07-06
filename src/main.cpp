@@ -49,25 +49,33 @@ std::vector<float> texCoordBuf;
 std::vector<unsigned int> eleBuf;
 
 // Buffer IDs
-unsigned vaoID;
+unsigned to_vaoID;
+unsigned do_vaoID;
 unsigned posBufID;
 unsigned eleBufID;
 unsigned texCoordBufID;
 unsigned texBufID;
 
-// Shader program
-GLuint pid;
+// Shader programs
+GLuint to_pid; // Texture only
+
+GLuint do_pid; // Depth only
 
 // Shader attribs
-GLint vertPosLoc;
+GLint to_vertPosLoc;
+GLint to_texCoordLoc;
+
+GLint do_vertPosLoc;
 
 // Shader uniforms
-GLint perspectiveLoc;
-GLint placementLoc;
+GLint to_perspectiveLoc;
+GLint to_placementLoc;
 
-// Textures
-GLint texCoordLoc;
-GLint texLoc;
+GLint do_perspectiveLoc;
+GLint do_placementLoc;
+
+// sampler2D location
+GLint to_texLoc;
 
 // Height of window ???
 int g_width, g_height;
@@ -336,7 +344,7 @@ static void sendMesh() {
   glBufferData(GL_ARRAY_BUFFER, posBuf.size() * sizeof(float), &posBuf[0],
     GL_STATIC_DRAW);
 
-  #ifdef INCLUDE_TEXTURE
+  //#ifdef INCLUDE_TEXTURE
   // Error if texture buffer is empty
   if(texCoordBuf.empty()) {
     fprintf(stderr, "Could not find texture coordinate buffer.\n");
@@ -348,7 +356,7 @@ static void sendMesh() {
   glBindBuffer(GL_ARRAY_BUFFER, texCoordBufID);
   glBufferData(GL_ARRAY_BUFFER, texCoordBuf.size() * sizeof(float),
     &texCoordBuf[0], GL_STATIC_DRAW);
-  #endif
+  //#endif
 
   // Send element array to GPU
   glGenBuffers(1, &eleBufID);
@@ -372,14 +380,13 @@ static void init() {
   glEnable(GL_BLEND);
 
   // Get mesh
-  //getMesh("../resources/sphere.obj");
-  getMesh("../resources/bunny.obj");
+  getMesh("../resources/sphere.obj");
+  //getMesh("../resources/bunny.obj");
   resizeMesh(posBuf);
 
   // Send mesh to GPU
   sendMesh();
 
-  #ifdef INCLUDE_TEXTURE
   // Read texture into CPU memory
   struct Image image;
   imageLoad("../resources/world.bmp", &image);
@@ -410,22 +417,23 @@ static void init() {
 
   // Unbind from texture buffer object from current texture unit
   glBindTexture(GL_TEXTURE_2D, 0);
-  #endif
+
+  // Create shader programs
 
   // Initialize shader program
   GLint rc;
+  GLuint vsHandle, fsHandle;
+  const char *vsSource, *fsSource;
+
+  // Texture only shader program
 
   // Create shader handles
-  GLuint vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  GLuint fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+  vsHandle = glCreateShader(GL_VERTEX_SHADER);
+  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
 
   // Read shader source code
-  const char *vsSource = textfileRead("../resources/vertexShader.glsl");
-  #ifdef INCLUDE_TEXTURE
-  const char *fsSource = textfileRead("../resources/fragTextureOnly.glsl");
-  #else
-  const char *fsSource = textfileRead("../resources/fragPinkOnly.glsl");
-  #endif
+  vsSource = textfileRead("../resources/vertTextureOnly.glsl");
+  fsSource = textfileRead("../resources/fragTextureOnly.glsl");
 
   glShaderSource(vsHandle, 1, &vsSource, NULL);
   glShaderSource(fsHandle, 1, &fsSource, NULL);
@@ -449,11 +457,11 @@ static void init() {
   }
 
   // Create program and link
-  pid = glCreateProgram();
-  glAttachShader(pid, vsHandle);
-  glAttachShader(pid, fsHandle);
-  glLinkProgram(pid);
-  glGetProgramiv(pid, GL_LINK_STATUS, &rc);
+  to_pid = glCreateProgram();
+  glAttachShader(to_pid, vsHandle);
+  glAttachShader(to_pid, fsHandle);
+  glLinkProgram(to_pid);
+  glGetProgramiv(to_pid, GL_LINK_STATUS, &rc);
 
   if(!rc) {
     std::cout << "Error linking shaders" << std::endl;
@@ -461,28 +469,24 @@ static void init() {
   }
 
   // Attribs
-  vertPosLoc = glGetAttribLocation(pid, "vertPos");
-  #ifdef INCLUDE_TEXTURE
-  texCoordLoc = glGetAttribLocation(pid, "texCoord");
-  #endif
+  to_vertPosLoc = glGetAttribLocation(to_pid, "vertPos");
+  to_texCoordLoc = glGetAttribLocation(to_pid, "texCoord");
 
   // Create vertex array object
-  glGenVertexArrays(1, &vaoID);
-  glBindVertexArray(vaoID);
+  glGenVertexArrays(1, &to_vaoID);
+  glBindVertexArray(to_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(vertPosLoc);
+  glEnableVertexAttribArray(to_vertPosLoc);
   glBindBuffer(GL_ARRAY_BUFFER, posBufID);
-  glVertexAttribPointer(vertPosLoc, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT) * 3,
-    (const void *) 0);
+  glVertexAttribPointer(to_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
 
-  #ifdef INCLUDE_TEXTURE
   // Bind texture coordinate buffer
-  glEnableVertexAttribArray(texCoordLoc);
+  glEnableVertexAttribArray(to_texCoordLoc);
   glBindBuffer(GL_ARRAY_BUFFER, texCoordBufID);
-  glVertexAttribPointer(texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
+  glVertexAttribPointer(to_texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
     sizeof(GL_FLOAT) * 2, (const void *) 0);
-  #endif
 
   // Bind element buffer
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eleBufID);
@@ -491,23 +495,92 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(vertPosLoc);
-  #ifdef INCLUDE_TEXTURE
-  glDisableVertexAttribArray(texCoordLoc);
-  #endif
+  glDisableVertexAttribArray(to_vertPosLoc);
+  glDisableVertexAttribArray(to_texCoordLoc);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // Matrices to pass to vertex shaders
-  perspectiveLoc = glGetUniformLocation(pid, "perspective");
-  placementLoc = glGetUniformLocation(pid, "placement");
+  to_perspectiveLoc = glGetUniformLocation(to_pid, "perspective");
+  to_placementLoc = glGetUniformLocation(to_pid, "placement");
 
   // Get the location of the sampler2D in fragment shader (???)
-  #ifdef INCLUDE_TEXTURE
-  texLoc = glGetUniformLocation(pid, "tex");
-  #endif
+  to_texLoc = glGetUniformLocation(to_pid, "texCol");
+
+  // Depth Only shader program
+
+  // Create shader handles
+  vsHandle = glCreateShader(GL_VERTEX_SHADER);
+  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+
+  // Read shader source code
+  vsSource = textfileRead("../resources/vertDepthOnly.glsl");
+  fsSource = textfileRead("../resources/fragDepthOnly.glsl");
+
+  glShaderSource(vsHandle, 1, &vsSource, NULL);
+  glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  // Compile vertex shader
+  glCompileShader(vsHandle);
+  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
+  
+  if(!rc) {
+    std::cout << "Error compiling vertex shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Compile fragment shader
+  glCompileShader(fsHandle);
+  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling fragment shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Create program and link
+  do_pid = glCreateProgram();
+  glAttachShader(do_pid, vsHandle);
+  glAttachShader(do_pid, fsHandle);
+  glLinkProgram(do_pid);
+  glGetProgramiv(do_pid, GL_LINK_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error linking shaders" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Attribs
+  do_vertPosLoc = glGetAttribLocation(do_pid, "vertPos");
+
+  // Create vertex array object
+  glGenVertexArrays(1, &do_vaoID);
+  glBindVertexArray(do_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(do_vertPosLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, posBufID);
+  glVertexAttribPointer(do_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind element buffer
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eleBufID);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(do_vertPosLoc);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // Matrices to pass to vertex shaders
+  do_perspectiveLoc = glGetUniformLocation(do_pid, "perspective");
+  do_placementLoc = glGetUniformLocation(do_pid, "placement");
 }
 
 static void render() {
@@ -595,7 +668,6 @@ static void render() {
 
   // Perspective matrix
   aspect = width / (float) height;
-  //matPerspective = glm::perspective(70.f, aspect, .1f, 100.f);
   matPerspective = glm::perspective(70.f, aspect, .1f, 10.f);
 
   // Placement matrix
@@ -626,33 +698,29 @@ static void render() {
     glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
 
   // Bind shader program
-  glUseProgram(pid);
+  glUseProgram(to_pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(perspectiveLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(to_perspectiveLoc, 1, GL_FALSE,
     glm::value_ptr(matPerspective));
-  glUniformMatrix4fv(placementLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(to_placementLoc, 1, GL_FALSE,
     glm::value_ptr(matPlacement));
 
   // Bind vertex array object
-  glBindVertexArray(vaoID);
+  glBindVertexArray(to_vaoID);
 
-  #ifdef INCLUDE_TEXTURE
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, texBufID);
-  glUniform1i(texLoc, 0);
-  #endif
+  glUniform1i(to_texLoc, 0);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, (int) eleBuf.size(), GL_UNSIGNED_INT,
     (const void *) 0);
 
-  #ifdef INCLUDE_TEXTURE
   // Unbind texture
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, 0);
-  #endif
 
   // Unbind vertex array object
   glBindVertexArray(0);
