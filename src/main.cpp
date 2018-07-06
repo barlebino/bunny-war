@@ -57,10 +57,12 @@ unsigned sphere_posBufID;
 unsigned sphere_eleBufID;
 unsigned sphere_texCoordBufID;
 unsigned sphere_texBufID;
+int sphere_eleBufSize;
 
 // Bunny data
 unsigned bunny_posBufID;
 unsigned bunny_eleBufID;
+int bunny_eleBufSize;
 
 // Shader programs
 GLuint to_pid; // Texture only
@@ -351,25 +353,22 @@ static void getMesh(const std::string &meshName) {
 	}
 }
 
+// Store data about mesh
 static void sendMesh(unsigned *posBufID, unsigned *eleBufID,
-  unsigned *texCoordBufID) {
+  unsigned *texCoordBufID, int *eleBufSize) {
   // Send vertex position array to GPU
   glGenBuffers(1, posBufID);
   glBindBuffer(GL_ARRAY_BUFFER, *posBufID);
   glBufferData(GL_ARRAY_BUFFER, posBuf.size() * sizeof(float), &posBuf[0],
     GL_STATIC_DRAW);
 
-  // Error if texture buffer is empty
-  if(texCoordBuf.empty()) {
-    fprintf(stderr, "Could not find texture coordinate buffer.\n");
-    exit(0);
-  }
-
   // Send texture coordinate array to GPU
-  glGenBuffers(1, texCoordBufID);
-  glBindBuffer(GL_ARRAY_BUFFER, *texCoordBufID);
-  glBufferData(GL_ARRAY_BUFFER, texCoordBuf.size() * sizeof(float),
-    &texCoordBuf[0], GL_STATIC_DRAW);
+  if(!texCoordBuf.empty()) {
+    glGenBuffers(1, texCoordBufID);
+    glBindBuffer(GL_ARRAY_BUFFER, *texCoordBufID);
+    glBufferData(GL_ARRAY_BUFFER, texCoordBuf.size() * sizeof(float),
+      &texCoordBuf[0], GL_STATIC_DRAW);
+  }
 
   // Send element array to GPU
   glGenBuffers(1, eleBufID);
@@ -380,6 +379,9 @@ static void sendMesh(unsigned *posBufID, unsigned *eleBufID,
   // Unbind arrays
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // This data is not on the GPU
+  *eleBufSize = eleBuf.size();
 }
 
 static void init() {
@@ -394,11 +396,17 @@ static void init() {
 
   // Get mesh
   getMesh("../resources/sphere.obj");
-  //getMesh("../resources/bunny.obj");
   resizeMesh(posBuf);
 
   // Send mesh to GPU and store buffer IDs
-  sendMesh(&sphere_posBufID, &sphere_eleBufID, &sphere_texCoordBufID);
+  sendMesh(&sphere_posBufID, &sphere_eleBufID, &sphere_texCoordBufID,
+    &sphere_eleBufSize);
+
+  // Do again for bunny
+  getMesh("../resources/bunny.obj");
+  resizeMesh(posBuf);
+  sendMesh(&bunny_posBufID, &bunny_eleBufID, NULL,
+    &bunny_eleBufSize);
 
   // Read texture into CPU memory
   struct Image image;
@@ -605,6 +613,7 @@ static void render() {
   // Create matrices
   glm::mat4 matPlacement;
   glm::mat4 matPerspective;
+  glm::mat4 matCamera;
 
   // Get current frame buffer size ???
   glfwGetFramebufferSize(window, &width, &height);
@@ -683,6 +692,18 @@ static void render() {
   aspect = width / (float) height;
   matPerspective = glm::perspective(70.f, aspect, .1f, 10.f);
 
+  // Transformations regarding the camera
+  matCamera = glm::mat4(1.f);
+  matCamera = glm::translate(glm::mat4(1.f), -camLocation) *
+    matCamera;
+
+  matCamera = glm::rotate(glm::mat4(1.f), -camRotation.x,
+    sideways) * matCamera;
+  matCamera = glm::rotate(glm::mat4(1.f), -camRotation.y,
+    glm::vec3(0.f, 1.f, 0.f)) * matCamera;
+
+  // Draw the globe
+  
   // Placement matrix
   matPlacement = glm::mat4(1.f);
 
@@ -702,13 +723,7 @@ static void render() {
     glm::vec3(0.f, 0.f, -2.f)); // Object position is (0, 0, -2)
   
   // Modify object relative to the eye
-  matPlacement = glm::translate(glm::mat4(1.f), -camLocation) *
-    matPlacement;
-
-  matPlacement = glm::rotate(glm::mat4(1.f), -camRotation.x,
-    sideways) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), -camRotation.y,
-    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = matCamera * matPlacement;
 
   // Bind shader program
   glUseProgram(to_pid);
@@ -728,7 +743,56 @@ static void render() {
   glUniform1i(to_texLoc, 0);
 
   // Draw one object
-  glDrawElements(GL_TRIANGLES, (int) eleBuf.size(), GL_UNSIGNED_INT,
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the bunny
+
+  // Placement matrix
+  matPlacement = glm::mat4(1.f);
+
+  // Put object into world
+  matPlacement = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matPlacement;
+  
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+  
+  matPlacement = glm::translate(glm::mat4(1.f),
+    glm::vec3(0.f, 0.f, -5.f)); // Object position is (0, 0, -2)
+  
+  // Modify object relative to the eye
+  matPlacement = matCamera * matPlacement;
+
+  // Bind shader program
+  glUseProgram(do_pid);
+
+  // Fill in matrices
+  glUniformMatrix4fv(do_perspectiveLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  glUniformMatrix4fv(do_placementLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+
+  // Bind vertex array object
+  glBindVertexArray(do_vaoID);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
 
   // Unbind texture
