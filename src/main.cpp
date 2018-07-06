@@ -11,7 +11,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define TINYOBJLOADER_IMPLEMENTATION
-//#define INCLUDE_TEXTURE
 #define PI 3.14159
 
 #include "tiny_obj_loader.h"
@@ -51,6 +50,7 @@ std::vector<unsigned int> eleBuf;
 // Buffer IDs
 unsigned to_vaoID;
 unsigned do_vaoID;
+unsigned do_sphere_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
@@ -599,6 +599,31 @@ static void init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+  // Sphere vertex array object
+
+  // Create vertex array object
+  glGenVertexArrays(1, &do_sphere_vaoID);
+  glBindVertexArray(do_sphere_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(do_vertPosLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
+  glVertexAttribPointer(do_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind element buffer
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphere_eleBufID);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(do_vertPosLoc);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
   // Matrices to pass to vertex shaders
   do_perspectiveLoc = glGetUniformLocation(do_pid, "perspective");
   do_placementLoc = glGetUniformLocation(do_pid, "placement");
@@ -719,8 +744,9 @@ static void render() {
   matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
   
+  // Object position is (0, 0, -2)
   matPlacement = glm::translate(glm::mat4(1.f),
-    glm::vec3(0.f, 0.f, -2.f)); // Object position is (0, 0, -2)
+    glm::vec3(0.f, 0.f, -2.f)) * matPlacement;
   
   // Modify object relative to the eye
   matPlacement = matCamera * matPlacement;
@@ -756,7 +782,7 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
-  // Draw the bunny
+  /*// Draw the bunny
 
   // Placement matrix
   matPlacement = glm::mat4(1.f);
@@ -773,8 +799,9 @@ static void render() {
   matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
   
+  // Object position is (0, 0, -5)
   matPlacement = glm::translate(glm::mat4(1.f),
-    glm::vec3(0.f, 0.f, -5.f)); // Object position is (0, 0, -2)
+    glm::vec3(0.f, 0.f, -5.f)) * matPlacement;
   
   // Modify object relative to the eye
   matPlacement = matCamera * matPlacement;
@@ -790,6 +817,56 @@ static void render() {
 
   // Bind vertex array object
   glBindVertexArray(do_vaoID);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);*/
+
+  // Draw the sphere outline
+
+  // Placement matrix
+  matPlacement = glm::mat4(1.f);
+
+  // Put object into world
+  matPlacement = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.75f, 1.75f, 1.75f)) * 
+    matPlacement;
+  
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+  
+  // Object position is (0, 0, -5)
+  matPlacement = glm::translate(glm::mat4(1.f),
+    glm::vec3(0.f, 0.f, -5.f)) * matPlacement;
+  
+  // Modify object relative to the eye
+  matPlacement = matCamera * matPlacement;
+
+  // Bind shader program
+  glUseProgram(do_pid);
+
+  // Fill in matrices
+  glUniformMatrix4fv(do_perspectiveLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  glUniformMatrix4fv(do_placementLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+
+  // Bind vertex array object
+  glBindVertexArray(do_sphere_vaoID);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
