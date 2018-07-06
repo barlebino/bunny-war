@@ -51,10 +51,16 @@ std::vector<unsigned int> eleBuf;
 // Buffer IDs
 unsigned to_vaoID;
 unsigned do_vaoID;
-unsigned posBufID;
-unsigned eleBufID;
-unsigned texCoordBufID;
-unsigned texBufID;
+
+// Sphere data
+unsigned sphere_posBufID;
+unsigned sphere_eleBufID;
+unsigned sphere_texCoordBufID;
+unsigned sphere_texBufID;
+
+// Bunny data
+unsigned bunny_posBufID;
+unsigned bunny_eleBufID;
 
 // Shader programs
 GLuint to_pid; // Texture only
@@ -326,7 +332,15 @@ static void getMesh(const std::string &meshName) {
   std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> objMaterials;
 	std::string errStr;
-	bool rc = tinyobj::LoadObj(shapes, objMaterials, errStr, meshName.c_str());
+  bool rc;
+
+	// Clear the CPU buffers
+  posBuf.clear();
+  norBuf.clear();
+  texCoordBuf.clear();
+  eleBuf.clear();
+  
+  rc = tinyobj::LoadObj(shapes, objMaterials, errStr, meshName.c_str());
 	if(!rc) {
 		std::cerr << errStr << std::endl;
     exit(0);
@@ -337,14 +351,14 @@ static void getMesh(const std::string &meshName) {
 	}
 }
 
-static void sendMesh() {
+static void sendMesh(unsigned *posBufID, unsigned *eleBufID,
+  unsigned *texCoordBufID) {
   // Send vertex position array to GPU
-  glGenBuffers(1, &posBufID);
-  glBindBuffer(GL_ARRAY_BUFFER, posBufID);
+  glGenBuffers(1, posBufID);
+  glBindBuffer(GL_ARRAY_BUFFER, *posBufID);
   glBufferData(GL_ARRAY_BUFFER, posBuf.size() * sizeof(float), &posBuf[0],
     GL_STATIC_DRAW);
 
-  //#ifdef INCLUDE_TEXTURE
   // Error if texture buffer is empty
   if(texCoordBuf.empty()) {
     fprintf(stderr, "Could not find texture coordinate buffer.\n");
@@ -352,15 +366,14 @@ static void sendMesh() {
   }
 
   // Send texture coordinate array to GPU
-  glGenBuffers(1, &texCoordBufID);
-  glBindBuffer(GL_ARRAY_BUFFER, texCoordBufID);
+  glGenBuffers(1, texCoordBufID);
+  glBindBuffer(GL_ARRAY_BUFFER, *texCoordBufID);
   glBufferData(GL_ARRAY_BUFFER, texCoordBuf.size() * sizeof(float),
     &texCoordBuf[0], GL_STATIC_DRAW);
-  //#endif
 
   // Send element array to GPU
-  glGenBuffers(1, &eleBufID);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eleBufID);
+  glGenBuffers(1, eleBufID);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *eleBufID);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, eleBuf.size() * sizeof(unsigned),
     &eleBuf[0], GL_STATIC_DRAW);
 
@@ -384,8 +397,8 @@ static void init() {
   //getMesh("../resources/bunny.obj");
   resizeMesh(posBuf);
 
-  // Send mesh to GPU
-  sendMesh();
+  // Send mesh to GPU and store buffer IDs
+  sendMesh(&sphere_posBufID, &sphere_eleBufID, &sphere_texCoordBufID);
 
   // Read texture into CPU memory
   struct Image image;
@@ -396,9 +409,9 @@ static void init() {
   // Set the first texture unit as active
   glActiveTexture(GL_TEXTURE0);
   // Generate texture buffer object
-  glGenTextures(1, &texBufID);
+  glGenTextures(1, &sphere_texBufID);
   // Bind current texture unit to texture buffer object as a GL_TEXTURE_2D
-  glBindTexture(GL_TEXTURE_2D, texBufID);
+  glBindTexture(GL_TEXTURE_2D, sphere_texBufID);
   // Load texture data into texBufID
   // Base level is 0, number of channels is 3, and border is 0
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.sizeX, image.sizeY,
@@ -478,18 +491,18 @@ static void init() {
 
   // Bind position buffer
   glEnableVertexAttribArray(to_vertPosLoc);
-  glBindBuffer(GL_ARRAY_BUFFER, posBufID);
+  glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
   glVertexAttribPointer(to_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind texture coordinate buffer
   glEnableVertexAttribArray(to_texCoordLoc);
-  glBindBuffer(GL_ARRAY_BUFFER, texCoordBufID);
+  glBindBuffer(GL_ARRAY_BUFFER, sphere_texCoordBufID);
   glVertexAttribPointer(to_texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
     sizeof(GL_FLOAT) * 2, (const void *) 0);
 
   // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eleBufID);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphere_eleBufID);
 
   // Unbind vertex array object
   glBindVertexArray(0);
@@ -561,12 +574,12 @@ static void init() {
 
   // Bind position buffer
   glEnableVertexAttribArray(do_vertPosLoc);
-  glBindBuffer(GL_ARRAY_BUFFER, posBufID);
+  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
   glVertexAttribPointer(do_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eleBufID);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
 
   // Unbind vertex array object
   glBindVertexArray(0);
@@ -711,7 +724,7 @@ static void render() {
 
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, texBufID);
+  glBindTexture(GL_TEXTURE_2D, sphere_texBufID);
   glUniform1i(to_texLoc, 0);
 
   // Draw one object
