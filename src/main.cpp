@@ -387,8 +387,11 @@ static void sendMesh(unsigned *posBufID, unsigned *eleBufID,
 static void init() {
   // Set background color
   glClearColor(.125f, .375f, .5f, 0.f);
-  // Enable z-buffer test ???
+  // Enable z-buffer test
   glEnable(GL_DEPTH_TEST);
+  // Stencil test
+  glEnable(GL_STENCIL_TEST);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
   // Something about blending ???
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -644,8 +647,12 @@ static void render() {
   glfwGetFramebufferSize(window, &width, &height);
   glViewport(0, 0, width, height);
 
+  // Buffer stuff
+  glEnable(GL_DEPTH_TEST);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
   // Clear framebuffer
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
   // Detect and set the current rotation of the camera
   glfwGetCursorPos(window, &cursorPos.x, &cursorPos.y);
@@ -728,6 +735,13 @@ static void render() {
     glm::vec3(0.f, 1.f, 0.f)) * matCamera;
 
   // Draw the globe
+
+  // Stencil for outline
+  // GL_ALWAYS = Never discard the fragment, GL_REPLACE means 1 is
+  // put into stencil buffer
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  // Value you put into stencil buffer is ANDed with 0xFF
+  glStencilMask(0xFF);
   
   // Placement matrix
   matPlacement = glm::mat4(1.f);
@@ -782,6 +796,9 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
+  // Disable writing to stencil buffer
+  //glStencilMask(0x00);
+
   /*// Draw the bunny
 
   // Placement matrix
@@ -834,12 +851,22 @@ static void render() {
 
   // Draw the sphere outline
 
+  // Stencil for outline
+  // GL_NOTEQUAL = Don't discard the fragment, if stencil
+  // is not equal to 1
+  // Determines if fragment should pass stencil test
+  glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+  // Value you put into stencil buffer is ANDed with 0xFF
+  glStencilMask(0x00);
+  // Depth for floor purposes ???
+  glDisable(GL_DEPTH_TEST);
+
   // Placement matrix
   matPlacement = glm::mat4(1.f);
 
   // Put object into world
   matPlacement = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.75f, 1.75f, 1.75f)) * 
+    glm::vec3(1.25f, 1.25f, 1.25f)) * 
     matPlacement;
   
   matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
@@ -849,9 +876,9 @@ static void render() {
   matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
   
-  // Object position is (0, 0, -5)
+  // Object position is (0, 0, -2)
   matPlacement = glm::translate(glm::mat4(1.f),
-    glm::vec3(0.f, 0.f, -5.f)) * matPlacement;
+    glm::vec3(0.f, 0.f, -2.f)) * matPlacement;
   
   // Modify object relative to the eye
   matPlacement = matCamera * matPlacement;
@@ -881,6 +908,10 @@ static void render() {
 
   // Unbind shader program
   glUseProgram(0);
+
+  // Re-Enable
+  glStencilMask(0xFF);
+  glEnable(GL_DEPTH_TEST);
 }
 
 int main(int argc, char **argv) {
@@ -928,6 +959,10 @@ int main(int argc, char **argv) {
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
+
+  // Depth and stencil masks
+  glDepthMask(GL_TRUE);
+  glStencilMask(0xFF);
 
   // Initialize scene
   init();
