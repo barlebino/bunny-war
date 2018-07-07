@@ -86,7 +86,13 @@ GLint do_placementLoc;
 GLint to_texLoc;
 
 // Height of window ???
-int g_width, g_height;
+int g_width = 640;
+int g_height = 480;
+
+// Framebuffer for postprocessing
+unsigned int fbo;
+unsigned int fbo_color_texture;
+unsigned int fbo_depth_stencil_texture;
 
 // Helper functions for image load
 static unsigned int getint(FILE *fp) {
@@ -397,6 +403,36 @@ static void init() {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
 
+  // Create framebuffer object with only colors
+  glGenFramebuffers(1, &fbo);
+
+  // Color texture for fbo
+  glGenTextures(1, &fbo_color_texture);
+  glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_width, g_height, 0, GL_RGB,
+    GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  // Attach texture to fbo
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 
+    fbo_color_texture, 0);
+  // Unbind texture
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  // TODO : attach depth and stencil separately
+  // Depth and stencil texture for fbo
+  glGenTextures(1, &fbo_depth_stencil_texture);
+  glBindTexture(GL_TEXTURE_2D, fbo_depth_stencil_texture);
+  glTexImage2D(
+    GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, g_width, g_height, 0, 
+    GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL
+  );
+  // Attach texture to fbo
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, 
+    GL_TEXTURE_2D, fbo_depth_stencil_texture, 0);  
+  // Unbind texture
+  glBindTexture(GL_TEXTURE_2D, 0);
+
   // Get mesh
   getMesh("../resources/sphere.obj");
   resizeMesh(posBuf);
@@ -646,6 +682,7 @@ static void render() {
   // Get current frame buffer size ???
   glfwGetFramebufferSize(window, &width, &height);
   glViewport(0, 0, width, height);
+  // gluPerspective???
 
   // Buffer stuff
   glEnable(GL_DEPTH_TEST);
@@ -796,59 +833,6 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
-  // Disable writing to stencil buffer
-  //glStencilMask(0x00);
-
-  /*// Draw the bunny
-
-  // Placement matrix
-  matPlacement = glm::mat4(1.f);
-
-  // Put object into world
-  matPlacement = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
-    matPlacement;
-  
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
-  
-  // Object position is (0, 0, -5)
-  matPlacement = glm::translate(glm::mat4(1.f),
-    glm::vec3(0.f, 0.f, -5.f)) * matPlacement;
-  
-  // Modify object relative to the eye
-  matPlacement = matCamera * matPlacement;
-
-  // Bind shader program
-  glUseProgram(do_pid);
-
-  // Fill in matrices
-  glUniformMatrix4fv(do_perspectiveLoc, 1, GL_FALSE,
-    glm::value_ptr(matPerspective));
-  glUniformMatrix4fv(do_placementLoc, 1, GL_FALSE,
-    glm::value_ptr(matPlacement));
-
-  // Bind vertex array object
-  glBindVertexArray(do_vaoID);
-
-  // Draw one object
-  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
-    (const void *) 0);
-
-  // Unbind texture
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Unbind shader program
-  glUseProgram(0);*/
-
   // Draw the sphere outline
 
   // Stencil for outline
@@ -930,7 +914,7 @@ int main(int argc, char **argv) {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 
   // Create a windowed mode window and (?) its OpenGL context. (?)
-  window = glfwCreateWindow(640, 480, "Some title", NULL, NULL);
+  window = glfwCreateWindow(g_width, g_height, "Some title", NULL, NULL);
   if(window == false) {
     glfwTerminate();
     return -1;
