@@ -398,6 +398,13 @@ static void getRectangleMesh() {
     3, 1, 0
   };
 
+  // Clear the CPU buffers
+  // TODO: Consider changing this process
+  posBuf.clear();
+  norBuf.clear();
+  texCoordBuf.clear();
+  eleBuf.clear();
+
   copy(&posArr[0], &posArr[12], back_inserter(posBuf));
   copy(&texCoordArr[0], &texCoordArr[8], back_inserter(texCoordBuf));
   copy(&eleArr[0], &eleArr[6], back_inserter(eleBuf));
@@ -975,7 +982,7 @@ static void render() {
   // is not equal to 1
   // Determines if fragment should pass stencil test
   glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-  // Value you put into stencil buffer is ANDed with 0xFF
+  // Value you put into stencil buffer is ANDed with 0x00
   glStencilMask(0x00);
   // Depth for floor purposes ???
   glDisable(GL_DEPTH_TEST);
@@ -1016,6 +1023,39 @@ static void render() {
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the rectangle map
+
+  // Will always pass stencil test
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  // Never write to the stencil buffer
+  glStencilMask(0x00);
+
+  // Bind shader program
+  glUseProgram(r_pid);
+
+  // Bind vertex array object
+  glBindVertexArray(rect_vaoID);
+
+  // Bind texture to texture unit 0
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, sphere_texBufID); // TODO: Rename texture
+  // 0 because texture unit GL_TEXTURE0
+  glUniform1i(r_texLoc, 0);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
 
   // Unbind texture
