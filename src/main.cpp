@@ -51,6 +51,7 @@ std::vector<unsigned int> eleBuf;
 unsigned to_vaoID;
 unsigned do_vaoID;
 unsigned do_sphere_vaoID;
+unsigned rect_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
@@ -721,6 +722,84 @@ static void init() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // Rectangle shader program
+
+  // Create shader handles
+  vsHandle = glCreateShader(GL_VERTEX_SHADER);
+  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+
+  // Read shader source code
+  vsSource = textfileRead("../resources/vertRectangle.glsl");
+  fsSource = textfileRead("../resources/fragRectangle.glsl");
+
+  glShaderSource(vsHandle, 1, &vsSource, NULL);
+  glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  // Compile vertex shader
+  glCompileShader(vsHandle);
+  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
+  
+  if(!rc) {
+    std::cout << "Error compiling vertex shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Compile fragment shader
+  glCompileShader(fsHandle);
+  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling fragment shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+  
+  // Create program and link
+  r_pid = glCreateProgram();
+  glAttachShader(r_pid, vsHandle);
+  glAttachShader(r_pid, fsHandle);
+  glLinkProgram(r_pid);
+  glGetProgramiv(r_pid, GL_LINK_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error linking shaders" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Attribs
+  r_vertPosLoc = glGetAttribLocation(r_pid, "vertPos");
+  r_texCoordLoc = glGetAttribLocation(r_pid, "texCoord");
+
+  // Get the location of the sampler2D in fragment shader (???)
+  r_texLoc = glGetUniformLocation(r_pid, "texCol");
+
+  // Create vertex array object
+  glGenVertexArrays(1, &rect_vaoID);
+  glBindVertexArray(rect_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(r_vertPosLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, rect_posBufID);
+  glVertexAttribPointer(r_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind texture coordinate buffer
+  glEnableVertexAttribArray(r_texCoordLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, rect_texCoordBufID);
+  glVertexAttribPointer(r_texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
+    sizeof(GL_FLOAT) * 2, (const void *) 0);
+
+  // Bind element buffer
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, rect_eleBufID);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(r_vertPosLoc);
+  glDisableVertexAttribArray(r_texCoordLoc);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 static void render() {
@@ -872,6 +951,7 @@ static void render() {
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, sphere_texBufID);
+  // 0 because texture unit GL_TEXTURE0
   glUniform1i(to_texLoc, 0);
 
   // Draw one object
