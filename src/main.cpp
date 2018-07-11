@@ -47,7 +47,7 @@ std::vector<float> norBuf;
 std::vector<float> texCoordBuf;
 std::vector<unsigned int> eleBuf;
 
-// Buffer IDs
+// VAO IDs
 unsigned to_vaoID;
 unsigned do_vaoID;
 unsigned do_sphere_vaoID;
@@ -91,6 +91,16 @@ GLint do_vertPosLoc;
 // Shader uniforms
 GLint do_perspectiveLoc;
 GLint do_placementLoc;
+
+// Rectangle shader
+GLuint r_pid;
+// Shader attribs
+GLint r_vertPosLoc;
+GLint r_texCoordLoc;
+// Shader uniforms
+// None
+// sampler2D location
+GLint r_texLoc;
 
 // Height of window ???
 int g_width = 640;
@@ -571,6 +581,14 @@ static void init() {
   to_vertPosLoc = glGetAttribLocation(to_pid, "vertPos");
   to_texCoordLoc = glGetAttribLocation(to_pid, "texCoord");
 
+  // Per-object matrices to pass to vertex shaders
+  // TODO: Remove perspective?
+  to_perspectiveLoc = glGetUniformLocation(to_pid, "perspective");
+  to_placementLoc = glGetUniformLocation(to_pid, "placement");
+
+  // Get the location of the sampler2D in fragment shader (???)
+  to_texLoc = glGetUniformLocation(to_pid, "texCol");
+
   // Create vertex array object
   glGenVertexArrays(1, &to_vaoID);
   glBindVertexArray(to_vaoID);
@@ -600,13 +618,6 @@ static void init() {
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-  // Matrices to pass to vertex shaders
-  to_perspectiveLoc = glGetUniformLocation(to_pid, "perspective");
-  to_placementLoc = glGetUniformLocation(to_pid, "placement");
-
-  // Get the location of the sampler2D in fragment shader (???)
-  to_texLoc = glGetUniformLocation(to_pid, "texCol");
 
   // Depth Only shader program
 
@@ -653,6 +664,13 @@ static void init() {
 
   // Attribs
   do_vertPosLoc = glGetAttribLocation(do_pid, "vertPos");
+
+  // Per-object matrices to pass to vertex shaders
+  // TODO: Remove perspective?
+  do_perspectiveLoc = glGetUniformLocation(do_pid, "perspective");
+  do_placementLoc = glGetUniformLocation(do_pid, "placement");
+
+  // Bunny vertex array object
 
   // Create vertex array object
   glGenVertexArrays(1, &do_vaoID);
@@ -702,9 +720,7 @@ static void init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // Matrices to pass to vertex shaders
-  do_perspectiveLoc = glGetUniformLocation(do_pid, "perspective");
-  do_placementLoc = glGetUniformLocation(do_pid, "placement");
+  // Rectangle shader program
 }
 
 static void render() {
