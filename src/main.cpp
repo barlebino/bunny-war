@@ -64,26 +64,33 @@ unsigned bunny_posBufID;
 unsigned bunny_eleBufID;
 int bunny_eleBufSize;
 
+// Rectangle data
+unsigned rect_posBufID;
+unsigned rect_eleBufID;
+unsigned rect_texCoordBufID;
+unsigned rect_texBufID;
+int rect_eleBufSize;
+
 // Shader programs
-GLuint to_pid; // Texture only
 
-GLuint do_pid; // Depth only
-
+// Texture only
+GLuint to_pid;
 // Shader attribs
 GLint to_vertPosLoc;
 GLint to_texCoordLoc;
-
-GLint do_vertPosLoc;
-
 // Shader uniforms
 GLint to_perspectiveLoc;
 GLint to_placementLoc;
-
-GLint do_perspectiveLoc;
-GLint do_placementLoc;
-
 // sampler2D location
 GLint to_texLoc;
+
+// Depth only
+GLuint do_pid;
+// Shader attribs
+GLint do_vertPosLoc;
+// Shader uniforms
+GLint do_perspectiveLoc;
+GLint do_placementLoc;
 
 // Height of window ???
 int g_width = 640;
@@ -359,6 +366,32 @@ static void getMesh(const std::string &meshName) {
 	}
 }
 
+// Store rectangle data in the buffers
+static void getRectangleMesh() {
+  float posArr[] = {
+    1.f, 1.f, 0.f,
+    1.f, -1.f, 0.f,
+    -1.f, 1.f, 0.f,
+    -1.f, -1.f, 0.f
+  };
+
+  float texCoordArr[] = {
+    1.f, 1.f,
+    1.f, 0.f,
+    0.f, 1.f,
+    0.f, 0.f
+  };
+
+  unsigned int eleArr[] = {
+    3, 0, 2,
+    3, 1, 0
+  };
+
+  copy(&posArr[0], &posArr[12], back_inserter(posBuf));
+  copy(&texCoordArr[0], &texCoordArr[8], back_inserter(texCoordBuf));
+  copy(&eleArr[0], &eleArr[6], back_inserter(eleBuf));
+}
+
 // Store data about mesh
 static void sendMesh(unsigned *posBufID, unsigned *eleBufID,
   unsigned *texCoordBufID, int *eleBufSize) {
@@ -446,6 +479,12 @@ static void init() {
   resizeMesh(posBuf);
   sendMesh(&bunny_posBufID, &bunny_eleBufID, NULL,
     &bunny_eleBufSize);
+
+  // Do again for rectangle
+  getRectangleMesh();
+  // No need to resize, explicitly specified coordinates
+  sendMesh(&rect_posBufID, &rect_eleBufID, &rect_texCoordBufID,
+    &rect_eleBufSize);
 
   // Read texture into CPU memory
   struct Image image;
