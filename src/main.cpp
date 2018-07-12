@@ -456,12 +456,14 @@ static void init() {
 
   // Create framebuffer object with only colors
   glGenFramebuffers(1, &fbo);
+  // Bind
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
   // Color texture for fbo
   glGenTextures(1, &fbo_color_texture);
   glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_width, g_height, 0, GL_RGB,
-    GL_UNSIGNED_BYTE, NULL);
+    GL_UNSIGNED_BYTE, NULL); // Width and height must stay the same
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   // Attach texture to fbo
@@ -483,6 +485,16 @@ static void init() {
     GL_TEXTURE_2D, fbo_depth_stencil_texture, 0);  
   // Unbind texture
   glBindTexture(GL_TEXTURE_2D, 0);
+
+  // Check for completion
+  if(!(glCheckFramebufferStatus(GL_FRAMEBUFFER) ==
+    GL_FRAMEBUFFER_COMPLETE)) {
+    printf("Incomplete second framebuffer\n");
+    exit(1);
+  }
+
+  // Unbind
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   // Get mesh
   getMesh("../resources/sphere.obj");
@@ -508,7 +520,7 @@ static void init() {
   struct Image image;
   imageLoad("../resources/world.bmp", &image);
 
-  // Load the texture into the GPU
+  // Allocate space on GPU then load texture into the GPU
 
   // Set the first texture unit as active
   glActiveTexture(GL_TEXTURE0);
@@ -822,8 +834,11 @@ static void render() {
 
   // Get current frame buffer size ???
   glfwGetFramebufferSize(window, &width, &height);
-  glViewport(0, 0, width, height);
+  //glViewport(0, 0, width, height);
   // gluPerspective???
+
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+  glViewport(0, 0, width, height); // Assumes that width = 640, height = 480
 
   // Buffer stuff
   glEnable(GL_DEPTH_TEST);
@@ -1035,6 +1050,12 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
+  // Paste from side framebuffer to default framebuffer
+
+  // Bind normal framebuffer
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glViewport(0, 0, width, height);
+
   // Draw the rectangle map
 
   // Will always pass stencil test
@@ -1050,7 +1071,8 @@ static void render() {
 
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, sphere_texBufID); // TODO: Rename texture
+  //glBindTexture(GL_TEXTURE_2D, sphere_texBufID); // TODO: Rename texture
+  glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   // 0 because texture unit GL_TEXTURE0
   glUniform1i(r_texLoc, 0);
 

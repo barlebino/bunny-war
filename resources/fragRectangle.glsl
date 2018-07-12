@@ -8,4 +8,5 @@ out vec4 color;
 
 void main() {
   color = texture(texCol, vert_texCoord);
+  color = vec4(color.r * .5, color.g * .5, color.b *.5, color.a);
 }
