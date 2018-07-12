@@ -834,11 +834,11 @@ static void render() {
 
   // Get current frame buffer size ???
   glfwGetFramebufferSize(window, &width, &height);
-  //glViewport(0, 0, width, height);
-  // gluPerspective???
 
+  // Change framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-  glViewport(0, 0, width, height); // Assumes that width = 640, height = 480
+  glViewport(0, 0, width, height);
+  // Assumes that width = 640, height = 480
 
   // Buffer stuff
   glEnable(GL_DEPTH_TEST);
@@ -1055,6 +1055,8 @@ static void render() {
   // Bind normal framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glViewport(0, 0, width, height);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glDisable(GL_DEPTH_TEST);
 
   // Draw the rectangle map
 
@@ -1071,7 +1073,6 @@ static void render() {
 
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
-  //glBindTexture(GL_TEXTURE_2D, sphere_texBufID); // TODO: Rename texture
   glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   // 0 because texture unit GL_TEXTURE0
   glUniform1i(r_texLoc, 0);
