@@ -11,9 +11,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define TINYOBJLOADER_IMPLEMENTATION
-#define PI 3.14159
-
 #include "tiny_obj_loader.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#define PI 3.14159
 
 #include <unistd.h>
 
