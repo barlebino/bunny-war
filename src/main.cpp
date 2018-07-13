@@ -57,6 +57,7 @@ unsigned to_vaoID;
 unsigned do_vaoID;
 unsigned do_sphere_vaoID;
 unsigned rect_vaoID;
+unsigned grass_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
@@ -567,6 +568,7 @@ static void init() {
   // Get the location of the sampler2D in fragment shader (???)
   to_texLoc = glGetUniformLocation(to_pid, "texCol");
 
+  // VAO for globe
   // Create vertex array object
   glGenVertexArrays(1, &to_vaoID);
   glBindVertexArray(to_vaoID);
@@ -585,6 +587,37 @@ static void init() {
 
   // Bind element buffer
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphere_eleBufID);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(to_vertPosLoc);
+  glDisableVertexAttribArray(to_texCoordLoc);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // VAO for grass
+  // Create vertex array object
+  glGenVertexArrays(1, &grass_vaoID);
+  glBindVertexArray(grass_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(to_vertPosLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, rect_posBufID);
+  glVertexAttribPointer(to_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind texture coordinate buffer
+  glEnableVertexAttribArray(to_texCoordLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, rect_texCoordBufID);
+  glVertexAttribPointer(to_texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
+    sizeof(GL_FLOAT) * 2, (const void *) 0);
+
+  // Bind element buffer
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, rect_eleBufID);
 
   // Unbind vertex array object
   glBindVertexArray(0);
@@ -961,8 +994,6 @@ static void render() {
   glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
   // Value you put into stencil buffer is ANDed with 0x00
   glStencilMask(0x00);
-  // Depth for floor purposes ???
-  glDisable(GL_DEPTH_TEST);
 
   // Placement matrix
   matPlacement = glm::mat4(1.f);
@@ -1013,6 +1044,66 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
+  // Draw the grass
+  
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matPlacement = glm::mat4(1.f);
+
+  // Put object into world
+  matPlacement = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matPlacement;
+  
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+
+  // Object position is (4, 0, -2)
+  matPlacement = glm::translate(glm::mat4(1.f),
+    glm::vec3(4.f, 0.f, -2.f)) * matPlacement;
+
+  // Modify object relative to the eye
+  matPlacement = matCamera * matPlacement;
+
+  // Bind shader program
+  glUseProgram(to_pid);
+
+  // Fill in matrices
+  glUniformMatrix4fv(to_perspectiveLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  glUniformMatrix4fv(to_placementLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+
+  // Bind vertex array object
+  glBindVertexArray(grass_vaoID);
+
+  // Bind texture to texture unit 0
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, grass_texBufID);
+  // 0 because texture unit GL_TEXTURE0
+  glUniform1i(r_texLoc, 0);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
   // Paste from side framebuffer to default framebuffer
 
   // Bind normal framebuffer
@@ -1036,8 +1127,7 @@ static void render() {
 
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
-  //glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
-  glBindTexture(GL_TEXTURE_2D, grass_texBufID);
+  glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   // 0 because texture unit GL_TEXTURE0
   glUniform1i(r_texLoc, 0);
 
