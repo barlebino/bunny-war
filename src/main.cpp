@@ -77,6 +77,9 @@ unsigned rect_texCoordBufID;
 unsigned rect_texBufID;
 int rect_eleBufSize;
 
+// Grass data (uses rectangle)
+unsigned grass_texBufID;
+
 // Shader programs
 
 // Texture only
@@ -430,10 +433,13 @@ static void init() {
   sendMesh(&rect_posBufID, &rect_eleBufID, &rect_texCoordBufID,
     &rect_eleBufSize);
 
-  // Read texture into CPU memory
+  // Read textures into CPU memory
   struct Image image;
+
   // For some reason stb loads images upside-down to how we want
   stbi_set_flip_vertically_on_load(true);
+
+  // Load image
   image.data = stbi_load("../resources/world.bmp", &(image.sizeX),
     &(image.sizeY), &(image.numChannels), 0);
 
@@ -463,6 +469,41 @@ static void init() {
 
   // Unbind from texture buffer object from current texture unit
   glBindTexture(GL_TEXTURE_2D, 0);
+
+  // Clear image to prepare loading another image to GPU
+  free(image.data);
+
+  // Load image
+  image.data = stbi_load("../resources/grass.png", &(image.sizeX),
+    &(image.sizeY), &(image.numChannels), 0);
+  
+  // Set the first texture unit as active
+  glActiveTexture(GL_TEXTURE0);
+  // Generate texture buffer object
+  glGenTextures(1, &grass_texBufID);
+  // Bind current texture unit to texture buffer object as a GL_TEXTURE_2D
+  glBindTexture(GL_TEXTURE_2D, grass_texBufID);
+  // Load texture data into texBufID
+  // Base level is 0, number of channels is 3, and border is 0
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.sizeX, image.sizeY,
+    0, GL_RGBA, GL_UNSIGNED_BYTE, (GLubyte *) image.data);
+
+  // Generate image pyramid
+  glGenerateMipmap(GL_TEXTURE_2D);
+  // Set texture wrap modes for S and T directions
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  // Set filtering mode for magnification and minification
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  // glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+    GL_LINEAR_MIPMAP_LINEAR);
+
+  // Unbind from texture buffer object from current texture unit
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  // Clear image
+  free(image.data);
 
   // Create shader programs
 
@@ -995,7 +1036,8 @@ static void render() {
 
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
+  //glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
+  glBindTexture(GL_TEXTURE_2D, grass_texBufID);
   // 0 because texture unit GL_TEXTURE0
   glUniform1i(r_texLoc, 0);
 
