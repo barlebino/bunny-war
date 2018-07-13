@@ -117,99 +117,6 @@ unsigned int fbo;
 unsigned int fbo_color_texture;
 unsigned int fbo_depth_stencil_texture;
 
-/*// Helper functions for image load
-static unsigned int getint(FILE *fp) {
-  int c, c1, c2, c3;
-	
-  // Get 4 bytes
-  c = getc(fp);
-  c1 = getc(fp);
-  c2 = getc(fp);
-  c3 = getc(fp);
-
-	return ((unsigned int) c) + (((unsigned int) c1) << 8) +
-	(((unsigned int) c2) << 16) + (((unsigned int) c3) << 24);
-}
-
-static unsigned int getshort(FILE *fp) {
-	int c, c1;
-	
-	// Get 2 bytes
-	c = getc(fp);
-	c1 = getc(fp);
-	
-	return ((unsigned int) c) + (((unsigned int) c1) << 8);
-}
-
-int imageLoad(const char *filename, Image *image) {
-	FILE *file;
-	unsigned long size; // Size of the image in bytes
-	unsigned long i; // Standard counter
-	unsigned short int planes; // Number of planes in image (must be 1)
-	unsigned short int bpp; // Number of bits per pixel (must be 24)
-	char temp; // Used to convert bgr to rgb color
-	
-	// Make sure the file is there
-	if((file = fopen(filename, "rb")) == NULL) {
-		printf("File Not Found : %s\n", filename);
-		return 0;
-	}
-	
-	// Seek through the bmp header, up to the width height:
-	fseek(file, 18, SEEK_CUR);
-	
-	// No 100% errorchecking anymore!!!
-	
-	// Read the width
-  image->sizeX = getint(file);
-	
-	// Read the height
-	image->sizeY = getint(file);
-	
-	// Calculate the size (assuming 24 bits or 3 bytes per pixel)
-	size = image->sizeX * image->sizeY * 3;
-	
-	// Read the planes
-	planes = getshort(file);
-	if(planes != 1) {
-		printf("Planes from %s is not 1: %u\n", filename, planes);
-		return 0;
-	}
-	
-	// Read the bpp
-	bpp = getshort(file);
-	if(bpp != 24) {
-		printf("Bpp from %s is not 24: %u\n", filename, bpp);
-		return 0;
-	}
-	
-	// Seek past the rest of the bitmap header
-	fseek(file, 24, SEEK_CUR);
-	
-	// Read the data
-	image->data = (char *) malloc(size);
-	if(image->data == NULL) {
-		printf("Error allocating memory for color-corrected image data");
-		return 0;
-	}
-	
-	if((i = fread(image->data, size, 1, file)) != 1) {
-		printf("Error reading image data from %s.\n", filename);
-		return 0;
-	}
-	
-	for(i = 0; i < size; i += 3) { // Reverse all of the colors (bgr -> rgb)
-		temp = image->data[i];
-		image->data[i] = image->data[i+2];
-		image->data[i+2] = temp;
-	}
-	
-	fclose(file); // Close the file and release the filedes
-	
-	// We're done
-	return 1;
-} */
-
 // For debugging
 void printMatrix(glm::mat4 mat) {
   int i, j;
@@ -525,11 +432,8 @@ static void init() {
 
   // Read texture into CPU memory
   struct Image image;
-  //imageLoad("../resources/world.bmp", &image);
-
   // For some reason stb loads images upside-down to how we want
   stbi_set_flip_vertically_on_load(true);
-
   image.data = stbi_load("../resources/world.bmp", &(image.sizeX),
     &(image.sizeY), &(image.numChannels), 0);
 
@@ -1054,8 +958,6 @@ static void render() {
   glBindVertexArray(do_sphere_vaoID);
 
   // Draw one object
-  //glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
-  //  (const void *) 0);
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
   // REMINDER: Changed element buffer size
@@ -1093,8 +995,7 @@ static void render() {
 
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
-  //glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
-  glBindTexture(GL_TEXTURE_2D, sphere_texBufID);
+  glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   // 0 because texture unit GL_TEXTURE0
   glUniform1i(r_texLoc, 0);
 
