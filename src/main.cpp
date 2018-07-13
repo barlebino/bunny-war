@@ -22,8 +22,8 @@
 
 // Image code, for textures
 struct Image {
-  int sizeX, sizeY;
-  char *data;
+  int sizeX, sizeY, numChannels;
+  unsigned char *data;
 };
 
 struct RGB {
@@ -117,7 +117,7 @@ unsigned int fbo;
 unsigned int fbo_color_texture;
 unsigned int fbo_depth_stencil_texture;
 
-// Helper functions for image load
+/*// Helper functions for image load
 static unsigned int getint(FILE *fp) {
   int c, c1, c2, c3;
 	
@@ -208,7 +208,7 @@ int imageLoad(const char *filename, Image *image) {
 	
 	// We're done
 	return 1;
-}
+} */
 
 // For debugging
 void printMatrix(glm::mat4 mat) {
@@ -525,7 +525,13 @@ static void init() {
 
   // Read texture into CPU memory
   struct Image image;
-  imageLoad("../resources/world.bmp", &image);
+  //imageLoad("../resources/world.bmp", &image);
+
+  // For some reason stb loads images upside-down to how we want
+  stbi_set_flip_vertically_on_load(true);
+
+  image.data = stbi_load("../resources/world.bmp", &(image.sizeX),
+    &(image.sizeY), &(image.numChannels), 0);
 
   // Allocate space on GPU then load texture into the GPU
 
@@ -1048,8 +1054,11 @@ static void render() {
   glBindVertexArray(do_sphere_vaoID);
 
   // Draw one object
-  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+  //glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+  //  (const void *) 0);
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
+  // REMINDER: Changed element buffer size
 
   // Unbind texture
   glActiveTexture(GL_TEXTURE0);
@@ -1084,7 +1093,8 @@ static void render() {
 
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
+  //glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
+  glBindTexture(GL_TEXTURE_2D, sphere_texBufID);
   // 0 because texture unit GL_TEXTURE0
   glUniform1i(r_texLoc, 0);
 
