@@ -106,8 +106,8 @@ GLint r_texCoordLoc;
 GLint r_texLoc;
 
 // Height of window ???
-int g_width = 640;
-int g_height = 480;
+int g_width = 1280;
+int g_height = 960;
 
 // Framebuffer for postprocessing
 unsigned int fbo;
