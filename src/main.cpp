@@ -27,6 +27,8 @@ struct RGB {
   GLubyte r, g, b;
 };
 
+int ssaaLevel = 2;
+
 GLFWwindow *window; // Main application window
 
 // Location of camera
@@ -462,8 +464,9 @@ static void init() {
   // Color texture for fbo
   glGenTextures(1, &fbo_color_texture);
   glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_width, g_height, 0, GL_RGB,
-    GL_UNSIGNED_BYTE, NULL); // Width and height must stay the same
+  // Multiply by level for super sample anti-aliasing
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_width * ssaaLevel,
+    g_height * ssaaLevel, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   // Attach texture to fbo
@@ -476,9 +479,10 @@ static void init() {
   // Depth and stencil texture for fbo
   glGenTextures(1, &fbo_depth_stencil_texture);
   glBindTexture(GL_TEXTURE_2D, fbo_depth_stencil_texture);
+  // Multiply by level for super sample anti-aliasing
   glTexImage2D(
-    GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, g_width, g_height, 0, 
-    GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL
+    GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, g_width * ssaaLevel, 
+    g_height * ssaaLevel, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL
   );
   // Attach texture to fbo
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, 
@@ -837,8 +841,9 @@ static void render() {
 
   // Change framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-  glViewport(0, 0, width, height);
-  // Assumes that width = 640, height = 480
+  //glViewport(0, 0, width * 2, height * 2);
+  glViewport(0, 0, width * ssaaLevel, height * ssaaLevel);
+  //glViewport(0, 0, width, height);
 
   // Buffer stuff
   glEnable(GL_DEPTH_TEST);
@@ -915,6 +920,9 @@ static void render() {
 
   // Perspective matrix
   aspect = width / (float) height;
+  //matPerspective = glm::perspective(70.f, aspect, .1f, 10.f);
+  //aspect = (width * 2) / (float) (height * 2);
+  //aspect = (width * ssaaLevel) / (float) (height * ssaaLevel);
   matPerspective = glm::perspective(70.f, aspect, .1f, 10.f);
 
   // Transformations regarding the camera
