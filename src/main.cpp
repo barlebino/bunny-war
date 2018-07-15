@@ -464,7 +464,6 @@ static void init() {
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   // Set filtering mode for magnification and minification
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  // glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
     GL_LINEAR_MIPMAP_LINEAR);
 
@@ -828,10 +827,9 @@ static void render() {
 
   // Change framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-  //glViewport(0, 0, width * 2, height * 2);
+  // Tells to what dimensions it renders to
   glViewport(0, 0, width * ssaaLevel, height * ssaaLevel);
-  //glViewport(0, 0, width, height);
-
+  
   // Buffer stuff
   glEnable(GL_DEPTH_TEST);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
@@ -907,9 +905,6 @@ static void render() {
 
   // Perspective matrix
   aspect = width / (float) height;
-  //matPerspective = glm::perspective(70.f, aspect, .1f, 10.f);
-  //aspect = (width * 2) / (float) (height * 2);
-  //aspect = (width * ssaaLevel) / (float) (height * ssaaLevel);
   matPerspective = glm::perspective(70.f, aspect, .1f, 10.f);
 
   // Transformations regarding the camera
