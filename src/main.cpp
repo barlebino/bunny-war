@@ -81,6 +81,9 @@ int rect_eleBufSize;
 // Grass data (uses rectangle)
 unsigned grass_texBufID;
 
+// Skybox data
+unsigned skybox_posBufID;
+
 // Shader programs
 
 // Texture only
@@ -120,6 +123,9 @@ int g_height = 960;
 unsigned int fbo;
 unsigned int fbo_color_texture;
 unsigned int fbo_depth_stencil_texture;
+
+// Cubemaps
+unsigned int cubemapTexture;
 
 // For debugging
 void printMatrix(glm::mat4 mat) {
@@ -326,7 +332,67 @@ static void getRectangleMesh() {
   copy(&eleArr[0], &eleArr[6], back_inserter(eleBuf));
 }
 
+// Store skybox data in the buffers
+static void getSkyboxMesh() {
+  float posArr[] = {
+    // positions          
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f
+  };
+
+  // Clear the CPU buffers
+  // TODO: Consider changing this process
+  posBuf.clear();
+  norBuf.clear();
+  texCoordBuf.clear();
+  eleBuf.clear();
+
+  // Skybox does not need texture coordinates
+  // Vertex format does not use element indexing
+  copy(&posArr[0], &posArr[12], back_inserter(posBuf));
+}
+
 // Store data about mesh
+// NOTE: Mesh must have element buffer if passed into this function
 static void sendMesh(unsigned *posBufID, unsigned *eleBufID,
   unsigned *texCoordBufID, int *eleBufSize) {
   // Send vertex position array to GPU
@@ -355,6 +421,49 @@ static void sendMesh(unsigned *posBufID, unsigned *eleBufID,
 
   // This data is not on the GPU
   *eleBufSize = eleBuf.size();
+}
+
+// Send skybox data to GPU
+static void sendSkyboxMesh() {
+  // Send vertex position array to GPU
+  glGenBuffers(1, &skybox_posBufID);
+  glBindBuffer(GL_ARRAY_BUFFER, skybox_posBufID);
+  glBufferData(GL_ARRAY_BUFFER, posBuf.size() * sizeof(float), &posBuf[0],
+    GL_STATIC_DRAW);
+
+  // Unbind arrays
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+// Parameter is a vector of strings that are the file names
+// Taken from https://learnopengl.com/Advanced-OpenGL/Cubemaps
+unsigned int loadCubemap(std::vector<std::string> faces) {
+  unsigned int textureID;
+  glGenTextures(1, &textureID);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+  int width, height, nrChannels;
+  for (unsigned int i = 0; i < faces.size(); i++) {
+    unsigned char *data = stbi_load(faces[i].c_str(), &width, &height,
+      &nrChannels, 0);
+    if(data) {
+      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
+        0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+      stbi_image_free(data);
+    } else {
+      std::cout << "Cubemap texture failed to load at path: " <<
+        faces[i] << std::endl;
+      stbi_image_free(data);
+    }
+  }
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+  return textureID;
 }
 
 static void init() {
@@ -434,6 +543,10 @@ static void init() {
   sendMesh(&rect_posBufID, &rect_eleBufID, &rect_texCoordBufID,
     &rect_eleBufSize);
 
+  // Do again for cube
+  getSkyboxMesh();
+  sendSkyboxMesh();
+
   // Read textures into CPU memory
   struct Image image;
 
@@ -504,6 +617,17 @@ static void init() {
 
   // Clear image
   free(image.data);
+
+  // Load cubemap
+  std::vector<std::string> faces = {
+    "../resources/skybox/right.jpg",
+    "../resources/skybox/left.jpg",
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/bottom.jpg",
+    "../resources/skybox/front.jpg",
+    "../resources/skybox/back.jpg"
+  };
+  cubemapTexture = loadCubemap(faces);
 
   // Create shader programs
 
