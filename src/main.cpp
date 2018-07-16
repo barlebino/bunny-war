@@ -58,6 +58,7 @@ unsigned do_vaoID;
 unsigned do_sphere_vaoID;
 unsigned rect_vaoID;
 unsigned grass_vaoID;
+unsigned skybox_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
@@ -83,6 +84,7 @@ unsigned grass_texBufID;
 
 // Skybox data
 unsigned skybox_posBufID;
+unsigned skybox_posBufSize;
 
 // Shader programs
 
@@ -114,6 +116,16 @@ GLint r_texCoordLoc;
 // None
 // sampler2D location
 GLint r_texLoc;
+
+// Cubemap shader
+GLuint cm_pid;
+// Shader attribs
+GLint cm_vertPosLoc;
+// Shader uniforms
+GLint cm_perspectiveLoc;
+GLint cm_placementLoc;
+// samplerCube location
+GLint cm_texLoc;
 
 // Height of window ???
 int g_width = 1280;
@@ -388,7 +400,7 @@ static void getSkyboxMesh() {
 
   // Skybox does not need texture coordinates
   // Vertex format does not use element indexing
-  copy(&posArr[0], &posArr[12], back_inserter(posBuf));
+  copy(&posArr[0], &posArr[18 * 6], back_inserter(posBuf));
 }
 
 // Store data about mesh
@@ -434,6 +446,9 @@ static void sendSkyboxMesh() {
   // Unbind arrays
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // This data is not on the GPU
+  skybox_posBufSize = posBuf.size();
 }
 
 // Parameter is a vector of strings that are the file names
@@ -933,6 +948,83 @@ static void init() {
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // Cubemap shader program
+
+  // Create shader handles
+  vsHandle = glCreateShader(GL_VERTEX_SHADER);
+  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+
+  // Read shader source code
+  // TODO: free vsSource and fsSource before ALL shader reads
+  vsSource = textfileRead("../resources/vertCubemap.glsl");
+  fsSource = textfileRead("../resources/fragCubemap.glsl");
+
+  glShaderSource(vsHandle, 1, &vsSource, NULL);
+  glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  // Compile vertex shader
+  glCompileShader(vsHandle);
+  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
+  
+  if(!rc) {
+    std::cout << "Error compiling vertex shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Compile fragment shader
+  glCompileShader(fsHandle);
+  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling fragment shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Create program and link
+  cm_pid = glCreateProgram();
+  glAttachShader(cm_pid, vsHandle);
+  glAttachShader(cm_pid, fsHandle);
+  glLinkProgram(cm_pid);
+  glGetProgramiv(cm_pid, GL_LINK_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error linking shaders" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Attribs
+  cm_vertPosLoc = glGetAttribLocation(cm_pid, "vertPos");
+
+  // Per-object matrices to pass to vertex shaders
+  // TODO: Remove perspective?
+  cm_perspectiveLoc = glGetUniformLocation(cm_pid, "perspective");
+  cm_placementLoc = glGetUniformLocation(cm_pid, "placement");
+
+  // Get the location of the samplerCube in fragment shader (???)
+  cm_texLoc = glGetUniformLocation(cm_pid, "skybox");
+
+  // Skybox vertex array object
+  // Create vertex array object
+  glGenVertexArrays(1, &skybox_vaoID);
+  glBindVertexArray(skybox_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(cm_vertPosLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, skybox_posBufID);
+  glVertexAttribPointer(cm_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(to_vertPosLoc);
+  glDisableVertexAttribArray(to_texCoordLoc);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 static void render() {
@@ -1040,6 +1132,68 @@ static void render() {
     sideways) * matCamera;
   matCamera = glm::rotate(glm::mat4(1.f), -camRotation.y,
     glm::vec3(0.f, 1.f, 0.f)) * matCamera;
+
+  // Draw the skybox
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Skybox, so no depth testing
+  glDepthMask(GL_FALSE);
+
+  // Placement matrix
+  matPlacement = glm::mat4(1.f);
+
+  // Put object into world
+  matPlacement = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matPlacement;
+  
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+
+  // Object position is (-4, 0, -2)
+  //matPlacement = glm::translate(glm::mat4(1.f),
+  //  glm::vec3(-4.f, 0.f, -2.f)) * matPlacement;
+  matPlacement = glm::translate(glm::mat4(1.f),
+    camLocation) * matPlacement;
+
+  // Modify object relative to the eye
+  matPlacement = matCamera * matPlacement;
+
+  // Bind shader program
+  glUseProgram(cm_pid);
+
+  // Fill in matrices
+  glUniformMatrix4fv(cm_perspectiveLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  glUniformMatrix4fv(cm_placementLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+
+  // Bind vertex array object
+  glBindVertexArray(skybox_vaoID);
+
+  // TODO: Bind the texture
+
+  // Draw the cube
+  // Divie by 3 because per vertex
+  glDrawArrays(GL_TRIANGLES, 0, skybox_posBufSize / 3);
+
+  // TODO: Unbind texture
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Re-enable depth testing
+  glDepthMask(GL_TRUE);
 
   // Draw the globe
 
@@ -1222,6 +1376,68 @@ static void render() {
 
   // Unbind shader program
   glUseProgram(0);
+
+  /*// Draw the cube
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Skybox, so no depth testing
+  glDepthMask(GL_FALSE);
+
+  // Placement matrix
+  matPlacement = glm::mat4(1.f);
+
+  // Put object into world
+  matPlacement = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matPlacement;
+  
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+
+  // Object position is (-4, 0, -2)
+  //matPlacement = glm::translate(glm::mat4(1.f),
+  //  glm::vec3(-4.f, 0.f, -2.f)) * matPlacement;
+  matPlacement = glm::translate(glm::mat4(1.f),
+    camLocation) * matPlacement;
+
+  // Modify object relative to the eye
+  matPlacement = matCamera * matPlacement;
+
+  // Bind shader program
+  glUseProgram(cm_pid);
+
+  // Fill in matrices
+  glUniformMatrix4fv(cm_perspectiveLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  glUniformMatrix4fv(cm_placementLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+
+  // Bind vertex array object
+  glBindVertexArray(skybox_vaoID);
+
+  // TODO: Bind the texture
+
+  // Draw the cube
+  // Divie by 3 because per vertex
+  glDrawArrays(GL_TRIANGLES, 0, skybox_posBufSize / 3);
+
+  // TODO: Unbind texture
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Re-enable depth testing
+  glDepthMask(GL_TRUE);*/
 
   // Paste from side framebuffer to default framebuffer
 
