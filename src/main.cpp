@@ -633,6 +633,8 @@ static void init() {
   // Clear image
   free(image.data);
 
+  // Cubemap images are upside down
+  stbi_set_flip_vertically_on_load(false);
   // Load cubemap
   std::vector<std::string> faces = {
     "../resources/skybox/right.jpg",
@@ -1179,12 +1181,18 @@ static void render() {
   glBindVertexArray(skybox_vaoID);
 
   // TODO: Bind the texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+  // 0 because texture unit GL_TEXTURE0
+  glUniform1i(cm_texLoc, 0);
 
   // Draw the cube
   // Divie by 3 because per vertex
   glDrawArrays(GL_TRIANGLES, 0, skybox_posBufSize / 3);
 
   // TODO: Unbind texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
