@@ -9,5 +9,6 @@ uniform mat4 placement;
 
 void main() {
   vert_texCoord = vertPos;
-  gl_Position = perspective * placement * vec4(vertPos, 1.0);
+  vec4 pos = perspective * placement * vec4(vertPos, 1.0);
+  gl_Position = pos.xyww;
 }

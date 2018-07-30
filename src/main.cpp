@@ -494,6 +494,9 @@ static void init() {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
 
+  // For skybox
+  glDepthFunc(GL_LEQUAL);
+
   // Create framebuffer object with only colors
   glGenFramebuffers(1, &fbo);
   // Bind
@@ -1135,6 +1138,7 @@ static void render() {
   matCamera = glm::rotate(glm::mat4(1.f), -camRotation.y,
     glm::vec3(0.f, 1.f, 0.f)) * matCamera;
 
+  /*
   // Draw the skybox
 
   // Do nothing to the stencil buffer ever
@@ -1186,7 +1190,6 @@ static void render() {
   // 0 because texture unit GL_TEXTURE0
   glUniform1i(cm_texLoc, 0);
 
-  // Draw the cube
   // Divie by 3 because per vertex
   glDrawArrays(GL_TRIANGLES, 0, skybox_posBufSize / 3);
 
@@ -1202,6 +1205,7 @@ static void render() {
 
   // Re-enable depth testing
   glDepthMask(GL_TRUE);
+  */
 
   // Draw the globe
 
@@ -1385,14 +1389,15 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
-  /*// Draw the cube
+  ///*
+  // Draw the cube
 
   // Do nothing to the stencil buffer ever
   glStencilFunc(GL_ALWAYS, 1, 0xFF);
   glStencilMask(0x00);
 
   // Skybox, so no depth testing
-  glDepthMask(GL_FALSE);
+  //glDepthMask(GL_FALSE);
 
   // Placement matrix
   matPlacement = glm::mat4(1.f);
@@ -1445,7 +1450,8 @@ static void render() {
   glUseProgram(0);
 
   // Re-enable depth testing
-  glDepthMask(GL_TRUE);*/
+  glDepthMask(GL_TRUE);
+  //*/
 
   // Paste from side framebuffer to default framebuffer
 
