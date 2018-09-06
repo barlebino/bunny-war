@@ -149,6 +149,7 @@ unsigned int fbo_depth_stencil_texture;
 
 // Cubemaps
 unsigned int cubemapTexture;
+unsigned int skyTexture;
 
 // For debugging
 void printMatrix(glm::mat4 mat) {
@@ -467,6 +468,8 @@ static void sendSkyboxMesh() {
 unsigned int loadCubemap(std::vector<std::string> faces) {
   unsigned int textureID;
   glGenTextures(1, &textureID);
+
+  glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
 
   int width, height, nrChannels;
@@ -488,6 +491,9 @@ unsigned int loadCubemap(std::vector<std::string> faces) {
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+  // Unbind texture
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 
   return textureID;
 }
@@ -650,7 +656,8 @@ static void init() {
   // Cubemap images are upside down
   stbi_set_flip_vertically_on_load(false);
   // Load cubemap
-  std::vector<std::string> faces = {
+  std::vector<std::string> faces;
+  faces = {
     "../resources/skybox/right.jpg",
     "../resources/skybox/left.jpg",
     "../resources/skybox/top.jpg",
@@ -659,6 +666,15 @@ static void init() {
     "../resources/skybox/back.jpg"
   };
   cubemapTexture = loadCubemap(faces);
+  faces = {
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/top.jpg"
+  };
+  skyTexture = loadCubemap(faces);
 
   // Create shader programs
 
@@ -1541,15 +1557,11 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
-  ///*
   // Draw the cubemap
 
   // Do nothing to the stencil buffer ever
   glStencilFunc(GL_ALWAYS, 1, 0xFF);
   glStencilMask(0x00);
-
-  // Skybox, so no depth testing
-  //glDepthMask(GL_FALSE);
 
   // Placement matrix
   matPlacement = glm::mat4(1.f);
@@ -1566,9 +1578,7 @@ static void render() {
   matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
 
-  // Object position is (-4, 0, -2)
-  //matPlacement = glm::translate(glm::mat4(1.f),
-  //  glm::vec3(-4.f, 0.f, -2.f)) * matPlacement;
+  // Object position is the location of the camera
   matPlacement = glm::translate(glm::mat4(1.f),
     camLocation) * matPlacement;
 
@@ -1588,22 +1598,27 @@ static void render() {
   glBindVertexArray(skybox_vaoID);
 
   // TODO: Bind the texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+  // TESTING
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, skyTexture);
+  // 0 because texture unit GL_TEXTURE0
+  glUniform1i(cm_texLoc, 1);
 
   // Draw the cube
-  // Divie by 3 because per vertex
+  // Divide by 3 because per vertex
   glDrawArrays(GL_TRIANGLES, 0, skybox_posBufSize / 3);
 
-  // TODO: Unbind texture
+  // Unbind texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
 
   // Unbind shader program
   glUseProgram(0);
-
-  // Re-enable depth testing
-  glDepthMask(GL_TRUE);
-  //*/
 
   // Paste from side framebuffer to default framebuffer
 
