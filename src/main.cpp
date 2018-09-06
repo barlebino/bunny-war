@@ -59,6 +59,8 @@ unsigned do_sphere_vaoID;
 unsigned rect_vaoID;
 unsigned grass_vaoID;
 unsigned skybox_vaoID;
+unsigned oc_bunny_vaoID;
+unsigned ls_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
@@ -85,9 +87,6 @@ unsigned grass_texBufID;
 // Skybox data
 unsigned skybox_posBufID;
 unsigned skybox_posBufSize;
-
-// Pink bunny vertex array object
-unsigned oc_bunny_vaoID;
 
 // Shader programs
 
@@ -1022,6 +1021,7 @@ static void init() {
   cm_texLoc = glGetUniformLocation(cm_pid, "skybox");
 
   // Skybox vertex array object
+
   // Create vertex array object
   glGenVertexArrays(1, &skybox_vaoID);
   glBindVertexArray(skybox_vaoID);
@@ -1112,6 +1112,31 @@ static void init() {
 
   // Bind element buffer
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(oc_vertPosLoc);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // Light source vertex array object
+
+  // Create vertex array object
+  glGenVertexArrays(1, &ls_vaoID);
+  glBindVertexArray(ls_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(oc_vertPosLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
+  glVertexAttribPointer(oc_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind element buffer
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphere_eleBufID);
 
   // Unbind vertex array object
   glBindVertexArray(0);
@@ -1456,6 +1481,58 @@ static void render() {
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the light source
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matPlacement = glm::mat4(1.f);
+
+  // Put object into world
+  matPlacement = glm::scale(glm::mat4(1.f),
+    glm::vec3(.5f, .5f, .5f)) * 
+    matPlacement;
+  
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+
+  // Object position is (-8, 0, -2)
+  matPlacement = glm::translate(glm::mat4(1.f),
+    glm::vec3(-8.f, 0.f, -2.f)) * matPlacement;
+
+  // Modify object relative to the eye
+  matPlacement = matCamera * matPlacement;
+
+  // Bind shader program
+  glUseProgram(oc_pid);
+
+  // Fill in matrices
+  glUniformMatrix4fv(oc_perspectiveLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  glUniformMatrix4fv(oc_placementLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+  glUniform3fv(oc_in_colorLoc, 1,
+    glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+
+  // Bind vertex array object
+  glBindVertexArray(ls_vaoID);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
 
   // Unbind vertex array object
