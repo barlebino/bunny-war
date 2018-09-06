@@ -86,6 +86,9 @@ unsigned grass_texBufID;
 unsigned skybox_posBufID;
 unsigned skybox_posBufSize;
 
+// Pink bunny vertex array object
+unsigned po_bunny_vaoID;
+
 // Shader programs
 
 // Texture only
@@ -126,6 +129,14 @@ GLint cm_perspectiveLoc;
 GLint cm_placementLoc;
 // samplerCube location
 GLint cm_texLoc;
+
+// Pink shader
+GLuint po_pid;
+// Shader attribs
+GLint po_vertPosLoc;
+// Shader uniforms
+GLint po_perspectiveLoc;
+GLint po_placementLoc;
 
 // Height of window ???
 int g_width = 1280;
@@ -1030,6 +1041,81 @@ static void init() {
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // Pink only shader program
+
+  // Create shader handles
+  vsHandle = glCreateShader(GL_VERTEX_SHADER);
+  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+
+  // Read shader source code
+  vsSource = textfileRead("../resources/vertPinkOnly.glsl");
+  fsSource = textfileRead("../resources/fragPinkOnly.glsl");
+
+  glShaderSource(vsHandle, 1, &vsSource, NULL);
+  glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  // Compile vertex shader
+  glCompileShader(vsHandle);
+  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
+  
+  if(!rc) {
+    std::cout << "Error compiling vertex shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Compile fragment shader
+  glCompileShader(fsHandle);
+  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling fragment shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Create program and link
+  po_pid = glCreateProgram();
+  glAttachShader(po_pid, vsHandle);
+  glAttachShader(po_pid, fsHandle);
+  glLinkProgram(po_pid);
+  glGetProgramiv(po_pid, GL_LINK_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error linking shaders" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Attribs
+  po_vertPosLoc = glGetAttribLocation(do_pid, "vertPos");
+
+  // Per-object matrices to pass to vertex shaders
+  po_perspectiveLoc = glGetUniformLocation(do_pid, "perspective");
+  po_placementLoc = glGetUniformLocation(do_pid, "placement");
+
+  // Pink bunny vertex array object
+
+  // Create vertex array object
+  glGenVertexArrays(1, &po_bunny_vaoID);
+  glBindVertexArray(po_bunny_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(po_vertPosLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
+  glVertexAttribPointer(po_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind element buffer
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(po_vertPosLoc);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 static void render() {
@@ -1313,6 +1399,56 @@ static void render() {
   // Unbind texture
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the bunny
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matPlacement = glm::mat4(1.f);
+
+  // Put object into world
+  matPlacement = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matPlacement;
+  
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+
+  // Object position is (-4, 0, -2)
+  matPlacement = glm::translate(glm::mat4(1.f),
+    glm::vec3(-4.f, 0.f, -2.f)) * matPlacement;
+
+  // Modify object relative to the eye
+  matPlacement = matCamera * matPlacement;
+
+  // Bind shader program
+  glUseProgram(po_pid);
+
+  // Fill in matrices
+  glUniformMatrix4fv(po_perspectiveLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  glUniformMatrix4fv(po_placementLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+
+  // Bind vertex array object
+  glBindVertexArray(po_bunny_vaoID);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
