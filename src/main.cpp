@@ -87,7 +87,7 @@ unsigned skybox_posBufID;
 unsigned skybox_posBufSize;
 
 // Pink bunny vertex array object
-unsigned po_bunny_vaoID;
+unsigned oc_bunny_vaoID;
 
 // Shader programs
 
@@ -130,13 +130,14 @@ GLint cm_placementLoc;
 // samplerCube location
 GLint cm_texLoc;
 
-// Pink shader
-GLuint po_pid;
+// One color shader
+GLuint oc_pid;
 // Shader attribs
-GLint po_vertPosLoc;
+GLint oc_vertPosLoc;
 // Shader uniforms
-GLint po_perspectiveLoc;
-GLint po_placementLoc;
+GLint oc_perspectiveLoc;
+GLint oc_placementLoc;
+GLint oc_in_colorLoc;
 
 // Height of window ???
 int g_width = 1280;
@@ -1049,8 +1050,8 @@ static void init() {
   fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
 
   // Read shader source code
-  vsSource = textfileRead("../resources/vertPinkOnly.glsl");
-  fsSource = textfileRead("../resources/fragPinkOnly.glsl");
+  vsSource = textfileRead("../resources/vertOneColor.glsl");
+  fsSource = textfileRead("../resources/fragOneColor.glsl");
 
   glShaderSource(vsHandle, 1, &vsSource, NULL);
   glShaderSource(fsHandle, 1, &fsSource, NULL);
@@ -1074,11 +1075,11 @@ static void init() {
   }
 
   // Create program and link
-  po_pid = glCreateProgram();
-  glAttachShader(po_pid, vsHandle);
-  glAttachShader(po_pid, fsHandle);
-  glLinkProgram(po_pid);
-  glGetProgramiv(po_pid, GL_LINK_STATUS, &rc);
+  oc_pid = glCreateProgram();
+  glAttachShader(oc_pid, vsHandle);
+  glAttachShader(oc_pid, fsHandle);
+  glLinkProgram(oc_pid);
+  glGetProgramiv(oc_pid, GL_LINK_STATUS, &rc);
 
   if(!rc) {
     std::cout << "Error linking shaders" << std::endl;
@@ -1086,22 +1087,27 @@ static void init() {
   }
 
   // Attribs
-  po_vertPosLoc = glGetAttribLocation(do_pid, "vertPos");
+  oc_vertPosLoc = glGetAttribLocation(oc_pid, "vertPos");
 
   // Per-object matrices to pass to vertex shaders
-  po_perspectiveLoc = glGetUniformLocation(do_pid, "perspective");
-  po_placementLoc = glGetUniformLocation(do_pid, "placement");
+  oc_perspectiveLoc = glGetUniformLocation(oc_pid, "perspective");
+  oc_placementLoc = glGetUniformLocation(oc_pid, "placement");
+  oc_in_colorLoc = glGetUniformLocation(oc_pid, "in_color");
+
+  // TESTING
+  printf("oc_perspectiveLoc: %d, oc_placementLoc: %d, oc_in_colorLoc: %d\n",
+    oc_perspectiveLoc, oc_placementLoc, oc_in_colorLoc);
 
   // Pink bunny vertex array object
 
   // Create vertex array object
-  glGenVertexArrays(1, &po_bunny_vaoID);
-  glBindVertexArray(po_bunny_vaoID);
+  glGenVertexArrays(1, &oc_bunny_vaoID);
+  glBindVertexArray(oc_bunny_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(po_vertPosLoc);
+  glEnableVertexAttribArray(oc_vertPosLoc);
   glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
-  glVertexAttribPointer(po_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(oc_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
@@ -1111,7 +1117,7 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(po_vertPosLoc);
+  glDisableVertexAttribArray(oc_vertPosLoc);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1435,16 +1441,18 @@ static void render() {
   matPlacement = matCamera * matPlacement;
 
   // Bind shader program
-  glUseProgram(po_pid);
+  glUseProgram(oc_pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(po_perspectiveLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(oc_perspectiveLoc, 1, GL_FALSE,
     glm::value_ptr(matPerspective));
-  glUniformMatrix4fv(po_placementLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(oc_placementLoc, 1, GL_FALSE,
     glm::value_ptr(matPlacement));
+  glUniform3fv(oc_in_colorLoc, 1,
+    glm::value_ptr(glm::vec3(1.0, 0.0, 0.0)));
 
   // Bind vertex array object
-  glBindVertexArray(po_bunny_vaoID);
+  glBindVertexArray(oc_bunny_vaoID);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
@@ -1457,7 +1465,7 @@ static void render() {
   glUseProgram(0);
 
   ///*
-  // Draw the cube
+  // Draw the cubemap
 
   // Do nothing to the stencil buffer ever
   glStencilFunc(GL_ALWAYS, 1, 0xFF);
