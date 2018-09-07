@@ -65,6 +65,7 @@ unsigned phong_bunny_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
+unsigned sphere_norBufID;
 unsigned sphere_eleBufID;
 unsigned sphere_texCoordBufID;
 unsigned sphere_texBufID;
@@ -72,6 +73,7 @@ int sphere_eleBufSize;
 
 // Bunny data
 unsigned bunny_posBufID;
+unsigned bunny_norBufID;
 unsigned bunny_eleBufID;
 int bunny_eleBufSize;
 
@@ -329,6 +331,7 @@ static void getMesh(const std::string &meshName) {
     exit(0);
 	} else {
 		posBuf = shapes[0].mesh.positions;
+    norBuf = shapes[0].mesh.normals;
     texCoordBuf = shapes[0].mesh.texcoords;
 		eleBuf = shapes[0].mesh.indices;
 	}
@@ -429,12 +432,20 @@ static void getSkyboxMesh() {
 // Store data about mesh
 // NOTE: Mesh must have element buffer if passed into this function
 static void sendMesh(unsigned *posBufID, unsigned *eleBufID,
-  unsigned *texCoordBufID, int *eleBufSize) {
+  unsigned *texCoordBufID, int *eleBufSize, unsigned *norBufID) {
   // Send vertex position array to GPU
   glGenBuffers(1, posBufID);
   glBindBuffer(GL_ARRAY_BUFFER, *posBufID);
   glBufferData(GL_ARRAY_BUFFER, posBuf.size() * sizeof(float), &posBuf[0],
     GL_STATIC_DRAW);
+
+  // Send normals array to GPU
+  if(!norBuf.empty()) {
+    glGenBuffers(1, norBufID);
+    glBindBuffer(GL_ARRAY_BUFFER, *norBufID);
+    glBufferData(GL_ARRAY_BUFFER, norBuf.size() * sizeof(float),
+      &norBuf[0], GL_STATIC_DRAW);
+  }
 
   // Send texture coordinate array to GPU
   if(!texCoordBuf.empty()) {
@@ -575,19 +586,19 @@ static void init() {
 
   // Send mesh to GPU and store buffer IDs
   sendMesh(&sphere_posBufID, &sphere_eleBufID, &sphere_texCoordBufID,
-    &sphere_eleBufSize);
+    &sphere_eleBufSize, &sphere_norBufID);
 
   // Do again for bunny
   getMesh("../resources/bunny.obj");
   resizeMesh(posBuf);
   sendMesh(&bunny_posBufID, &bunny_eleBufID, NULL,
-    &bunny_eleBufSize);
+    &bunny_eleBufSize, &bunny_norBufID);
 
   // Do again for rectangle
   getRectangleMesh();
   // No need to resize, explicitly specified coordinates
   sendMesh(&rect_posBufID, &rect_eleBufID, &rect_texCoordBufID,
-    &rect_eleBufSize);
+    &rect_eleBufSize, NULL);
 
   // Do again for cube
   getSkyboxMesh();
@@ -1678,9 +1689,9 @@ static void render() {
   glUniformMatrix4fv(phong_placementLoc, 1, GL_FALSE,
     glm::value_ptr(matPlacement));
   glUniform3fv(phong_objectColorLoc, 1,
-    glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+    glm::value_ptr(glm::vec3(.5f, 1.f, .5f)));
   glUniform3fv(phong_lightColorLoc, 1,
-    glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+    glm::value_ptr(glm::vec3(1.f, .5f, .5f)));
 
   // Bind vertex array object
   glBindVertexArray(phong_bunny_vaoID);
