@@ -150,8 +150,13 @@ GLuint phong_pid;
 GLint phong_vertPosLoc;
 GLint phong_vertNorLoc;
 // Shader uniforms
-GLint phong_perspectiveLoc;
-GLint phong_placementLoc;
+GLint phong_perspectiveLoc; // Old
+GLint phong_placementLoc; // Tim Duncan
+
+GLint phong_modelLoc;
+GLint phong_viewLoc;
+GLint phong_projectionLoc;
+
 GLint phong_objectColorLoc;
 GLint phong_lightColorLoc;
 GLint phong_lightPosLoc;
@@ -1235,8 +1240,13 @@ static void init() {
   phong_vertNorLoc = glGetAttribLocation(phong_pid, "vertNor");
 
   // Per-object matrices to pass to shaders
-  phong_perspectiveLoc = glGetUniformLocation(phong_pid, "perspective");
-  phong_placementLoc = glGetUniformLocation(phong_pid, "placement");
+  phong_perspectiveLoc = glGetUniformLocation(phong_pid, "perspective"); // Old
+  phong_placementLoc = glGetUniformLocation(phong_pid, "placement"); // Manu G.
+  // Vertex shader uniforms
+  phong_modelLoc = glGetUniformLocation(phong_pid, "model");
+  phong_viewLoc = glGetUniformLocation(phong_pid, "view");
+  phong_projectionLoc = glGetUniformLocation(phong_pid, "projection");
+  // Fragment shader uniforms
   phong_objectColorLoc = glGetUniformLocation(phong_pid, "object_color");
   phong_lightColorLoc = glGetUniformLocation(phong_pid, "light_color");
   phong_lightPosLoc = glGetUniformLocation(phong_pid, "light_pos");
@@ -1695,16 +1705,25 @@ static void render() {
     glm::vec3(-12.f, 0.f, -2.f)) * matPlacement;
 
   // Modify object relative to the eye
-  matPlacement = matCamera * matPlacement;
+  //matPlacement = matCamera * matPlacement; // Old regime
 
   // Bind shader program
   glUseProgram(phong_pid);
 
   // Fill in matrices
+  // Old, Vince Carter matrices
   glUniformMatrix4fv(phong_perspectiveLoc, 1, GL_FALSE,
     glm::value_ptr(matPerspective));
   glUniformMatrix4fv(phong_placementLoc, 1, GL_FALSE,
     glm::value_ptr(matPlacement));
+  // Fill in vertex shader uniforms
+  glUniformMatrix4fv(phong_modelLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+  glUniformMatrix4fv(phong_viewLoc, 1, GL_FALSE,
+    glm::value_ptr(matCamera));
+  glUniformMatrix4fv(phong_projectionLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  // Fill in fragment shader uniforms
   glUniform3fv(phong_objectColorLoc, 1,
     glm::value_ptr(glm::vec3(.5f, 1.f, .5f)));
   glUniform3fv(phong_lightColorLoc, 1,

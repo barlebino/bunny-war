@@ -8,7 +8,12 @@ out vec3 fragNor;
 uniform mat4 perspective;
 uniform mat4 placement;
 
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
 void main() {
   fragNor = vertNor;
-  gl_Position = perspective * placement * vec4(vertPos, 1.0);
+  //gl_Position = perspective * placement * vec4(vertPos, 1.0);
+  gl_Position = projection * view * model * vec4(vertPos, 1.0);
 }
