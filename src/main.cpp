@@ -145,6 +145,7 @@ GLint oc_in_colorLoc;
 GLuint phong_pid;
 // Shader attribs
 GLint phong_vertPosLoc;
+GLint phong_vertNorLoc;
 // Shader uniforms
 GLint phong_perspectiveLoc;
 GLint phong_placementLoc;
@@ -1227,6 +1228,7 @@ static void init() {
 
   // Attribs
   phong_vertPosLoc = glGetAttribLocation(phong_pid, "vertPos");
+  phong_vertNorLoc = glGetAttribLocation(phong_pid, "vertNor");
 
   // Per-object matrices to pass to shaders
   phong_perspectiveLoc = glGetUniformLocation(phong_pid, "perspective");
@@ -1246,6 +1248,12 @@ static void init() {
   glVertexAttribPointer(phong_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
+  // Bind normal buffer
+  glEnableVertexAttribArray(phong_vertNorLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
+  glVertexAttribPointer(phong_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
   // Bind element buffer
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
 
@@ -1253,7 +1261,8 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(oc_vertPosLoc);
+  glDisableVertexAttribArray(phong_vertPosLoc);
+  glDisableVertexAttribArray(phong_vertNorLoc);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1584,6 +1593,7 @@ static void render() {
     glm::value_ptr(matPerspective));
   glUniformMatrix4fv(oc_placementLoc, 1, GL_FALSE,
     glm::value_ptr(matPlacement));
+  // Bunny is red (1.0, 0.0, 0.0)
   glUniform3fv(oc_in_colorLoc, 1,
     glm::value_ptr(glm::vec3(1.0, 0.0, 0.0)));
 
