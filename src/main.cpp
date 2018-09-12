@@ -43,6 +43,9 @@ glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
 // Sideways direction
 glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 
+// Light object location
+glm::vec3 lightLocation = glm::vec3(-8.f, 0.f, -2.f);
+
 // Input
 char keys[6] = {0, 0, 0, 0, 0, 0};
 
@@ -151,6 +154,7 @@ GLint phong_perspectiveLoc;
 GLint phong_placementLoc;
 GLint phong_objectColorLoc;
 GLint phong_lightColorLoc;
+GLint phong_lightPosLoc;
 
 // Height of window ???
 int g_width = 1280;
@@ -1235,6 +1239,7 @@ static void init() {
   phong_placementLoc = glGetUniformLocation(phong_pid, "placement");
   phong_objectColorLoc = glGetUniformLocation(phong_pid, "object_color");
   phong_lightColorLoc = glGetUniformLocation(phong_pid, "light_color");
+  phong_lightPosLoc = glGetUniformLocation(phong_pid, "light_pos");
 
   // Phong bunny vertex array object
 
@@ -1250,8 +1255,8 @@ static void init() {
 
   // Bind normal buffer
   glEnableVertexAttribArray(phong_vertNorLoc);
-  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
-  glVertexAttribPointer(phong_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glBindBuffer(GL_ARRAY_BUFFER, bunny_norBufID);
+  glVertexAttribPointer(phong_vertNorLoc, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
@@ -1632,8 +1637,10 @@ static void render() {
     glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
 
   // Object position is (-8, 0, -2)
+  //matPlacement = glm::translate(glm::mat4(1.f),
+  //  glm::vec3(-8.f, 0.f, -2.f)) * matPlacement;
   matPlacement = glm::translate(glm::mat4(1.f),
-    glm::vec3(-8.f, 0.f, -2.f)) * matPlacement;
+    lightLocation) * matPlacement;
 
   // Modify object relative to the eye
   matPlacement = matCamera * matPlacement;
@@ -1702,6 +1709,8 @@ static void render() {
     glm::value_ptr(glm::vec3(.5f, 1.f, .5f)));
   glUniform3fv(phong_lightColorLoc, 1,
     glm::value_ptr(glm::vec3(1.f, .5f, .5f)));
+  glUniform3fv(phong_lightPosLoc, 1,
+    glm::value_ptr(lightLocation));
 
   // Bind vertex array object
   glBindVertexArray(phong_bunny_vaoID);
