@@ -20,6 +20,8 @@
 
 #include <unistd.h>
 
+#include "material.hpp"
+
 // Image code, for textures
 struct Image {
   int sizeX, sizeY, numChannels;
@@ -162,6 +164,13 @@ GLint phong_objectColorLoc;
 GLint phong_lightColorLoc;
 GLint phong_lightPosLoc;
 GLint phong_camPosLoc;
+GLint phong_materialAmbientLoc;
+GLint phong_materialDiffuseLoc;
+GLint phong_materialSpecularLoc;
+GLint phong_materialShininessLoc;
+
+// Material TESTING
+Material material;
 
 // Height of window ???
 int g_width = 1280;
@@ -1251,6 +1260,14 @@ static void init() {
   phong_lightColorLoc = glGetUniformLocation(phong_pid, "light_color");
   phong_lightPosLoc = glGetUniformLocation(phong_pid, "light_pos");
   phong_camPosLoc = glGetUniformLocation(phong_pid, "cam_pos");
+  phong_materialAmbientLoc = glGetUniformLocation(phong_pid,
+    "material.ambient");
+  phong_materialDiffuseLoc = glGetUniformLocation(phong_pid,
+    "material.diffuse");
+  phong_materialSpecularLoc = glGetUniformLocation(phong_pid,
+    "material.specular");
+  phong_materialShininessLoc = glGetUniformLocation(phong_pid,
+    "material.shininess");
 
   // Phong bunny vertex array object
 
@@ -1730,6 +1747,14 @@ static void render() {
     glm::value_ptr(lightLocation));
   glUniform3fv(phong_camPosLoc, 1,
     glm::value_ptr(camLocation));
+  glUniform3fv(phong_materialAmbientLoc, 1,
+    glm::value_ptr(copper.ambient));
+  glUniform3fv(phong_materialDiffuseLoc, 1,
+    glm::value_ptr(copper.diffuse));
+  glUniform3fv(phong_materialSpecularLoc, 1,
+    glm::value_ptr(copper.specular));
+  glUniform1f(phong_materialShininessLoc,
+    copper.shininess);
 
   // Bind vertex array object
   glBindVertexArray(phong_bunny_vaoID);
