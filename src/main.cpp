@@ -31,6 +31,8 @@ struct RGB {
 };
 
 int ssaaLevel = 2;
+// TESTING
+float rot = 0.f;
 
 GLFWwindow *window; // Main application window
 
@@ -158,6 +160,7 @@ GLint phong_projectionLoc;
 GLint phong_objectColorLoc;
 GLint phong_lightColorLoc;
 GLint phong_lightPosLoc;
+GLint phong_camPosLoc;
 
 // Height of window ???
 int g_width = 1280;
@@ -1246,6 +1249,7 @@ static void init() {
   phong_objectColorLoc = glGetUniformLocation(phong_pid, "object_color");
   phong_lightColorLoc = glGetUniformLocation(phong_pid, "light_color");
   phong_lightPosLoc = glGetUniformLocation(phong_pid, "light_pos");
+  phong_camPosLoc = glGetUniformLocation(phong_pid, "cam_pos");
 
   // Phong bunny vertex array object
 
@@ -1688,10 +1692,17 @@ static void render() {
   matPlacement = glm::scale(glm::mat4(1.f),
     glm::vec3(1.f, 1.f, 1.f)) * 
     matPlacement;
-  
+
+  // TESTING
+  rot = (rot + .01f);
+  if(rot > 6.28f)
+    rot = 0.0;
+  printf("rot: %f\n", rot);
+
   matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+  // Keep changing rotation
+  matPlacement = glm::rotate(glm::mat4(1.f), rot,
     glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
   matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
@@ -1718,6 +1729,8 @@ static void render() {
     glm::value_ptr(glm::vec3(1.f, .5f, .5f)));
   glUniform3fv(phong_lightPosLoc, 1,
     glm::value_ptr(lightLocation));
+  glUniform3fv(phong_camPosLoc, 1,
+    glm::value_ptr(camLocation));
 
   // Bind vertex array object
   glBindVertexArray(phong_bunny_vaoID);
