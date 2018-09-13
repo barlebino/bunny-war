@@ -47,6 +47,7 @@ glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 
 // Light object location
 glm::vec3 lightLocation = glm::vec3(-8.f, 0.f, -2.f);
+glm::vec3 lightColor = glm::vec3(1.f, 1.f, 1.f);
 
 // Input
 char keys[6] = {0, 0, 0, 0, 0, 0};
@@ -1647,8 +1648,6 @@ static void render() {
     glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
 
   // Object position is (-8, 0, -2)
-  //matPlacement = glm::translate(glm::mat4(1.f),
-  //  glm::vec3(-8.f, 0.f, -2.f)) * matPlacement;
   matPlacement = glm::translate(glm::mat4(1.f),
     lightLocation) * matPlacement;
 
@@ -1664,7 +1663,7 @@ static void render() {
   glUniformMatrix4fv(oc_placementLoc, 1, GL_FALSE,
     glm::value_ptr(matPlacement));
   glUniform3fv(oc_in_colorLoc, 1,
-    glm::value_ptr(glm::vec3(1.0, 1.0, 1.0)));
+    glm::value_ptr(lightColor));
 
   // Bind vertex array object
   glBindVertexArray(ls_vaoID);
@@ -1726,7 +1725,7 @@ static void render() {
   glUniform3fv(phong_objectColorLoc, 1,
     glm::value_ptr(glm::vec3(.5f, 1.f, .5f)));
   glUniform3fv(phong_lightColorLoc, 1,
-    glm::value_ptr(glm::vec3(1.f, .5f, .5f)));
+    glm::value_ptr(lightColor));
   glUniform3fv(phong_lightPosLoc, 1,
     glm::value_ptr(lightLocation));
   glUniform3fv(phong_camPosLoc, 1,
