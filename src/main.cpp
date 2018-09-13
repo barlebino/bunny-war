@@ -31,6 +31,8 @@ struct RGB {
 };
 
 int ssaaLevel = 2;
+// TESTING
+float rot = 0.f;
 
 GLFWwindow *window; // Main application window
 
@@ -42,6 +44,10 @@ glm::vec2 camRotation = glm::vec2(0.f, 0.f);
 glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
 // Sideways direction
 glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
+
+// Light object location
+glm::vec3 lightLocation = glm::vec3(-8.f, 0.f, -2.f);
+glm::vec3 lightColor = glm::vec3(1.f, 1.f, 1.f);
 
 // Input
 char keys[6] = {0, 0, 0, 0, 0, 0};
@@ -58,9 +64,14 @@ unsigned do_vaoID;
 unsigned do_sphere_vaoID;
 unsigned rect_vaoID;
 unsigned grass_vaoID;
+unsigned skybox_vaoID;
+unsigned oc_bunny_vaoID;
+unsigned ls_vaoID;
+unsigned phong_bunny_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
+unsigned sphere_norBufID;
 unsigned sphere_eleBufID;
 unsigned sphere_texCoordBufID;
 unsigned sphere_texBufID;
@@ -68,6 +79,7 @@ int sphere_eleBufSize;
 
 // Bunny data
 unsigned bunny_posBufID;
+unsigned bunny_norBufID;
 unsigned bunny_eleBufID;
 int bunny_eleBufSize;
 
@@ -80,6 +92,10 @@ int rect_eleBufSize;
 
 // Grass data (uses rectangle)
 unsigned grass_texBufID;
+
+// Skybox data
+unsigned skybox_posBufID;
+unsigned skybox_posBufSize;
 
 // Shader programs
 
@@ -112,6 +128,41 @@ GLint r_texCoordLoc;
 // sampler2D location
 GLint r_texLoc;
 
+// Cubemap shader
+GLuint cm_pid;
+// Shader attribs
+GLint cm_vertPosLoc;
+// Shader uniforms
+GLint cm_perspectiveLoc;
+GLint cm_placementLoc;
+// samplerCube location
+GLint cm_texLoc;
+
+// One color shader
+GLuint oc_pid;
+// Shader attribs
+GLint oc_vertPosLoc;
+// Shader uniforms
+GLint oc_perspectiveLoc;
+GLint oc_placementLoc;
+GLint oc_in_colorLoc;
+
+// Phong shader
+GLuint phong_pid;
+// Shader attribs
+GLint phong_vertPosLoc;
+GLint phong_vertNorLoc;
+// Shader uniforms
+// Vertex shader uniforms
+GLint phong_modelLoc;
+GLint phong_viewLoc;
+GLint phong_projectionLoc;
+// Fragment shader uniforms
+GLint phong_objectColorLoc;
+GLint phong_lightColorLoc;
+GLint phong_lightPosLoc;
+GLint phong_camPosLoc;
+
 // Height of window ???
 int g_width = 1280;
 int g_height = 960;
@@ -120,6 +171,10 @@ int g_height = 960;
 unsigned int fbo;
 unsigned int fbo_color_texture;
 unsigned int fbo_depth_stencil_texture;
+
+// Cubemaps
+unsigned int cubemapTexture;
+unsigned int skyTexture;
 
 // For debugging
 void printMatrix(glm::mat4 mat) {
@@ -288,6 +343,7 @@ static void getMesh(const std::string &meshName) {
     exit(0);
 	} else {
 		posBuf = shapes[0].mesh.positions;
+    norBuf = shapes[0].mesh.normals;
     texCoordBuf = shapes[0].mesh.texcoords;
 		eleBuf = shapes[0].mesh.indices;
 	}
@@ -326,14 +382,82 @@ static void getRectangleMesh() {
   copy(&eleArr[0], &eleArr[6], back_inserter(eleBuf));
 }
 
+// Store skybox data in the buffers
+static void getSkyboxMesh() {
+  float posArr[] = {
+    // positions          
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f
+  };
+
+  // Clear the CPU buffers
+  // TODO: Consider changing this process
+  posBuf.clear();
+  norBuf.clear();
+  texCoordBuf.clear();
+  eleBuf.clear();
+
+  // Skybox does not need texture coordinates
+  // Vertex format does not use element indexing
+  copy(&posArr[0], &posArr[18 * 6], back_inserter(posBuf));
+}
+
 // Store data about mesh
+// NOTE: Mesh must have element buffer if passed into this function
 static void sendMesh(unsigned *posBufID, unsigned *eleBufID,
-  unsigned *texCoordBufID, int *eleBufSize) {
+  unsigned *texCoordBufID, int *eleBufSize, unsigned *norBufID) {
   // Send vertex position array to GPU
   glGenBuffers(1, posBufID);
   glBindBuffer(GL_ARRAY_BUFFER, *posBufID);
   glBufferData(GL_ARRAY_BUFFER, posBuf.size() * sizeof(float), &posBuf[0],
     GL_STATIC_DRAW);
+
+  // Send normals array to GPU
+  if(!norBuf.empty()) {
+    glGenBuffers(1, norBufID);
+    glBindBuffer(GL_ARRAY_BUFFER, *norBufID);
+    glBufferData(GL_ARRAY_BUFFER, norBuf.size() * sizeof(float),
+      &norBuf[0], GL_STATIC_DRAW);
+  }
 
   // Send texture coordinate array to GPU
   if(!texCoordBuf.empty()) {
@@ -357,6 +481,57 @@ static void sendMesh(unsigned *posBufID, unsigned *eleBufID,
   *eleBufSize = eleBuf.size();
 }
 
+// Send skybox data to GPU
+static void sendSkyboxMesh() {
+  // Send vertex position array to GPU
+  glGenBuffers(1, &skybox_posBufID);
+  glBindBuffer(GL_ARRAY_BUFFER, skybox_posBufID);
+  glBufferData(GL_ARRAY_BUFFER, posBuf.size() * sizeof(float), &posBuf[0],
+    GL_STATIC_DRAW);
+
+  // Unbind arrays
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // This data is not on the GPU
+  skybox_posBufSize = posBuf.size();
+}
+
+// Parameter is a vector of strings that are the file names
+// Taken from https://learnopengl.com/Advanced-OpenGL/Cubemaps
+unsigned int loadCubemap(std::vector<std::string> faces) {
+  unsigned int textureID;
+  glGenTextures(1, &textureID);
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+  int width, height, nrChannels;
+  for (unsigned int i = 0; i < faces.size(); i++) {
+    unsigned char *data = stbi_load(faces[i].c_str(), &width, &height,
+      &nrChannels, 0);
+    if(data) {
+      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
+        0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+      stbi_image_free(data);
+    } else {
+      std::cout << "Cubemap texture failed to load at path: " <<
+        faces[i] << std::endl;
+      stbi_image_free(data);
+    }
+  }
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+  // Unbind texture
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+  return textureID;
+}
+
 static void init() {
   // Set background color
   glClearColor(.125f, .375f, .5f, 0.f);
@@ -369,6 +544,9 @@ static void init() {
   // Something about blending ???
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
+
+  // For skybox
+  glDepthFunc(GL_LEQUAL);
 
   // Create framebuffer object with only colors
   glGenFramebuffers(1, &fbo);
@@ -420,19 +598,23 @@ static void init() {
 
   // Send mesh to GPU and store buffer IDs
   sendMesh(&sphere_posBufID, &sphere_eleBufID, &sphere_texCoordBufID,
-    &sphere_eleBufSize);
+    &sphere_eleBufSize, &sphere_norBufID);
 
   // Do again for bunny
   getMesh("../resources/bunny.obj");
   resizeMesh(posBuf);
   sendMesh(&bunny_posBufID, &bunny_eleBufID, NULL,
-    &bunny_eleBufSize);
+    &bunny_eleBufSize, &bunny_norBufID);
 
   // Do again for rectangle
   getRectangleMesh();
   // No need to resize, explicitly specified coordinates
   sendMesh(&rect_posBufID, &rect_eleBufID, &rect_texCoordBufID,
-    &rect_eleBufSize);
+    &rect_eleBufSize, NULL);
+
+  // Do again for cube
+  getSkyboxMesh();
+  sendSkyboxMesh();
 
   // Read textures into CPU memory
   struct Image image;
@@ -505,6 +687,29 @@ static void init() {
   // Clear image
   free(image.data);
 
+  // Cubemap images are upside down
+  stbi_set_flip_vertically_on_load(false);
+  // Load cubemap
+  std::vector<std::string> faces;
+  faces = {
+    "../resources/skybox/right.jpg",
+    "../resources/skybox/left.jpg",
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/bottom.jpg",
+    "../resources/skybox/front.jpg",
+    "../resources/skybox/back.jpg"
+  };
+  cubemapTexture = loadCubemap(faces);
+  faces = {
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/top.jpg",
+    "../resources/skybox/top.jpg"
+  };
+  skyTexture = loadCubemap(faces);
+
   // Create shader programs
 
   // Initialize shader program
@@ -559,7 +764,7 @@ static void init() {
   to_vertPosLoc = glGetAttribLocation(to_pid, "vertPos");
   to_texCoordLoc = glGetAttribLocation(to_pid, "texCoord");
 
-  // Per-object matrices to pass to vertex shaders
+  // Per-object matrices to pass to shaders
   // TODO: Remove perspective?
   to_perspectiveLoc = glGetUniformLocation(to_pid, "perspective");
   to_placementLoc = glGetUniformLocation(to_pid, "placement");
@@ -675,7 +880,7 @@ static void init() {
   // Attribs
   do_vertPosLoc = glGetAttribLocation(do_pid, "vertPos");
 
-  // Per-object matrices to pass to vertex shaders
+  // Per-object matrices to pass to shaders
   // TODO: Remove perspective?
   do_perspectiveLoc = glGetUniformLocation(do_pid, "perspective");
   do_placementLoc = glGetUniformLocation(do_pid, "placement");
@@ -805,6 +1010,275 @@ static void init() {
   // Disable
   glDisableVertexAttribArray(r_vertPosLoc);
   glDisableVertexAttribArray(r_texCoordLoc);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // Cubemap shader program
+
+  // Create shader handles
+  vsHandle = glCreateShader(GL_VERTEX_SHADER);
+  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+
+  // Read shader source code
+  // TODO: free vsSource and fsSource before ALL shader reads
+  vsSource = textfileRead("../resources/vertCubemap.glsl");
+  fsSource = textfileRead("../resources/fragCubemap.glsl");
+
+  glShaderSource(vsHandle, 1, &vsSource, NULL);
+  glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  // Compile vertex shader
+  glCompileShader(vsHandle);
+  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
+  
+  if(!rc) {
+    std::cout << "Error compiling vertex shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Compile fragment shader
+  glCompileShader(fsHandle);
+  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling fragment shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Create program and link
+  cm_pid = glCreateProgram();
+  glAttachShader(cm_pid, vsHandle);
+  glAttachShader(cm_pid, fsHandle);
+  glLinkProgram(cm_pid);
+  glGetProgramiv(cm_pid, GL_LINK_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error linking shaders" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Attribs
+  cm_vertPosLoc = glGetAttribLocation(cm_pid, "vertPos");
+
+  // Per-object matrices to pass to shaders
+  // TODO: Remove perspective?
+  cm_perspectiveLoc = glGetUniformLocation(cm_pid, "perspective");
+  cm_placementLoc = glGetUniformLocation(cm_pid, "placement");
+
+  // Get the location of the samplerCube in fragment shader (???)
+  cm_texLoc = glGetUniformLocation(cm_pid, "skybox");
+
+  // Skybox vertex array object
+
+  // Create vertex array object
+  glGenVertexArrays(1, &skybox_vaoID);
+  glBindVertexArray(skybox_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(cm_vertPosLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, skybox_posBufID);
+  glVertexAttribPointer(cm_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(to_vertPosLoc);
+  glDisableVertexAttribArray(to_texCoordLoc);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // One color shader program
+
+  // Create shader handles
+  vsHandle = glCreateShader(GL_VERTEX_SHADER);
+  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+
+  // Read shader source code
+  vsSource = textfileRead("../resources/vertOneColor.glsl");
+  fsSource = textfileRead("../resources/fragOneColor.glsl");
+
+  glShaderSource(vsHandle, 1, &vsSource, NULL);
+  glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  // Compile vertex shader
+  glCompileShader(vsHandle);
+  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
+  
+  if(!rc) {
+    std::cout << "Error compiling vertex shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Compile fragment shader
+  glCompileShader(fsHandle);
+  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling fragment shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Create program and link
+  oc_pid = glCreateProgram();
+  glAttachShader(oc_pid, vsHandle);
+  glAttachShader(oc_pid, fsHandle);
+  glLinkProgram(oc_pid);
+  glGetProgramiv(oc_pid, GL_LINK_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error linking shaders" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Attribs
+  oc_vertPosLoc = glGetAttribLocation(oc_pid, "vertPos");
+
+  // Per-object matrices to pass to shaders
+  oc_perspectiveLoc = glGetUniformLocation(oc_pid, "perspective");
+  oc_placementLoc = glGetUniformLocation(oc_pid, "placement");
+  oc_in_colorLoc = glGetUniformLocation(oc_pid, "in_color");
+
+  // Pink bunny vertex array object
+
+  // Create vertex array object
+  glGenVertexArrays(1, &oc_bunny_vaoID);
+  glBindVertexArray(oc_bunny_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(oc_vertPosLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
+  glVertexAttribPointer(oc_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind element buffer
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(oc_vertPosLoc);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // Light source vertex array object
+
+  // Create vertex array object
+  glGenVertexArrays(1, &ls_vaoID);
+  glBindVertexArray(ls_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(oc_vertPosLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
+  glVertexAttribPointer(oc_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind element buffer
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphere_eleBufID);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(oc_vertPosLoc);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // Phong shader program
+
+  // Create shader handles
+  vsHandle = glCreateShader(GL_VERTEX_SHADER);
+  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+
+  // Read shader source code
+  vsSource = textfileRead("../resources/vertPhong.glsl");
+  fsSource = textfileRead("../resources/fragPhong.glsl");
+
+  glShaderSource(vsHandle, 1, &vsSource, NULL);
+  glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  // Compile vertex shader
+  glCompileShader(vsHandle);
+  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
+  
+  if(!rc) {
+    std::cout << "Error compiling vertex shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Compile fragment shader
+  glCompileShader(fsHandle);
+  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling fragment shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Create program and link
+  phong_pid = glCreateProgram();
+  glAttachShader(phong_pid, vsHandle);
+  glAttachShader(phong_pid, fsHandle);
+  glLinkProgram(phong_pid);
+  glGetProgramiv(phong_pid, GL_LINK_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error linking shaders" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Attribs
+  phong_vertPosLoc = glGetAttribLocation(phong_pid, "vertPos");
+  phong_vertNorLoc = glGetAttribLocation(phong_pid, "vertNor");
+
+  // Per-object matrices to pass to shaders
+  // Vertex shader uniforms
+  phong_modelLoc = glGetUniformLocation(phong_pid, "model");
+  phong_viewLoc = glGetUniformLocation(phong_pid, "view");
+  phong_projectionLoc = glGetUniformLocation(phong_pid, "projection");
+  // Fragment shader uniforms
+  phong_objectColorLoc = glGetUniformLocation(phong_pid, "object_color");
+  phong_lightColorLoc = glGetUniformLocation(phong_pid, "light_color");
+  phong_lightPosLoc = glGetUniformLocation(phong_pid, "light_pos");
+  phong_camPosLoc = glGetUniformLocation(phong_pid, "cam_pos");
+
+  // Phong bunny vertex array object
+
+  // Create vertex array object
+  glGenVertexArrays(1, &phong_bunny_vaoID);
+  glBindVertexArray(phong_bunny_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(phong_vertPosLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
+  glVertexAttribPointer(phong_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind normal buffer
+  glEnableVertexAttribArray(phong_vertNorLoc);
+  glBindBuffer(GL_ARRAY_BUFFER, bunny_norBufID);
+  glVertexAttribPointer(phong_vertNorLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind element buffer
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(phong_vertPosLoc);
+  glDisableVertexAttribArray(phong_vertNorLoc);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1099,6 +1573,240 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
+  // Draw the one color bunny
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matPlacement = glm::mat4(1.f);
+
+  // Put object into world
+  matPlacement = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matPlacement;
+  
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+
+  // Object position is (-4, 0, -2)
+  matPlacement = glm::translate(glm::mat4(1.f),
+    glm::vec3(-4.f, 0.f, -2.f)) * matPlacement;
+
+  // Modify object relative to the eye
+  matPlacement = matCamera * matPlacement;
+
+  // Bind shader program
+  glUseProgram(oc_pid);
+
+  // Fill in matrices
+  glUniformMatrix4fv(oc_perspectiveLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  glUniformMatrix4fv(oc_placementLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+  // Bunny is red (1.0, 0.0, 0.0)
+  glUniform3fv(oc_in_colorLoc, 1,
+    glm::value_ptr(glm::vec3(1.0, 0.0, 0.0)));
+
+  // Bind vertex array object
+  glBindVertexArray(oc_bunny_vaoID);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the light source
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matPlacement = glm::mat4(1.f);
+
+  // Put object into world
+  matPlacement = glm::scale(glm::mat4(1.f),
+    glm::vec3(.5f, .5f, .5f)) * 
+    matPlacement;
+  
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+
+  // Object position is (-8, 0, -2)
+  matPlacement = glm::translate(glm::mat4(1.f),
+    lightLocation) * matPlacement;
+
+  // Modify object relative to the eye
+  matPlacement = matCamera * matPlacement;
+
+  // Bind shader program
+  glUseProgram(oc_pid);
+
+  // Fill in matrices
+  glUniformMatrix4fv(oc_perspectiveLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  glUniformMatrix4fv(oc_placementLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+  glUniform3fv(oc_in_colorLoc, 1,
+    glm::value_ptr(lightColor));
+
+  // Bind vertex array object
+  glBindVertexArray(ls_vaoID);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the phong bunny
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matPlacement = glm::mat4(1.f);
+
+  // Put object into world
+  matPlacement = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matPlacement;
+
+  // TESTING
+  rot = (rot + .01f);
+  if(rot > 6.28f)
+    rot = 0.0;
+  printf("rot: %f\n", rot);
+
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  // Keep changing rotation
+  matPlacement = glm::rotate(glm::mat4(1.f), rot,
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+
+  // Object position is (-12, 0, -2)
+  matPlacement = glm::translate(glm::mat4(1.f),
+    glm::vec3(-12.f, 0.f, -2.f)) * matPlacement;
+
+  // Bind shader program
+  glUseProgram(phong_pid);
+
+  // Fill in matrices
+  // Fill in vertex shader uniforms
+  glUniformMatrix4fv(phong_modelLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+  glUniformMatrix4fv(phong_viewLoc, 1, GL_FALSE,
+    glm::value_ptr(matCamera));
+  glUniformMatrix4fv(phong_projectionLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  // Fill in fragment shader uniforms
+  glUniform3fv(phong_objectColorLoc, 1,
+    glm::value_ptr(glm::vec3(.5f, 1.f, .5f)));
+  glUniform3fv(phong_lightColorLoc, 1,
+    glm::value_ptr(lightColor));
+  glUniform3fv(phong_lightPosLoc, 1,
+    glm::value_ptr(lightLocation));
+  glUniform3fv(phong_camPosLoc, 1,
+    glm::value_ptr(camLocation));
+
+  // Bind vertex array object
+  glBindVertexArray(phong_bunny_vaoID);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the cubemap
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matPlacement = glm::mat4(1.f);
+
+  // Put object into world
+  matPlacement = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matPlacement;
+  
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
+  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+
+  // Object position is the location of the camera
+  matPlacement = glm::translate(glm::mat4(1.f),
+    camLocation) * matPlacement;
+
+  // Modify object relative to the eye
+  matPlacement = matCamera * matPlacement;
+
+  // Bind shader program
+  glUseProgram(cm_pid);
+
+  // Fill in matrices
+  glUniformMatrix4fv(cm_perspectiveLoc, 1, GL_FALSE,
+    glm::value_ptr(matPerspective));
+  glUniformMatrix4fv(cm_placementLoc, 1, GL_FALSE,
+    glm::value_ptr(matPlacement));
+
+  // Bind vertex array object
+  glBindVertexArray(skybox_vaoID);
+
+  // TODO: Bind the texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, skyTexture);
+  // TESTING
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+  // 1 because correct skybox is in texture unit GL_TEXTURE1
+  glUniform1i(cm_texLoc, 1);
+
+  // Draw the cube
+  // Divide by 3 because per vertex
+  glDrawArrays(GL_TRIANGLES, 0, skybox_posBufSize / 3);
+
+  // Unbind texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
   // Paste from side framebuffer to default framebuffer
 
   // Bind normal framebuffer
@@ -1107,7 +1815,7 @@ static void render() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glDisable(GL_DEPTH_TEST);
 
-  // Draw the rectangle map
+  // Draw the rectangle
 
   // Will always pass stencil test
   glStencilFunc(GL_ALWAYS, 1, 0xFF);
