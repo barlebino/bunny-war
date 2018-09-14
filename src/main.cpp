@@ -119,8 +119,8 @@ GLuint to_pid;
 GLint to_vertPosLoc;
 GLint to_texCoordLoc;
 // Shader uniforms
-GLint to_perspectiveLoc;
-GLint to_placementLoc;
+GLint to_modelviewLoc;
+GLint to_projectionLoc;
 // sampler2D location
 GLint to_texLoc;
 
@@ -789,8 +789,8 @@ static void init() {
 
   // Per-object matrices to pass to shaders
   // TODO: Replace perspective and placement with modelview and projection
-  to_perspectiveLoc = glGetUniformLocation(to_pid, "perspective");
-  to_placementLoc = glGetUniformLocation(to_pid, "placement");
+  to_modelviewLoc = glGetUniformLocation(to_pid, "modelview");
+  to_projectionLoc = glGetUniformLocation(to_pid, "projection");
 
   // Get the location of the sampler2D in fragment shader (???)
   to_texLoc = glGetUniformLocation(to_pid, "texCol");
@@ -1348,6 +1348,11 @@ static void render() {
   glm::mat4 matPerspective;
   glm::mat4 matCamera;
 
+  glm::mat4 matModel;
+  glm::mat4 matView;
+  glm::mat4 matModelview;
+  glm::mat4 matProjection;
+
   // Get current frame buffer size ???
   glfwGetFramebufferSize(window, &width, &height);
 
@@ -1433,6 +1438,8 @@ static void render() {
   aspect = width / (float) height;
   matPerspective = glm::perspective(70.f, aspect, .1f, 10.f);
 
+  matProjection = matPerspective;
+
   // Transformations regarding the camera
   matCamera = glm::mat4(1.f);
   matCamera = glm::translate(glm::mat4(1.f), -camLocation) *
@@ -1443,6 +1450,8 @@ static void render() {
   matCamera = glm::rotate(glm::mat4(1.f), -camRotation.y,
     glm::vec3(0.f, 1.f, 0.f)) * matCamera;
 
+  matView = matCamera;
+
   // Draw the globe
 
   // Stencil for outline
@@ -1452,36 +1461,36 @@ static void render() {
   // Value you put into stencil buffer is ANDed with 0xFF
   glStencilMask(0xFF);
   
-  // Placement matrix
-  matPlacement = glm::mat4(1.f);
+  // Model matrix
+  matModel = glm::mat4(1.f);
 
-  // Put object into world
-  matPlacement = glm::scale(glm::mat4(1.f),
+  // Move object relative to the world
+  matModel = glm::scale(glm::mat4(1.f),
     glm::vec3(1.f, 1.f, 1.f)) * 
-    matPlacement;
+    matModel;
   
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
   
   // Object position is (0, 0, -2)
-  matPlacement = glm::translate(glm::mat4(1.f),
-    glm::vec3(0.f, 0.f, -2.f)) * matPlacement;
-  
-  // Modify object relative to the eye
-  matPlacement = matCamera * matPlacement;
+  matModel = glm::translate(glm::mat4(1.f),
+    glm::vec3(0.f, 0.f, -2.f)) * matModel;
+
+  // Move object relative to the eye
+  matModelview = matView * matModel;
 
   // Bind shader program
   glUseProgram(to_pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(to_perspectiveLoc, 1, GL_FALSE,
-    glm::value_ptr(matPerspective));
-  glUniformMatrix4fv(to_placementLoc, 1, GL_FALSE,
-    glm::value_ptr(matPlacement));
+  glUniformMatrix4fv(to_modelviewLoc, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(to_projectionLoc, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
 
   // Bind vertex array object
   glBindVertexArray(to_vaoID);
@@ -1572,35 +1581,35 @@ static void render() {
   glStencilMask(0x00);
 
   // Placement matrix
-  matPlacement = glm::mat4(1.f);
+  matModel = glm::mat4(1.f);
 
   // Put object into world
-  matPlacement = glm::scale(glm::mat4(1.f),
+  matModel = glm::scale(glm::mat4(1.f),
     glm::vec3(1.f, 1.f, 1.f)) * 
-    matPlacement;
+    matModel;
   
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is (4, 0, -2)
-  matPlacement = glm::translate(glm::mat4(1.f),
-    glm::vec3(4.f, 0.f, -2.f)) * matPlacement;
+  matModel = glm::translate(glm::mat4(1.f),
+    glm::vec3(4.f, 0.f, -2.f)) * matModel;
 
   // Modify object relative to the eye
-  matPlacement = matCamera * matPlacement;
+  matModelview = matView * matModel;
 
   // Bind shader program
   glUseProgram(to_pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(to_perspectiveLoc, 1, GL_FALSE,
-    glm::value_ptr(matPerspective));
-  glUniformMatrix4fv(to_placementLoc, 1, GL_FALSE,
-    glm::value_ptr(matPlacement));
+  glUniformMatrix4fv(to_modelviewLoc, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(to_projectionLoc, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
 
   // Bind vertex array object
   glBindVertexArray(grass_vaoID);
