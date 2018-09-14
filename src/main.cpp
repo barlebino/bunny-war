@@ -176,9 +176,6 @@ GLint phong_modelLoc;
 GLint phong_viewLoc;
 GLint phong_projectionLoc;
 // Fragment shader uniforms
-GLint phong_objectColorLoc;
-GLint phong_lightColorLoc;
-GLint phong_lightPosLoc;
 GLint phong_camPosLoc;
 GLint phong_materialAmbientLoc;
 GLint phong_materialDiffuseLoc;
@@ -1273,9 +1270,6 @@ static void init() {
   phong_viewLoc = glGetUniformLocation(phong_pid, "view");
   phong_projectionLoc = glGetUniformLocation(phong_pid, "projection");
   // Fragment shader uniforms
-  phong_objectColorLoc = glGetUniformLocation(phong_pid, "object_color");
-  phong_lightColorLoc = glGetUniformLocation(phong_pid, "light_color");
-  phong_lightPosLoc = glGetUniformLocation(phong_pid, "light_pos");
   phong_camPosLoc = glGetUniformLocation(phong_pid, "cam_pos");
   phong_materialAmbientLoc = glGetUniformLocation(phong_pid,
     "material.ambient");
@@ -1691,7 +1685,7 @@ static void render() {
 
   // Object position is (-8, 0, -2)
   matPlacement = glm::translate(glm::mat4(1.f),
-    lightLocation) * matPlacement;
+    tutorialLight.position) * matPlacement;
 
   // Modify object relative to the eye
   matPlacement = matCamera * matPlacement;
@@ -1764,12 +1758,6 @@ static void render() {
   glUniformMatrix4fv(phong_projectionLoc, 1, GL_FALSE,
     glm::value_ptr(matPerspective));
   // Fill in fragment shader uniforms
-  glUniform3fv(phong_objectColorLoc, 1,
-    glm::value_ptr(glm::vec3(.5f, 1.f, .5f)));
-  glUniform3fv(phong_lightColorLoc, 1,
-    glm::value_ptr(lightColor));
-  glUniform3fv(phong_lightPosLoc, 1,
-    glm::value_ptr(lightLocation));
   glUniform3fv(phong_camPosLoc, 1,
     glm::value_ptr(camLocation));
   glUniform3fv(phong_materialAmbientLoc, 1,
