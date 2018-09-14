@@ -32,6 +32,14 @@ struct RGB {
   GLubyte r, g, b;
 };
 
+// Light struct
+struct Light {
+  glm::vec3 position;
+  glm::vec3 ambient;
+  glm::vec3 diffuse;
+  glm::vec3 specular;
+};
+
 int ssaaLevel = 2;
 // TESTING
 float rot = 0.f;
@@ -47,9 +55,17 @@ glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
 // Sideways direction
 glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 
+// TODO: Remove lightLocation and lightColor
 // Light object location
 glm::vec3 lightLocation = glm::vec3(-8.f, 0.f, -2.f);
 glm::vec3 lightColor = glm::vec3(1.f, 1.f, 1.f);
+// Light object
+Light tutorialLight = {
+  glm::vec3(-8.f, 0.f, -2.f),
+  glm::vec3(.2f, .2f, .2f),
+  glm::vec3(.5f, .5f, .5f),
+  glm::vec3(1.f, 1.f, 1.f)
+};
 
 // Input
 char keys[6] = {0, 0, 0, 0, 0, 0};
@@ -168,9 +184,10 @@ GLint phong_materialAmbientLoc;
 GLint phong_materialDiffuseLoc;
 GLint phong_materialSpecularLoc;
 GLint phong_materialShininessLoc;
-
-// Material TESTING
-Material material;
+GLint phong_lightPositionLoc;
+GLint phong_lightAmbientLoc;
+GLint phong_lightDiffuseLoc;
+GLint phong_lightSpecularLoc;
 
 // Height of window ???
 int g_width = 1280;
@@ -1268,6 +1285,14 @@ static void init() {
     "material.specular");
   phong_materialShininessLoc = glGetUniformLocation(phong_pid,
     "material.shininess");
+  phong_lightPositionLoc = glGetUniformLocation(phong_pid,
+    "light.position");
+  phong_lightAmbientLoc = glGetUniformLocation(phong_pid,
+    "light.ambient");
+  phong_lightDiffuseLoc = glGetUniformLocation(phong_pid,
+    "light.diffuse");
+  phong_lightSpecularLoc = glGetUniformLocation(phong_pid,
+    "light.specular");
 
   // Phong bunny vertex array object
 
@@ -1755,6 +1780,14 @@ static void render() {
     glm::value_ptr(copper.specular));
   glUniform1f(phong_materialShininessLoc,
     copper.shininess);
+  glUniform3fv(phong_lightPositionLoc, 1,
+    glm::value_ptr(tutorialLight.position));
+  glUniform3fv(phong_lightAmbientLoc, 1,
+    glm::value_ptr(tutorialLight.ambient));
+  glUniform3fv(phong_lightDiffuseLoc, 1,
+    glm::value_ptr(tutorialLight.diffuse));
+  glUniform3fv(phong_lightSpecularLoc, 1,
+    glm::value_ptr(tutorialLight.specular));
 
   // Bind vertex array object
   glBindVertexArray(phong_bunny_vaoID);
