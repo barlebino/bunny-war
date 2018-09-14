@@ -788,7 +788,7 @@ static void init() {
   to_texCoordLoc = glGetAttribLocation(to_pid, "texCoord");
 
   // Per-object matrices to pass to shaders
-  // TODO: Replace perspective and placement with model, view, projection
+  // TODO: Replace perspective and placement with modelview and projection
   to_perspectiveLoc = glGetUniformLocation(to_pid, "perspective");
   to_placementLoc = glGetUniformLocation(to_pid, "placement");
 
@@ -907,7 +907,7 @@ static void init() {
   do_vertPosLoc = glGetAttribLocation(do_pid, "vertPos");
 
   // Per-object matrices to pass to shaders
-  // TODO: Replace perspective and placement with model, view, projection
+  // TODO: Replace perspective and placement with modelview and projection
   do_perspectiveLoc = glGetUniformLocation(do_pid, "perspective");
   do_placementLoc = glGetUniformLocation(do_pid, "placement");
 
@@ -1094,7 +1094,7 @@ static void init() {
   cm_vertPosLoc = glGetAttribLocation(cm_pid, "vertPos");
 
   // Per-object matrices to pass to shaders
-  // TODO: Replace perspective and placement with model, view, projection
+  // TODO: Replace perspective and placement with modelview and projection
   cm_perspectiveLoc = glGetUniformLocation(cm_pid, "perspective");
   cm_placementLoc = glGetUniformLocation(cm_pid, "placement");
 
