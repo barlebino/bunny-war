@@ -3,9 +3,6 @@
 layout(location = 0) in vec3 vertPos;
 layout(location = 1) in vec2 texCoord;
 
-uniform mat4 perspective;
-uniform mat4 placement;
-
 uniform mat4 modelview;
 uniform mat4 projection;
 

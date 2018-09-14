@@ -129,8 +129,8 @@ GLuint do_pid;
 // Shader attribs
 GLint do_vertPosLoc;
 // Shader uniforms
-GLint do_perspectiveLoc;
-GLint do_placementLoc;
+GLint do_modelviewLoc;
+GLint do_projectionLoc;
 
 // Rectangle shader
 GLuint r_pid;
@@ -908,8 +908,8 @@ static void init() {
 
   // Per-object matrices to pass to shaders
   // TODO: Replace perspective and placement with modelview and projection
-  do_perspectiveLoc = glGetUniformLocation(do_pid, "perspective");
-  do_placementLoc = glGetUniformLocation(do_pid, "placement");
+  do_modelviewLoc = glGetUniformLocation(do_pid, "modelview");
+  do_projectionLoc = glGetUniformLocation(do_pid, "projection");
 
   // Bunny vertex array object
 
@@ -1526,35 +1526,35 @@ static void render() {
   glStencilMask(0x00);
 
   // Placement matrix
-  matPlacement = glm::mat4(1.f);
+  matModel = glm::mat4(1.f);
 
   // Put object into world
-  matPlacement = glm::scale(glm::mat4(1.f),
+  matModel = glm::scale(glm::mat4(1.f),
     glm::vec3(1.25f, 1.25f, 1.25f)) * 
-    matPlacement;
+    matModel;
   
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
   
   // Object position is (0, 0, -2)
-  matPlacement = glm::translate(glm::mat4(1.f),
-    glm::vec3(0.f, 0.f, -2.f)) * matPlacement;
+  matModel = glm::translate(glm::mat4(1.f),
+    glm::vec3(0.f, 0.f, -2.f)) * matModel;
   
   // Modify object relative to the eye
-  matPlacement = matCamera * matPlacement;
+  matModelview = matView * matModel;
 
   // Bind shader program
   glUseProgram(do_pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(do_perspectiveLoc, 1, GL_FALSE,
-    glm::value_ptr(matPerspective));
-  glUniformMatrix4fv(do_placementLoc, 1, GL_FALSE,
-    glm::value_ptr(matPlacement));
+  glUniformMatrix4fv(do_modelviewLoc, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(do_projectionLoc, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
 
   // Bind vertex array object
   glBindVertexArray(do_sphere_vaoID);
