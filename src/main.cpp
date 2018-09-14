@@ -55,10 +55,6 @@ glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
 // Sideways direction
 glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 
-// TODO: Remove lightLocation and lightColor
-// Light object location
-glm::vec3 lightLocation = glm::vec3(-8.f, 0.f, -2.f);
-glm::vec3 lightColor = glm::vec3(1.f, 1.f, 1.f);
 // Light object
 Light tutorialLight = {
   glm::vec3(-8.f, 0.f, -2.f),
@@ -738,7 +734,8 @@ static void init() {
   // Initialize shader program
   GLint rc;
   GLuint vsHandle, fsHandle;
-  const char *vsSource, *fsSource;
+  //const char *vsSource, *fsSource;
+  char *vsSource, *fsSource;
 
   // Texture only shader program
 
@@ -752,6 +749,9 @@ static void init() {
 
   glShaderSource(vsHandle, 1, &vsSource, NULL);
   glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  free(vsSource);
+  free(fsSource);
 
   // Compile vertex shader
   glCompileShader(vsHandle);
@@ -788,7 +788,7 @@ static void init() {
   to_texCoordLoc = glGetAttribLocation(to_pid, "texCoord");
 
   // Per-object matrices to pass to shaders
-  // TODO: Remove perspective?
+  // TODO: Replace perspective and placement with model, view, projection
   to_perspectiveLoc = glGetUniformLocation(to_pid, "perspective");
   to_placementLoc = glGetUniformLocation(to_pid, "placement");
 
@@ -870,6 +870,9 @@ static void init() {
   glShaderSource(vsHandle, 1, &vsSource, NULL);
   glShaderSource(fsHandle, 1, &fsSource, NULL);
 
+  free(vsSource);
+  free(fsSource);
+
   // Compile vertex shader
   glCompileShader(vsHandle);
   glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
@@ -904,7 +907,7 @@ static void init() {
   do_vertPosLoc = glGetAttribLocation(do_pid, "vertPos");
 
   // Per-object matrices to pass to shaders
-  // TODO: Remove perspective?
+  // TODO: Replace perspective and placement with model, view, projection
   do_perspectiveLoc = glGetUniformLocation(do_pid, "perspective");
   do_placementLoc = glGetUniformLocation(do_pid, "placement");
 
@@ -970,6 +973,9 @@ static void init() {
 
   glShaderSource(vsHandle, 1, &vsSource, NULL);
   glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  free(vsSource);
+  free(fsSource);
 
   // Compile vertex shader
   glCompileShader(vsHandle);
@@ -1045,12 +1051,14 @@ static void init() {
   fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
 
   // Read shader source code
-  // TODO: free vsSource and fsSource before ALL shader reads
   vsSource = textfileRead("../resources/vertCubemap.glsl");
   fsSource = textfileRead("../resources/fragCubemap.glsl");
 
   glShaderSource(vsHandle, 1, &vsSource, NULL);
   glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  free(vsSource);
+  free(fsSource);
 
   // Compile vertex shader
   glCompileShader(vsHandle);
@@ -1086,7 +1094,7 @@ static void init() {
   cm_vertPosLoc = glGetAttribLocation(cm_pid, "vertPos");
 
   // Per-object matrices to pass to shaders
-  // TODO: Remove perspective?
+  // TODO: Replace perspective and placement with model, view, projection
   cm_perspectiveLoc = glGetUniformLocation(cm_pid, "perspective");
   cm_placementLoc = glGetUniformLocation(cm_pid, "placement");
 
@@ -1128,6 +1136,9 @@ static void init() {
 
   glShaderSource(vsHandle, 1, &vsSource, NULL);
   glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  free(vsSource);
+  free(fsSource);
 
   // Compile vertex shader
   glCompileShader(vsHandle);
@@ -1230,6 +1241,9 @@ static void init() {
   glShaderSource(vsHandle, 1, &vsSource, NULL);
   glShaderSource(fsHandle, 1, &fsSource, NULL);
 
+  free(vsSource);
+  free(fsSource);
+
   // Compile vertex shader
   glCompileShader(vsHandle);
   glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
@@ -1315,6 +1329,8 @@ static void init() {
   // Disable
   glDisableVertexAttribArray(phong_vertPosLoc);
   glDisableVertexAttribArray(phong_vertNorLoc);
+
+  // TODO: Cube vertex array object
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1699,7 +1715,7 @@ static void render() {
   glUniformMatrix4fv(oc_placementLoc, 1, GL_FALSE,
     glm::value_ptr(matPlacement));
   glUniform3fv(oc_in_colorLoc, 1,
-    glm::value_ptr(lightColor));
+    glm::value_ptr(tutorialLight.specular));
 
   // Bind vertex array object
   glBindVertexArray(ls_vaoID);
@@ -1830,7 +1846,8 @@ static void render() {
   // Bind vertex array object
   glBindVertexArray(skybox_vaoID);
 
-  // TODO: Bind the texture
+  // Texture unit exaple below
+  // Bind the texture
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_CUBE_MAP, skyTexture);
   // TESTING
