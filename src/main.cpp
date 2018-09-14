@@ -1856,7 +1856,7 @@ static void render() {
   // Bind vertex array object
   glBindVertexArray(skybox_vaoID);
 
-  // Texture unit exaple below
+  // Texture unit example below
   // Bind the texture
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_CUBE_MAP, skyTexture);
