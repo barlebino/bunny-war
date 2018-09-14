@@ -6,9 +6,6 @@ layout(location = 1) in vec3 vertNor;
 out vec3 frag_nor;
 out vec3 frag_pos;
 
-uniform mat4 perspective;
-uniform mat4 placement;
-
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
