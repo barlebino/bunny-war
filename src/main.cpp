@@ -28,10 +28,6 @@ struct Image {
   unsigned char *data;
 };
 
-struct RGB {
-  GLubyte r, g, b;
-};
-
 // Light struct
 struct Light {
   glm::vec3 position;
@@ -41,8 +37,6 @@ struct Light {
 };
 
 int ssaaLevel = 2;
-// TESTING
-float rot = 0.f;
 
 GLFWwindow *window; // Main application window
 
@@ -161,6 +155,7 @@ GLint oc_modelviewLoc;
 GLint oc_projectionLoc;
 GLint oc_in_colorLoc;
 
+// TODO: Change to omp (one material phong) shader
 // Phong shader
 GLuint phong_pid;
 // Shader attribs
@@ -1753,15 +1748,9 @@ static void render() {
     glm::vec3(1.f, 1.f, 1.f)) * 
     matModel;
 
-  // TESTING
-  rot = (rot + .01f);
-  if(rot > 6.28f)
-    rot = 0.0;
-  printf("rot: %f\n", rot);
-
   matModel = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), rot, // Rotation here
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
   matModel = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
@@ -1777,6 +1766,7 @@ static void render() {
   // Fill in matrices
   // Fill in vertex shader uniforms
   // TODO: Change to modelview matrix
+  // TODO: Lighting calculation in view space
   glUniformMatrix4fv(phong_modelLoc, 1, GL_FALSE,
     glm::value_ptr(matModel));
   glUniformMatrix4fv(phong_viewLoc, 1, GL_FALSE,
