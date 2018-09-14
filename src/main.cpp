@@ -147,8 +147,8 @@ GLuint cm_pid;
 // Shader attribs
 GLint cm_vertPosLoc;
 // Shader uniforms
-GLint cm_perspectiveLoc;
-GLint cm_placementLoc;
+GLint cm_modelviewLoc;
+GLint cm_projectionLoc;
 // samplerCube location
 GLint cm_texLoc;
 
@@ -1095,8 +1095,8 @@ static void init() {
 
   // Per-object matrices to pass to shaders
   // TODO: Replace perspective and placement with modelview and projection
-  cm_perspectiveLoc = glGetUniformLocation(cm_pid, "perspective");
-  cm_placementLoc = glGetUniformLocation(cm_pid, "placement");
+  cm_modelviewLoc = glGetUniformLocation(cm_pid, "modelview");
+  cm_projectionLoc = glGetUniformLocation(cm_pid, "projection");
 
   // Get the location of the samplerCube in fragment shader (???)
   cm_texLoc = glGetUniformLocation(cm_pid, "skybox");
@@ -1823,35 +1823,35 @@ static void render() {
   glStencilMask(0x00);
 
   // Placement matrix
-  matPlacement = glm::mat4(1.f);
+  matModel = glm::mat4(1.f);
 
   // Put object into world
-  matPlacement = glm::scale(glm::mat4(1.f),
+  matModel = glm::scale(glm::mat4(1.f),
     glm::vec3(1.f, 1.f, 1.f)) * 
-    matPlacement;
+    matModel;
   
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is the location of the camera
-  matPlacement = glm::translate(glm::mat4(1.f),
-    camLocation) * matPlacement;
+  matModel = glm::translate(glm::mat4(1.f),
+    camLocation) * matModel;
 
   // Modify object relative to the eye
-  matPlacement = matCamera * matPlacement;
+  matModelview = matView * matModel;
 
   // Bind shader program
   glUseProgram(cm_pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(cm_perspectiveLoc, 1, GL_FALSE,
-    glm::value_ptr(matPerspective));
-  glUniformMatrix4fv(cm_placementLoc, 1, GL_FALSE,
-    glm::value_ptr(matPlacement));
+  glUniformMatrix4fv(cm_modelviewLoc, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(cm_projectionLoc, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
 
   // Bind vertex array object
   glBindVertexArray(skybox_vaoID);
