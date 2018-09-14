@@ -157,8 +157,8 @@ GLuint oc_pid;
 // Shader attribs
 GLint oc_vertPosLoc;
 // Shader uniforms
-GLint oc_perspectiveLoc;
-GLint oc_placementLoc;
+GLint oc_modelviewLoc;
+GLint oc_projectionLoc;
 GLint oc_in_colorLoc;
 
 // Phong shader
@@ -1174,8 +1174,8 @@ static void init() {
   oc_vertPosLoc = glGetAttribLocation(oc_pid, "vertPos");
 
   // Per-object matrices to pass to shaders
-  oc_perspectiveLoc = glGetUniformLocation(oc_pid, "perspective");
-  oc_placementLoc = glGetUniformLocation(oc_pid, "placement");
+  oc_modelviewLoc = glGetUniformLocation(oc_pid, "modelview");
+  oc_projectionLoc = glGetUniformLocation(oc_pid, "projection");
   oc_in_colorLoc = glGetUniformLocation(oc_pid, "in_color");
 
   // Pink bunny vertex array object
@@ -1641,35 +1641,35 @@ static void render() {
   glStencilMask(0x00);
 
   // Placement matrix
-  matPlacement = glm::mat4(1.f);
-
-  // Put object into world
-  matPlacement = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
-    matPlacement;
+  matModel = glm::mat4(1.f);
   
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matModel;
+  
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is (-4, 0, -2)
-  matPlacement = glm::translate(glm::mat4(1.f),
-    glm::vec3(-4.f, 0.f, -2.f)) * matPlacement;
+  matModel = glm::translate(glm::mat4(1.f),
+    glm::vec3(-4.f, 0.f, -2.f)) * matModel;
 
   // Modify object relative to the eye
-  matPlacement = matCamera * matPlacement;
+  matModelview = matView * matModel;
 
   // Bind shader program
   glUseProgram(oc_pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(oc_perspectiveLoc, 1, GL_FALSE,
-    glm::value_ptr(matPerspective));
-  glUniformMatrix4fv(oc_placementLoc, 1, GL_FALSE,
-    glm::value_ptr(matPlacement));
+  glUniformMatrix4fv(oc_modelviewLoc, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(oc_projectionLoc, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
   // Bunny is red (1.0, 0.0, 0.0)
   glUniform3fv(oc_in_colorLoc, 1,
     glm::value_ptr(glm::vec3(1.0, 0.0, 0.0)));
@@ -1694,35 +1694,35 @@ static void render() {
   glStencilMask(0x00);
 
   // Placement matrix
-  matPlacement = glm::mat4(1.f);
+  matModel = glm::mat4(1.f);
 
   // Put object into world
-  matPlacement = glm::scale(glm::mat4(1.f),
+  matModel = glm::scale(glm::mat4(1.f),
     glm::vec3(.5f, .5f, .5f)) * 
-    matPlacement;
+    matModel;
   
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is (-8, 0, -2)
-  matPlacement = glm::translate(glm::mat4(1.f),
-    tutorialLight.position) * matPlacement;
+  matModel = glm::translate(glm::mat4(1.f),
+    tutorialLight.position) * matModel;
 
-  // Modify object relative to the eye
-  matPlacement = matCamera * matPlacement;
+  // Move object relative to the eye
+  matModelview = matView * matModel;
 
   // Bind shader program
   glUseProgram(oc_pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(oc_perspectiveLoc, 1, GL_FALSE,
-    glm::value_ptr(matPerspective));
-  glUniformMatrix4fv(oc_placementLoc, 1, GL_FALSE,
-    glm::value_ptr(matPlacement));
+  glUniformMatrix4fv(oc_modelviewLoc, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(oc_projectionLoc, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
   glUniform3fv(oc_in_colorLoc, 1,
     glm::value_ptr(tutorialLight.specular));
 
@@ -1746,12 +1746,12 @@ static void render() {
   glStencilMask(0x00);
 
   // Placement matrix
-  matPlacement = glm::mat4(1.f);
+  matModel = glm::mat4(1.f);
 
   // Put object into world
-  matPlacement = glm::scale(glm::mat4(1.f),
+  matModel = glm::scale(glm::mat4(1.f),
     glm::vec3(1.f, 1.f, 1.f)) * 
-    matPlacement;
+    matModel;
 
   // TESTING
   rot = (rot + .01f);
@@ -1759,29 +1759,30 @@ static void render() {
     rot = 0.0;
   printf("rot: %f\n", rot);
 
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matPlacement;
-  // Keep changing rotation
-  matPlacement = glm::rotate(glm::mat4(1.f), rot,
-    glm::vec3(0.f, 1.f, 0.f)) * matPlacement;
-  matPlacement = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matPlacement;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), rot, // Rotation here
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is (-12, 0, -2)
-  matPlacement = glm::translate(glm::mat4(1.f),
-    glm::vec3(-12.f, 0.f, -2.f)) * matPlacement;
+  matModel = glm::translate(glm::mat4(1.f),
+    glm::vec3(-12.f, 0.f, -2.f)) * matModel;
 
   // Bind shader program
+  // TODO: Light going behind object
   glUseProgram(phong_pid);
 
   // Fill in matrices
   // Fill in vertex shader uniforms
+  // TODO: Change to modelview matrix
   glUniformMatrix4fv(phong_modelLoc, 1, GL_FALSE,
-    glm::value_ptr(matPlacement));
+    glm::value_ptr(matModel));
   glUniformMatrix4fv(phong_viewLoc, 1, GL_FALSE,
-    glm::value_ptr(matCamera));
+    glm::value_ptr(matView));
   glUniformMatrix4fv(phong_projectionLoc, 1, GL_FALSE,
-    glm::value_ptr(matPerspective));
+    glm::value_ptr(matProjection));
   // Fill in fragment shader uniforms
   glUniform3fv(phong_camPosLoc, 1,
     glm::value_ptr(camLocation));
