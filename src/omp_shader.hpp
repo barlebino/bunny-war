@@ -6,10 +6,10 @@
 
 struct OmpShader {
   GLint pid;
-  // Shader attribs
+  // Attribs
   GLint vertPos;
   GLint vertNor;
-  // Shader uniforms
+  // Uniforms
   // Vertex shader uniforms
   GLint model;
   GLint view;

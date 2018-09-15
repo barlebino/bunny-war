@@ -22,6 +22,7 @@
 
 #include "material.hpp"
 #include "omp_shader.hpp"
+#include "oc_shader.hpp"
 
 // Image code, for textures
 struct Image {
@@ -181,6 +182,7 @@ GLint phong_lightSpecularLoc;
 
 // TODO: Change all shaders into similar format
 struct OmpShader ompShader;
+struct OneColorShader ocShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -280,6 +282,61 @@ char *textfileRead(const char *fn) {
     }
   }
   return content;
+}
+
+// vsfn = vertex shader file name, fsfn = fragment shader file name
+// Returns the shader program ID
+GLuint initShader(const char *vsfn, const char *fsfn) {
+  GLuint pid;
+  GLint rc;
+  GLuint vsHandle, fsHandle;
+  char *vsSource, *fsSource;
+
+  // Create shader handles
+  vsHandle = glCreateShader(GL_VERTEX_SHADER);
+  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+  
+  // Read shader source
+  vsSource = textfileRead(vsfn);
+  fsSource = textfileRead(fsfn);
+
+  glShaderSource(vsHandle, 1, &vsSource, NULL);
+  glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  free(vsSource);
+  free(fsSource);
+
+  // Compile vertex shader
+  glCompileShader(vsHandle);
+  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling vertex shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Compile fragment shader
+  glCompileShader(fsHandle);
+  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling fragment shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Create program and link
+  pid = glCreateProgram();
+  glAttachShader(pid, vsHandle);
+  glAttachShader(pid, fsHandle);
+  glLinkProgram(pid);
+  glGetProgramiv(pid, GL_LINK_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error linking shaders" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  return pid;
 }
 
 static void resizeMesh(std::vector<float>& posBuf) {
@@ -729,59 +786,12 @@ static void init() {
   };
   skyTexture = loadCubemap(faces);
 
-  // Create shader programs
-
-  // Initialize shader program
-  GLint rc;
-  GLuint vsHandle, fsHandle;
-  //const char *vsSource, *fsSource;
-  char *vsSource, *fsSource;
+  // Initialize shader programs
 
   // Texture only shader program
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertTextureOnly.glsl");
-  fsSource = textfileRead("../resources/fragTextureOnly.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Create program and link
-  to_pid = glCreateProgram();
-  glAttachShader(to_pid, vsHandle);
-  glAttachShader(to_pid, fsHandle);
-  glLinkProgram(to_pid);
-  glGetProgramiv(to_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
+  to_pid = initShader("../resources/vertTextureOnly.glsl",
+    "../resources/fragTextureOnly.glsl");
 
   // Attribs
   to_vertPosLoc = glGetAttribLocation(to_pid, "vertPos");
@@ -859,49 +869,8 @@ static void init() {
 
   // Depth Only shader program
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertDepthOnly.glsl");
-  fsSource = textfileRead("../resources/fragDepthOnly.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Create program and link
-  do_pid = glCreateProgram();
-  glAttachShader(do_pid, vsHandle);
-  glAttachShader(do_pid, fsHandle);
-  glLinkProgram(do_pid);
-  glGetProgramiv(do_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
+  do_pid = initShader("../resources/vertDepthOnly.glsl",
+    "../resources/fragDepthOnly.glsl");
 
   // Attribs
   do_vertPosLoc = glGetAttribLocation(do_pid, "vertPos");
@@ -963,49 +932,8 @@ static void init() {
 
   // Rectangle shader program
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertRectangle.glsl");
-  fsSource = textfileRead("../resources/fragRectangle.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-  
-  // Create program and link
-  r_pid = glCreateProgram();
-  glAttachShader(r_pid, vsHandle);
-  glAttachShader(r_pid, fsHandle);
-  glLinkProgram(r_pid);
-  glGetProgramiv(r_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
+  r_pid = initShader("../resources/vertRectangle.glsl",
+    "../resources/fragRectangle.glsl");
 
   // Attribs
   r_vertPosLoc = glGetAttribLocation(r_pid, "vertPos");
@@ -1046,49 +974,8 @@ static void init() {
 
   // Cubemap shader program
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertCubemap.glsl");
-  fsSource = textfileRead("../resources/fragCubemap.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Create program and link
-  cm_pid = glCreateProgram();
-  glAttachShader(cm_pid, vsHandle);
-  glAttachShader(cm_pid, fsHandle);
-  glLinkProgram(cm_pid);
-  glGetProgramiv(cm_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
+  cm_pid = initShader("../resources/vertCubemap.glsl",
+    "../resources/fragCubemap.glsl");
 
   // Attribs
   cm_vertPosLoc = glGetAttribLocation(cm_pid, "vertPos");
@@ -1126,49 +1013,8 @@ static void init() {
 
   // One color shader program
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertOneColor.glsl");
-  fsSource = textfileRead("../resources/fragOneColor.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Create program and link
-  oc_pid = glCreateProgram();
-  glAttachShader(oc_pid, vsHandle);
-  glAttachShader(oc_pid, fsHandle);
-  glLinkProgram(oc_pid);
-  glGetProgramiv(oc_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
+  oc_pid = initShader("../resources/vertOneColor.glsl",
+    "../resources/fragOneColor.glsl");
 
   // Attribs
   oc_vertPosLoc = glGetAttribLocation(oc_pid, "vertPos");
@@ -1230,48 +1076,8 @@ static void init() {
 
   // One material phong shader program
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertOneMaterialPhong.glsl");
-  fsSource = textfileRead("../resources/fragOneMaterialPhong.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  ompShader.pid = glCreateProgram();
-  glAttachShader(ompShader.pid, vsHandle);
-  glAttachShader(ompShader.pid, fsHandle);
-  glLinkProgram(ompShader.pid);
-  glGetProgramiv(ompShader.pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
+  ompShader.pid = initShader("../resources/vertOneMaterialPhong.glsl",
+    "../resources/fragOneMaterialPhong.glsl");
 
   // Attribs
   ompShader.vertPos = glGetAttribLocation(ompShader.pid, "vertPos");
@@ -1336,49 +1142,8 @@ static void init() {
   // TODO: General phong shader
   // Phong shader program
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertPhong.glsl");
-  fsSource = textfileRead("../resources/fragPhong.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Create program and link
-  phong_pid = glCreateProgram();
-  glAttachShader(phong_pid, vsHandle);
-  glAttachShader(phong_pid, fsHandle);
-  glLinkProgram(phong_pid);
-  glGetProgramiv(phong_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
+  phong_pid = initShader("../resources/vertPhong.glsl",
+    "../resources/fragPhong.glsl");
 
   // Attribs
   phong_vertPosLoc = glGetAttribLocation(phong_pid, "vertPos");
