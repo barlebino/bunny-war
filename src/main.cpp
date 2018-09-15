@@ -21,6 +21,7 @@
 #include <unistd.h>
 
 #include "material.hpp"
+#include "omp_shader.hpp"
 
 // Image code, for textures
 struct Image {
@@ -75,7 +76,7 @@ unsigned grass_vaoID;
 unsigned skybox_vaoID;
 unsigned oc_bunny_vaoID;
 unsigned ls_vaoID;
-unsigned phong_bunny_vaoID;
+unsigned omp_bunny_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
@@ -155,6 +156,7 @@ GLint oc_modelviewLoc;
 GLint oc_projectionLoc;
 GLint oc_in_colorLoc;
 
+// TODO: Convert to enums ???
 // TODO: Change to omp (one material phong) shader
 // Phong shader
 GLuint phong_pid;
@@ -176,6 +178,9 @@ GLint phong_lightPositionLoc;
 GLint phong_lightAmbientLoc;
 GLint phong_lightDiffuseLoc;
 GLint phong_lightSpecularLoc;
+
+// TODO: Change all shaders into similar format
+struct OmpShader ompShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -1223,6 +1228,112 @@ static void init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+  // One material phong shader program
+
+  // Create shader handles
+  vsHandle = glCreateShader(GL_VERTEX_SHADER);
+  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+
+  // Read shader source code
+  vsSource = textfileRead("../resources/vertOneMaterialPhong.glsl");
+  fsSource = textfileRead("../resources/fragOneMaterialPhong.glsl");
+
+  glShaderSource(vsHandle, 1, &vsSource, NULL);
+  glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  free(vsSource);
+  free(fsSource);
+
+  // Compile vertex shader
+  glCompileShader(vsHandle);
+  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
+  
+  if(!rc) {
+    std::cout << "Error compiling vertex shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Compile fragment shader
+  glCompileShader(fsHandle);
+  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling fragment shader" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  ompShader.pid = glCreateProgram();
+  glAttachShader(ompShader.pid, vsHandle);
+  glAttachShader(ompShader.pid, fsHandle);
+  glLinkProgram(ompShader.pid);
+  glGetProgramiv(ompShader.pid, GL_LINK_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error linking shaders" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Attribs
+  ompShader.vertPos = glGetAttribLocation(ompShader.pid, "vertPos");
+  ompShader.vertNor = glGetAttribLocation(ompShader.pid, "vertNor");
+
+  // Per-object matrices to pass to shaders
+  // Vertex shader uniforms
+  ompShader.model = glGetUniformLocation(ompShader.pid, "model");
+  ompShader.view = glGetUniformLocation(ompShader.pid, "view");
+  ompShader.projection = glGetUniformLocation(ompShader.pid, "projection");
+  // Fragment shader uniforms
+  ompShader.camPos = glGetUniformLocation(ompShader.pid, "cam_pos");
+  ompShader.materialAmbient = glGetUniformLocation(ompShader.pid,
+    "material.ambient");
+  ompShader.materialDiffuse = glGetUniformLocation(ompShader.pid,
+    "material.diffuse");
+  ompShader.materialSpecular = glGetUniformLocation(ompShader.pid,
+    "material.specular");
+  ompShader.materialShininess = glGetUniformLocation(ompShader.pid,
+    "material.shininess");
+  ompShader.lightPosition = glGetUniformLocation(ompShader.pid,
+    "light.position");
+  ompShader.lightAmbient = glGetUniformLocation(ompShader.pid,
+    "light.ambient");
+  ompShader.lightDiffuse = glGetUniformLocation(ompShader.pid,
+    "light.diffuse");
+  ompShader.lightSpecular = glGetUniformLocation(ompShader.pid,
+    "light.specular");
+
+  // One Material Phong bunny VAO
+
+  // Create vertex array object
+  glGenVertexArrays(1, &omp_bunny_vaoID);
+  glBindVertexArray(omp_bunny_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(ompShader.vertPos);
+  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
+  glVertexAttribPointer(ompShader.vertPos, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+  
+  // Bind normal buffer
+  glEnableVertexAttribArray(ompShader.vertNor);
+  glBindBuffer(GL_ARRAY_BUFFER, bunny_norBufID);
+  glVertexAttribPointer(ompShader.vertNor, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind element buffer
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(ompShader.vertPos);
+  glDisableVertexAttribArray(ompShader.vertNor);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // TODO: General phong shader
   // Phong shader program
 
   // Create shader handles
@@ -1297,39 +1408,7 @@ static void init() {
   phong_lightSpecularLoc = glGetUniformLocation(phong_pid,
     "light.specular");
 
-  // Phong bunny vertex array object
-
-  // Create vertex array object
-  glGenVertexArrays(1, &phong_bunny_vaoID);
-  glBindVertexArray(phong_bunny_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(phong_vertPosLoc);
-  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
-  glVertexAttribPointer(phong_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind normal buffer
-  glEnableVertexAttribArray(phong_vertNorLoc);
-  glBindBuffer(GL_ARRAY_BUFFER, bunny_norBufID);
-  glVertexAttribPointer(phong_vertNorLoc, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(phong_vertPosLoc);
-  glDisableVertexAttribArray(phong_vertNorLoc);
-
   // TODO: Cube vertex array object
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 static void render() {
@@ -1761,40 +1840,40 @@ static void render() {
 
   // Bind shader program
   // TODO: Light going behind object
-  glUseProgram(phong_pid);
+  glUseProgram(ompShader.pid);
+
+  // Bind vertex array object
+  glBindVertexArray(omp_bunny_vaoID);
 
   // Fill in matrices
   // Fill in vertex shader uniforms
   // TODO: Change to modelview matrix
   // TODO: Lighting calculation in view space
-  glUniformMatrix4fv(phong_modelLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ompShader.model, 1, GL_FALSE,
     glm::value_ptr(matModel));
-  glUniformMatrix4fv(phong_viewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ompShader.view, 1, GL_FALSE,
     glm::value_ptr(matView));
-  glUniformMatrix4fv(phong_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ompShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   // Fill in fragment shader uniforms
-  glUniform3fv(phong_camPosLoc, 1,
+  glUniform3fv(ompShader.camPos, 1,
     glm::value_ptr(camLocation));
-  glUniform3fv(phong_materialAmbientLoc, 1,
+  glUniform3fv(ompShader.materialAmbient, 1,
     glm::value_ptr(copper.ambient));
-  glUniform3fv(phong_materialDiffuseLoc, 1,
+  glUniform3fv(ompShader.materialDiffuse, 1,
     glm::value_ptr(copper.diffuse));
-  glUniform3fv(phong_materialSpecularLoc, 1,
+  glUniform3fv(ompShader.materialSpecular, 1,
     glm::value_ptr(copper.specular));
-  glUniform1f(phong_materialShininessLoc,
+  glUniform1f(ompShader.materialShininess,
     copper.shininess);
-  glUniform3fv(phong_lightPositionLoc, 1,
+  glUniform3fv(ompShader.lightPosition, 1,
     glm::value_ptr(tutorialLight.position));
-  glUniform3fv(phong_lightAmbientLoc, 1,
+  glUniform3fv(ompShader.lightAmbient, 1,
     glm::value_ptr(tutorialLight.ambient));
-  glUniform3fv(phong_lightDiffuseLoc, 1,
+  glUniform3fv(ompShader.lightDiffuse, 1,
     glm::value_ptr(tutorialLight.diffuse));
-  glUniform3fv(phong_lightSpecularLoc, 1,
+  glUniform3fv(ompShader.lightSpecular, 1,
     glm::value_ptr(tutorialLight.specular));
-
-  // Bind vertex array object
-  glBindVertexArray(phong_bunny_vaoID);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
