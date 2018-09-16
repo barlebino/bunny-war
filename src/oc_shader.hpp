@@ -4,7 +4,8 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-struct OneColorShader {
+// One color shader
+struct OcShader {
   GLuint pid;
   // Attribs
   GLint vertPos;

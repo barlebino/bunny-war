@@ -173,7 +173,7 @@ GLint phong_lightSpecularLoc;
 
 // TODO: Change all shaders into similar format
 struct OmpShader ompShader;
-struct OneColorShader ocShader;
+struct OcShader ocShader;
 
 // Height of window ???
 int g_width = 1280;
