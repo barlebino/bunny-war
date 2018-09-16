@@ -148,15 +148,6 @@ GLint cm_projectionLoc;
 // samplerCube location
 GLint cm_texLoc;
 
-// One color shader
-GLuint oc_pid;
-// Shader attribs
-GLint oc_vertPosLoc;
-// Shader uniforms
-GLint oc_modelviewLoc;
-GLint oc_projectionLoc;
-GLint oc_in_colorLoc;
-
 // TODO: Convert to enums ???
 // TODO: Change to omp (one material phong) shader
 // Phong shader
@@ -1013,16 +1004,16 @@ static void init() {
 
   // One color shader program
 
-  oc_pid = initShader("../resources/vertOneColor.glsl",
+  ocShader.pid = initShader("../resources/vertOneColor.glsl",
     "../resources/fragOneColor.glsl");
 
   // Attribs
-  oc_vertPosLoc = glGetAttribLocation(oc_pid, "vertPos");
+  ocShader.vertPos = glGetAttribLocation(ocShader.pid, "vertPos");
 
   // Per-object matrices to pass to shaders
-  oc_modelviewLoc = glGetUniformLocation(oc_pid, "modelview");
-  oc_projectionLoc = glGetUniformLocation(oc_pid, "projection");
-  oc_in_colorLoc = glGetUniformLocation(oc_pid, "in_color");
+  ocShader.modelview = glGetUniformLocation(ocShader.pid, "modelview");
+  ocShader.projection = glGetUniformLocation(ocShader.pid, "projection");
+  ocShader.in_color = glGetUniformLocation(ocShader.pid, "in_color");
 
   // Pink bunny vertex array object
 
@@ -1031,9 +1022,9 @@ static void init() {
   glBindVertexArray(oc_bunny_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(oc_vertPosLoc);
+  glEnableVertexAttribArray(ocShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
-  glVertexAttribPointer(oc_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(ocShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
@@ -1043,7 +1034,7 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(oc_vertPosLoc);
+  glDisableVertexAttribArray(ocShader.vertPos);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1056,9 +1047,9 @@ static void init() {
   glBindVertexArray(ls_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(oc_vertPosLoc);
+  glEnableVertexAttribArray(ocShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
-  glVertexAttribPointer(oc_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(ocShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
@@ -1068,7 +1059,7 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(oc_vertPosLoc);
+  glDisableVertexAttribArray(ocShader.vertPos);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1502,15 +1493,15 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(oc_pid);
+  glUseProgram(ocShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(oc_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ocShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(oc_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   // Bunny is red (1.0, 0.0, 0.0)
-  glUniform3fv(oc_in_colorLoc, 1,
+  glUniform3fv(ocShader.in_color, 1,
     glm::value_ptr(glm::vec3(1.0, 0.0, 0.0)));
 
   // Bind vertex array object
@@ -1555,14 +1546,14 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(oc_pid);
+  glUseProgram(ocShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(oc_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ocShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(oc_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
-  glUniform3fv(oc_in_colorLoc, 1,
+  glUniform3fv(ocShader.in_color, 1,
     glm::value_ptr(tutorialLight.specular));
 
   // Bind vertex array object

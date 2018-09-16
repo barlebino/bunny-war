@@ -10,7 +10,7 @@ struct OneColorShader {
   GLint vertPos;
   // Uniforms
   GLint modelview;
-  GLint project;
+  GLint projection;
   GLint in_color;
 };
 
