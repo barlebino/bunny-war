@@ -24,6 +24,7 @@
 #include "omp_shader.hpp"
 #include "oc_shader.hpp"
 #include "sb_shader.hpp"
+#include "rect_shader.hpp"
 
 // Image code, for textures
 struct Image {
@@ -129,16 +130,6 @@ GLint do_vertPosLoc;
 GLint do_modelviewLoc;
 GLint do_projectionLoc;
 
-// Rectangle shader
-GLuint r_pid;
-// Shader attribs
-GLint r_vertPosLoc;
-GLint r_texCoordLoc;
-// Shader uniforms
-// None
-// sampler2D location
-GLint r_texLoc;
-
 // TODO: Convert to enums ???
 // TODO: Change to omp (one material phong) shader
 // TODO: Create cube phong
@@ -167,6 +158,7 @@ GLint phong_lightSpecularLoc;
 struct OmpShader ompShader;
 struct OcShader ocShader;
 struct SbShader sbShader;
+struct RectShader rectShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -916,30 +908,30 @@ static void init() {
 
   // Rectangle shader program
 
-  r_pid = initShader("../resources/vertRectangle.glsl",
+  rectShader.pid = initShader("../resources/vertRectangle.glsl",
     "../resources/fragRectangle.glsl");
 
   // Attribs
-  r_vertPosLoc = glGetAttribLocation(r_pid, "vertPos");
-  r_texCoordLoc = glGetAttribLocation(r_pid, "texCoord");
+  rectShader.vertPos = glGetAttribLocation(rectShader.pid, "vertPos");
+  rectShader.texCoord = glGetAttribLocation(rectShader.pid, "texCoord");
 
   // Get the location of the sampler2D in fragment shader (???)
-  r_texLoc = glGetUniformLocation(r_pid, "texCol");
+  rectShader.texLoc = glGetUniformLocation(rectShader.pid, "texCol");
 
   // Create vertex array object
   glGenVertexArrays(1, &rect_vaoID);
   glBindVertexArray(rect_vaoID);
-
+  
   // Bind position buffer
-  glEnableVertexAttribArray(r_vertPosLoc);
+  glEnableVertexAttribArray(rectShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, rect_posBufID);
-  glVertexAttribPointer(r_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(rectShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind texture coordinate buffer
-  glEnableVertexAttribArray(r_texCoordLoc);
+  glEnableVertexAttribArray(rectShader.texCoord);
   glBindBuffer(GL_ARRAY_BUFFER, rect_texCoordBufID);
-  glVertexAttribPointer(r_texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
+  glVertexAttribPointer(rectShader.texCoord, 2, GL_FLOAT, GL_FALSE, 
     sizeof(GL_FLOAT) * 2, (const void *) 0);
 
   // Bind element buffer
@@ -949,8 +941,8 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(r_vertPosLoc);
-  glDisableVertexAttribArray(r_texCoordLoc);
+  glDisableVertexAttribArray(rectShader.vertPos);
+  glDisableVertexAttribArray(rectShader.texCoord);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1441,7 +1433,7 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, grass_texBufID);
   // 0 because texture unit GL_TEXTURE0
-  glUniform1i(r_texLoc, 0);
+  glUniform1i(to_texLoc, 0);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
@@ -1714,7 +1706,7 @@ static void render() {
   glStencilMask(0x00);
 
   // Bind shader program
-  glUseProgram(r_pid);
+  glUseProgram(rectShader.pid);
 
   // Bind vertex array object
   glBindVertexArray(rect_vaoID);
@@ -1723,7 +1715,7 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   // 0 because texture unit GL_TEXTURE0
-  glUniform1i(r_texLoc, 0);
+  glUniform1i(rectShader.texLoc, 0);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,

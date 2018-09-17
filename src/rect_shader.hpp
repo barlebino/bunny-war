@@ -9,9 +9,8 @@ struct RectShader {
   GLuint pid;
   // Shader attribs
   GLint vertPos;
+  GLint texCoord;
   // Shader uniforms
-  GLint modelview;
-  GLint projection;
   GLint texLoc; // samplerCube
 };
 
