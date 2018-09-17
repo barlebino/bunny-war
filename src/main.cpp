@@ -25,6 +25,7 @@
 #include "oc_shader.hpp"
 #include "sb_shader.hpp"
 #include "rect_shader.hpp"
+#include "depth_shader.hpp"
 
 // Image code, for textures
 struct Image {
@@ -122,14 +123,6 @@ GLint to_projectionLoc;
 // sampler2D location
 GLint to_texLoc;
 
-// Depth only
-GLuint do_pid;
-// Shader attribs
-GLint do_vertPosLoc;
-// Shader uniforms
-GLint do_modelviewLoc;
-GLint do_projectionLoc;
-
 // TODO: Convert to enums ???
 // TODO: Change to omp (one material phong) shader
 // TODO: Create cube phong
@@ -159,6 +152,7 @@ struct OmpShader ompShader;
 struct OcShader ocShader;
 struct SbShader sbShader;
 struct RectShader rectShader;
+struct DepthShader depthShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -845,27 +839,28 @@ static void init() {
 
   // Depth Only shader program
 
-  do_pid = initShader("../resources/vertDepthOnly.glsl",
+  depthShader.pid = initShader("../resources/vertDepthOnly.glsl",
     "../resources/fragDepthOnly.glsl");
 
   // Attribs
-  do_vertPosLoc = glGetAttribLocation(do_pid, "vertPos");
+  depthShader.vertPos = glGetAttribLocation(depthShader.pid, "vertPos");
 
   // Per-object matrices to pass to shaders
   // TODO: Replace perspective and placement with modelview and projection
-  do_modelviewLoc = glGetUniformLocation(do_pid, "modelview");
-  do_projectionLoc = glGetUniformLocation(do_pid, "projection");
+  depthShader.modelview = glGetUniformLocation(depthShader.pid, "modelview");
+  depthShader.projection = glGetUniformLocation(depthShader.pid, "projection");
 
   // Bunny vertex array object
+  // TODO: Currently unused
 
   // Create vertex array object
   glGenVertexArrays(1, &do_vaoID);
   glBindVertexArray(do_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(do_vertPosLoc);
+  glEnableVertexAttribArray(depthShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
-  glVertexAttribPointer(do_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(depthShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
@@ -875,7 +870,8 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(do_vertPosLoc);
+  /*glDisableVertexAttribArray(do_vertPosLoc);*/
+  glDisableVertexAttribArray(depthShader.vertPos);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -887,10 +883,15 @@ static void init() {
   glGenVertexArrays(1, &do_sphere_vaoID);
   glBindVertexArray(do_sphere_vaoID);
 
-  // Bind position buffer
+  /*// Bind position buffer
   glEnableVertexAttribArray(do_vertPosLoc);
   glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
   glVertexAttribPointer(do_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);*/
+  // Bind position buffer
+  glEnableVertexAttribArray(depthShader.vertPos);
+  glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
+  glVertexAttribPointer(depthShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
@@ -900,7 +901,8 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(do_vertPosLoc);
+  /*glDisableVertexAttribArray(do_vertPosLoc);*/
+  glDisableVertexAttribArray(depthShader.vertPos);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1363,12 +1365,12 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(do_pid);
+  glUseProgram(depthShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(do_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(depthShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(do_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(depthShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
 
   // Bind vertex array object
