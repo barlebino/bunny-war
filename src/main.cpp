@@ -23,6 +23,7 @@
 #include "material.hpp"
 #include "omp_shader.hpp"
 #include "oc_shader.hpp"
+#include "sb_shader.hpp"
 
 // Image code, for textures
 struct Image {
@@ -138,18 +139,9 @@ GLint r_texCoordLoc;
 // sampler2D location
 GLint r_texLoc;
 
-// Cubemap shader
-GLuint cm_pid;
-// Shader attribs
-GLint cm_vertPosLoc;
-// Shader uniforms
-GLint cm_modelviewLoc;
-GLint cm_projectionLoc;
-// samplerCube location
-GLint cm_texLoc;
-
 // TODO: Convert to enums ???
 // TODO: Change to omp (one material phong) shader
+// TODO: Create cube phong
 // Phong shader
 GLuint phong_pid;
 // Shader attribs
@@ -174,6 +166,7 @@ GLint phong_lightSpecularLoc;
 // TODO: Change all shaders into similar format
 struct OmpShader ompShader;
 struct OcShader ocShader;
+struct SbShader sbShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -965,19 +958,20 @@ static void init() {
 
   // Cubemap shader program
 
-  cm_pid = initShader("../resources/vertCubemap.glsl",
+  sbShader.pid = initShader("../resources/vertCubemap.glsl",
     "../resources/fragCubemap.glsl");
 
   // Attribs
-  cm_vertPosLoc = glGetAttribLocation(cm_pid, "vertPos");
+  sbShader.vertPos = glGetAttribLocation(sbShader.pid, "vertPos");
 
   // Per-object matrices to pass to shaders
   // TODO: Replace perspective and placement with modelview and projection
-  cm_modelviewLoc = glGetUniformLocation(cm_pid, "modelview");
-  cm_projectionLoc = glGetUniformLocation(cm_pid, "projection");
+  sbShader.modelview = glGetUniformLocation(sbShader.pid, "modelview");
+  sbShader.projection = glGetUniformLocation(sbShader.pid, "projection");
 
   // Get the location of the samplerCube in fragment shader (???)
-  cm_texLoc = glGetUniformLocation(cm_pid, "skybox");
+  // TODO: change the names to match
+  sbShader.texLoc = glGetUniformLocation(sbShader.pid, "skybox");
 
   // Skybox vertex array object
 
@@ -986,17 +980,16 @@ static void init() {
   glBindVertexArray(skybox_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(cm_vertPosLoc);
+  glEnableVertexAttribArray(sbShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, skybox_posBufID);
-  glVertexAttribPointer(cm_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(sbShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(to_vertPosLoc);
-  glDisableVertexAttribArray(to_texCoordLoc);
+  glDisableVertexAttribArray(sbShader.vertPos);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1670,12 +1663,12 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(cm_pid);
+  glUseProgram(sbShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(cm_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(sbShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(cm_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(sbShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
 
   // Bind vertex array object
@@ -1689,7 +1682,7 @@ static void render() {
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
   // 1 because correct skybox is in texture unit GL_TEXTURE1
-  glUniform1i(cm_texLoc, 1);
+  glUniform1i(sbShader.texLoc, 1);
 
   // Draw the cube
   // Divide by 3 because per vertex
