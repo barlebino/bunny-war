@@ -1,11 +1,11 @@
-#ifndef SB_SHADER_HPP
-#define SB_SHADER_HPP
+#ifndef SKYBOX_SHADER_HPP
+#define SKYBOX_SHADER_HPP
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
 // Skybox shader
-struct SbShader {
+struct SkyboxShader {
   GLuint pid;
   // Shader attribs
   GLint vertPos;

@@ -4,7 +4,6 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-// One color shader
 struct TextureShader {
   GLuint pid;
   // Attribs

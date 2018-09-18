@@ -23,10 +23,11 @@
 #include "material.hpp"
 #include "omp_shader.hpp"
 #include "oc_shader.hpp"
-#include "sb_shader.hpp"
+#include "skybox_shader.hpp"
 #include "rect_shader.hpp"
 #include "depth_shader.hpp"
 #include "texture_shader.hpp"
+#include "phongcube_shader.hpp"
 
 // Image code, for textures
 struct Image {
@@ -82,6 +83,7 @@ unsigned skybox_vaoID;
 unsigned oc_bunny_vaoID;
 unsigned ls_vaoID;
 unsigned omp_bunny_vaoID;
+unsigned woodcube_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
@@ -140,10 +142,11 @@ GLint phong_lightSpecularLoc;
 // TODO: Change all shaders into similar format
 struct OmpShader ompShader;
 struct OcShader ocShader;
-struct SbShader sbShader;
+struct SkyboxShader sbShader;
 struct RectShader rectShader;
 struct DepthShader depthShader;
 struct TextureShader textureShader;
+struct PhongCubeShader pcShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -300,6 +303,7 @@ GLuint initShader(const char *vsfn, const char *fsfn) {
   return pid;
 }
 
+// TODO: One file to hold all mesh operations
 static void resizeMesh(std::vector<float>& posBuf) {
   float minX, minY, minZ;
   float maxX, maxY, maxZ;
@@ -1104,7 +1108,9 @@ static void init() {
   // TODO: General phong shader
   // Phong shader program
 
-  phong_pid = initShader("../resources/vertPhong.glsl",
+  // Phong cube shader
+
+  /*phong_pid = initShader("../resources/vertPhong.glsl",
     "../resources/fragPhong.glsl");
 
   // Attribs
@@ -1133,9 +1139,37 @@ static void init() {
   phong_lightDiffuseLoc = glGetUniformLocation(phong_pid,
     "light.diffuse");
   phong_lightSpecularLoc = glGetUniformLocation(phong_pid,
-    "light.specular");
+    "light.specular");*/
 
-  // TODO: Cube vertex array object
+  pcShader.pid = initShader("../resources/vertPhongCube.glsl",
+    "../resources/fragPhongCube.glsl");
+
+  // Attribs
+  pcShader.vertPos = glGetAttribLocation(pcShader.pid, "vertPos");
+  pcShader.vertNor = glGetAttribLocation(pcShader.pid, "vertNor");
+
+  // Per-object matrices to pass to shaders
+  // Vertex shader uniforms
+  pcShader.modelview = glGetUniformLocation(pcShader.pid, "modelview");
+  pcShader.projection = glGetUniformLocation(pcShader.pid, "projection");
+  // Fragment shader uniforms
+  pcShader.camPos = glGetUniformLocation(pcShader.pid, "cam_pos");
+  pcShader.materialAmbient = glGetUniformLocation(pcShader.pid,
+    "material.ambient");
+  pcShader.materialDiffuse = glGetUniformLocation(pcShader.pid,
+    "material.diffuse");
+  pcShader.materialSpecular = glGetUniformLocation(pcShader.pid,
+    "material.specular");
+  pcShader.materialShininess = glGetUniformLocation(pcShader.pid,
+    "material.shininess");
+  pcShader.lightPosition = glGetUniformLocation(pcShader.pid,
+    "light.position");
+  pcShader.lightAmbient = glGetUniformLocation(pcShader.pid,
+    "light.ambient");
+  pcShader.lightDiffuse = glGetUniformLocation(pcShader.pid,
+    "light.diffuse");
+  pcShader.lightSpecular = glGetUniformLocation(pcShader.pid,
+    "light.specular");
 }
 
 static void render() {
@@ -1657,12 +1691,9 @@ static void render() {
   // Texture unit example below
   // Bind the texture
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, skyTexture);
-  // TESTING
-  glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-  // 1 because correct skybox is in texture unit GL_TEXTURE1
-  glUniform1i(sbShader.texLoc, 1);
+  // 0 because correct skybox is in texture unit GL_TEXTURE0
+  glUniform1i(sbShader.texLoc, 0);
 
   // Draw the cube
   // Divide by 3 because per vertex
