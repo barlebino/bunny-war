@@ -26,6 +26,7 @@
 #include "sb_shader.hpp"
 #include "rect_shader.hpp"
 #include "depth_shader.hpp"
+#include "texture_shader.hpp"
 
 // Image code, for textures
 struct Image {
@@ -112,17 +113,6 @@ unsigned skybox_posBufSize;
 
 // Shader programs
 
-// Texture only
-GLuint to_pid;
-// Shader attribs
-GLint to_vertPosLoc;
-GLint to_texCoordLoc;
-// Shader uniforms
-GLint to_modelviewLoc;
-GLint to_projectionLoc;
-// sampler2D location
-GLint to_texLoc;
-
 // TODO: Convert to enums ???
 // TODO: Change to omp (one material phong) shader
 // TODO: Create cube phong
@@ -153,6 +143,7 @@ struct OcShader ocShader;
 struct SbShader sbShader;
 struct RectShader rectShader;
 struct DepthShader depthShader;
+struct TextureShader textureShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -760,20 +751,20 @@ static void init() {
 
   // Texture only shader program
 
-  to_pid = initShader("../resources/vertTextureOnly.glsl",
+  textureShader.pid = initShader("../resources/vertTextureOnly.glsl",
     "../resources/fragTextureOnly.glsl");
 
   // Attribs
-  to_vertPosLoc = glGetAttribLocation(to_pid, "vertPos");
-  to_texCoordLoc = glGetAttribLocation(to_pid, "texCoord");
+  textureShader.vertPos = glGetAttribLocation(textureShader.pid, "vertPos");
+  textureShader.texCoord = glGetAttribLocation(textureShader.pid, "texCoord");
 
   // Per-object matrices to pass to shaders
   // TODO: Replace perspective and placement with modelview and projection
-  to_modelviewLoc = glGetUniformLocation(to_pid, "modelview");
-  to_projectionLoc = glGetUniformLocation(to_pid, "projection");
+  textureShader.modelview = glGetUniformLocation(textureShader.pid, "modelview");
+  textureShader.projection = glGetUniformLocation(textureShader.pid, "projection");
 
   // Get the location of the sampler2D in fragment shader (???)
-  to_texLoc = glGetUniformLocation(to_pid, "texCol");
+  textureShader.texLoc = glGetUniformLocation(textureShader.pid, "texCol");
 
   // VAO for globe
   // Create vertex array object
@@ -781,15 +772,15 @@ static void init() {
   glBindVertexArray(to_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(to_vertPosLoc);
+  glEnableVertexAttribArray(textureShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
-  glVertexAttribPointer(to_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(textureShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind texture coordinate buffer
-  glEnableVertexAttribArray(to_texCoordLoc);
+  glEnableVertexAttribArray(textureShader.texCoord);
   glBindBuffer(GL_ARRAY_BUFFER, sphere_texCoordBufID);
-  glVertexAttribPointer(to_texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
+  glVertexAttribPointer(textureShader.texCoord, 2, GL_FLOAT, GL_FALSE, 
     sizeof(GL_FLOAT) * 2, (const void *) 0);
 
   // Bind element buffer
@@ -799,8 +790,8 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(to_vertPosLoc);
-  glDisableVertexAttribArray(to_texCoordLoc);
+  glDisableVertexAttribArray(textureShader.vertPos);
+  glDisableVertexAttribArray(textureShader.texCoord);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -812,15 +803,15 @@ static void init() {
   glBindVertexArray(grass_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(to_vertPosLoc);
+  glEnableVertexAttribArray(textureShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, rect_posBufID);
-  glVertexAttribPointer(to_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(textureShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind texture coordinate buffer
-  glEnableVertexAttribArray(to_texCoordLoc);
+  glEnableVertexAttribArray(textureShader.texCoord);
   glBindBuffer(GL_ARRAY_BUFFER, rect_texCoordBufID);
-  glVertexAttribPointer(to_texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
+  glVertexAttribPointer(textureShader.texCoord, 2, GL_FLOAT, GL_FALSE, 
     sizeof(GL_FLOAT) * 2, (const void *) 0);
 
   // Bind element buffer
@@ -830,8 +821,8 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(to_vertPosLoc);
-  glDisableVertexAttribArray(to_texCoordLoc);
+  glDisableVertexAttribArray(textureShader.vertPos);
+  glDisableVertexAttribArray(textureShader.texCoord);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -870,7 +861,6 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  /*glDisableVertexAttribArray(do_vertPosLoc);*/
   glDisableVertexAttribArray(depthShader.vertPos);
 
   // Unbind GPU buffers
@@ -883,11 +873,6 @@ static void init() {
   glGenVertexArrays(1, &do_sphere_vaoID);
   glBindVertexArray(do_sphere_vaoID);
 
-  /*// Bind position buffer
-  glEnableVertexAttribArray(do_vertPosLoc);
-  glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
-  glVertexAttribPointer(do_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);*/
   // Bind position buffer
   glEnableVertexAttribArray(depthShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
@@ -901,7 +886,6 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  /*glDisableVertexAttribArray(do_vertPosLoc);*/
   glDisableVertexAttribArray(depthShader.vertPos);
 
   // Unbind GPU buffers
@@ -1301,12 +1285,12 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(to_pid);
+  glUseProgram(textureShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(to_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(textureShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(to_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(textureShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
 
   // Bind vertex array object
@@ -1314,9 +1298,10 @@ static void render() {
 
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
+  // TODO: change from sphere_texBufID to globe_texBufID
   glBindTexture(GL_TEXTURE_2D, sphere_texBufID);
   // 0 because texture unit GL_TEXTURE0
-  glUniform1i(to_texLoc, 0);
+  glUniform1i(textureShader.texLoc, 0);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
@@ -1420,12 +1405,13 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(to_pid);
+  /*glUseProgram(to_pid);*/
+  glUseProgram(textureShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(to_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(textureShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(to_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(textureShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
 
   // Bind vertex array object
@@ -1435,7 +1421,7 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, grass_texBufID);
   // 0 because texture unit GL_TEXTURE0
-  glUniform1i(to_texLoc, 0);
+  glUniform1i(textureShader.texLoc, 0);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
