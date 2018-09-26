@@ -1538,6 +1538,8 @@ static void render() {
     glm::value_ptr(tutorialLight.diffuse));
   glUniform3fv(pcShader.lightSpecular, 1,
     glm::value_ptr(tutorialLight.specular));
+  // Shininess is 64.0 MAGIC NUMBER
+  glUniform1f(pcShader.materialShininess, 64.f);
   
   if(debug) {
   // TESTING BEGIN
