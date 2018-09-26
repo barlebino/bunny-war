@@ -160,7 +160,7 @@ unsigned int cubemapTexture;
 unsigned int woodcubeDiffuseMap;
 unsigned int woodcubeSpecularMap;
 
-bool debug = true;
+bool cameraFreeze = true;
 
 // For debugging
 void printMatrix(glm::mat4 mat) {
@@ -181,9 +181,9 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action,
   int mods) {
   if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, GL_TRUE);
-  } else if(key == GLFW_KEY_P) { // toggle debugging
+  } else if(key == GLFW_KEY_P) { // toggle whether or not camera stays in place
     if(action == GLFW_RELEASE) {
-      debug = !debug;
+      cameraFreeze = !cameraFreeze;
     }
   } else if(key == GLFW_KEY_W) {
     if(action == GLFW_PRESS) {
@@ -562,7 +562,6 @@ static void init() {
   // -------- Initialize shader programs --------
 
   // ------ Texture only shader program ------
-
   textureShader.pid = initShader("../resources/vertTextureOnly.glsl",
     "../resources/fragTextureOnly.glsl");
 
@@ -572,8 +571,10 @@ static void init() {
 
   // Per-object matrices to pass to shaders
   // TODO: Replace perspective and placement with modelview and projection
-  textureShader.modelview = glGetUniformLocation(textureShader.pid, "modelview");
-  textureShader.projection = glGetUniformLocation(textureShader.pid, "projection");
+  textureShader.modelview = glGetUniformLocation(textureShader.pid,
+    "modelview");
+  textureShader.projection = glGetUniformLocation(textureShader.pid,
+    "projection");
 
   // Get the location of the sampler2D in fragment shader (???)
   textureShader.texLoc = glGetUniformLocation(textureShader.pid, "texCol");
@@ -911,41 +912,8 @@ static void init() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // TODO: General phong shader
-  // Phong shader program
 
-  // Phong cube shader
-
-  /*phong_pid = initShader("../resources/vertPhong.glsl",
-    "../resources/fragPhong.glsl");
-
-  // Attribs
-  phong_vertPosLoc = glGetAttribLocation(phong_pid, "vertPos");
-  phong_vertNorLoc = glGetAttribLocation(phong_pid, "vertNor");
-
-  // Per-object matrices to pass to shaders
-  // Vertex shader uniforms
-  phong_modelLoc = glGetUniformLocation(phong_pid, "model");
-  phong_viewLoc = glGetUniformLocation(phong_pid, "view");
-  phong_projectionLoc = glGetUniformLocation(phong_pid, "projection");
-  // Fragment shader uniforms
-  phong_camPosLoc = glGetUniformLocation(phong_pid, "cam_pos");
-  phong_materialAmbientLoc = glGetUniformLocation(phong_pid,
-    "material.ambient");
-  phong_materialDiffuseLoc = glGetUniformLocation(phong_pid,
-    "material.diffuse");
-  phong_materialSpecularLoc = glGetUniformLocation(phong_pid,
-    "material.specular");
-  phong_materialShininessLoc = glGetUniformLocation(phong_pid,
-    "material.shininess");
-  phong_lightPositionLoc = glGetUniformLocation(phong_pid,
-    "light.position");
-  phong_lightAmbientLoc = glGetUniformLocation(phong_pid,
-    "light.ambient");
-  phong_lightDiffuseLoc = glGetUniformLocation(phong_pid,
-    "light.diffuse");
-  phong_lightSpecularLoc = glGetUniformLocation(phong_pid,
-    "light.specular");*/
-
+  // ------ Phong cubemap shader ------
   pcShader.pid = initShader("../resources/vertPhongCube.glsl",
     "../resources/fragPhongCube.glsl");
 
@@ -1011,10 +979,6 @@ static void render() {
   glm::dvec2 screenPos;
 
   // Create matrices
-  glm::mat4 matPlacement;
-  glm::mat4 matPerspective;
-  glm::mat4 matCamera;
-
   glm::mat4 matModel;
   glm::mat4 matView;
   glm::mat4 matModelview;
@@ -1040,89 +1004,83 @@ static void render() {
   screenPos.x = cursorPos.x / (double) width;
   screenPos.y = cursorPos.y / (double) height;
 
-  // CHANGED BEGIN
-  if(debug) {
-  // Rotation along y axis
-  if(screenPos.x > .9f && screenPos.x < 1.f &&
-    screenPos.y > 0.f && screenPos.y < 1.f) {
-    camRotation.y = camRotation.y - .01f;
-  } else if(screenPos.x < .1f && screenPos.x > 0.f &&
-    screenPos.y > 0.f && screenPos.y < 1.f) {
-    camRotation.y = camRotation.y + .01f;
+  if(cameraFreeze) {
+    // Rotation along y axis
+    if(screenPos.x > .9f && screenPos.x < 1.f &&
+      screenPos.y > 0.f && screenPos.y < 1.f) {
+      camRotation.y = camRotation.y - .01f;
+    } else if(screenPos.x < .1f && screenPos.x > 0.f &&
+      screenPos.y > 0.f && screenPos.y < 1.f) {
+      camRotation.y = camRotation.y + .01f;
+    }
+
+    if(camRotation.y <= 0.00001f) {
+      camRotation.y = 2.f * PI;
+    } else if(camRotation.y >= 2.f * PI) {
+      camRotation.y = 0.00001f;
+    }
+
+    // Rotation along x axis
+    // NOTE POSITIVE DIRECTION
+    if(screenPos.y > .9f && screenPos.y < 1.f &&
+      camRotation.x > -PI / 2.f &&
+      screenPos.x > 0.f && screenPos.x < 1.f) {
+      camRotation.x = camRotation.x - .01f;
+    } else if(screenPos.y < .1f && screenPos.y > 0.f &&
+      camRotation.x < PI / 2.f &&
+      screenPos.x > 0.f && screenPos.x < 1.f) {
+      camRotation.x = camRotation.x + .01f;
+    }
+
+    // Update the forward direction
+    forward = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
+      glm::vec3(0.f, 1.f, 0.f)) *
+      glm::rotate(glm::mat4(1.f), camRotation.x,
+      glm::vec3(1.f, 0.f, 0.f)) *
+      glm::vec4(0.f, 0.f, -1.f, 1.f));
+    forward = glm::normalize(glm::vec3(forward.x, 0.f, forward.z));
+    // Update the side direction
+    sideways = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
+      glm::vec3(0.f, 1.f, 0.f)) *
+      glm::rotate(glm::mat4(1.f), camRotation.x,
+      glm::vec3(1.f, 0.f, 0.f)) *
+      glm::vec4(1.f, 0.f, 0.f, 1.f));
+    sideways = glm::normalize(glm::vec3(sideways.x, 0.f, sideways.z));
+    // Update position
+    if(keys[0]) {
+      camLocation = camLocation + forward * 0.05f;
+    }
+    if(keys[1]) {
+      camLocation = camLocation - sideways * 0.05f;
+    }
+    if(keys[2]) {
+      camLocation = camLocation - forward * 0.05f;
+    }
+    if(keys[3]) {
+      camLocation = camLocation + sideways * 0.05f;
+    }
+    if(keys[4]) {
+      camLocation = camLocation + glm::vec3(0.f, 0.05f, 0.f);
+    }
+    if(keys[5]) {
+      camLocation = camLocation - glm::vec3(0.f, 0.05f, 0.f);
+    }
   }
 
-  if(camRotation.y <= 0.00001f) {
-    camRotation.y = 2.f * PI;
-  } else if(camRotation.y >= 2.f * PI) {
-    camRotation.y = 0.00001f;
-  }
-
-  // Rotation along x axis
-  // NOTE POSITIVE DIRECTION
-  if(screenPos.y > .9f && screenPos.y < 1.f &&
-    camRotation.x > -PI / 2.f &&
-    screenPos.x > 0.f && screenPos.x < 1.f) {
-    camRotation.x = camRotation.x - .01f;
-  } else if(screenPos.y < .1f && screenPos.y > 0.f &&
-    camRotation.x < PI / 2.f &&
-    screenPos.x > 0.f && screenPos.x < 1.f) {
-    camRotation.x = camRotation.x + .01f;
-  }
-
-  // Update the forward direction
-  forward = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
-    glm::vec3(0.f, 1.f, 0.f)) *
-    glm::rotate(glm::mat4(1.f), camRotation.x,
-    glm::vec3(1.f, 0.f, 0.f)) *
-    glm::vec4(0.f, 0.f, -1.f, 1.f));
-  forward = glm::normalize(glm::vec3(forward.x, 0.f, forward.z));
-  // Update the side direction
-  sideways = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
-    glm::vec3(0.f, 1.f, 0.f)) *
-    glm::rotate(glm::mat4(1.f), camRotation.x,
-    glm::vec3(1.f, 0.f, 0.f)) *
-    glm::vec4(1.f, 0.f, 0.f, 1.f));
-  sideways = glm::normalize(glm::vec3(sideways.x, 0.f, sideways.z));
-  // Update position
-  if(keys[0]) {
-    camLocation = camLocation + forward * 0.05f;
-  }
-  if(keys[1]) {
-    camLocation = camLocation - sideways * 0.05f;
-  }
-  if(keys[2]) {
-    camLocation = camLocation - forward * 0.05f;
-  }
-  if(keys[3]) {
-    camLocation = camLocation + sideways * 0.05f;
-  }
-  if(keys[4]) {
-    camLocation = camLocation + glm::vec3(0.f, 0.05f, 0.f);
-  }
-  if(keys[5]) {
-    camLocation = camLocation - glm::vec3(0.f, 0.05f, 0.f);
-  }
-  }
-  // CHANGED END
-
-  // Perspective matrix
+  // Projection matrix
   aspect = width / (float) height;
-  matPerspective = glm::perspective(70.f, aspect, .1f, 100.f);
+  matProjection = glm::perspective(70.f, aspect, .1f, 100.f);
 
-  matProjection = matPerspective;
+  // View matrix
+  matView = glm::mat4(1.f);
+  matView = glm::translate(glm::mat4(1.f), -camLocation) *
+    matView;
 
-  // Transformations regarding the camera
-  matCamera = glm::mat4(1.f);
-  matCamera = glm::translate(glm::mat4(1.f), -camLocation) *
-    matCamera;
-
-  matCamera = glm::rotate(glm::mat4(1.f), -camRotation.x,
-    sideways) * matCamera;
-  matCamera = glm::rotate(glm::mat4(1.f), -camRotation.y,
-    glm::vec3(0.f, 1.f, 0.f)) * matCamera;
-
-  matView = matCamera;
-
+  matView = glm::rotate(glm::mat4(1.f), -camRotation.x,
+    sideways) * matView;
+  matView = glm::rotate(glm::mat4(1.f), -camRotation.y,
+    glm::vec3(0.f, 1.f, 0.f)) * matView;
+  
   // Draw the globe
 
   // Stencil for outline
@@ -1522,8 +1480,6 @@ static void render() {
   glUniformMatrix4fv(pcShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   // Fill in fragment shader uniforms
-  //glUniform3fv(pcShader.camPos, 1,
-  //  glm::value_ptr(camLocation));
   // Give light position in view space
   glUniform3fv(pcShader.lightPosition, 1,
     glm::value_ptr(
@@ -1538,110 +1494,8 @@ static void render() {
     glm::value_ptr(tutorialLight.diffuse));
   glUniform3fv(pcShader.lightSpecular, 1,
     glm::value_ptr(tutorialLight.specular));
-  // Shininess is 64.0 MAGIC NUMBER
+  // Shininess is 64.0, a MAGIC NUMBER
   glUniform1f(pcShader.materialShininess, 64.f);
-  
-  if(debug) {
-  // TESTING BEGIN
-  glm::vec3 expectedColor;
-  /*// TESTING cam_pos BEGIN
-  expectedColor = (glm::normalize(camLocation) +
-    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
-  printf("camLoc: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n",
-    camLocation.x,
-    camLocation.y,
-    camLocation.z,
-    expectedColor.x,
-    expectedColor.y,
-    expectedColor.z);
-  // TESTING cam_pos END*/
-  /*// TESTING light.position BEGIN
-  expectedColor = (glm::normalize(tutorialLight.position) +
-    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
-  printf("lightpos: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n",
-    tutorialLight.position.x,
-    tutorialLight.position.y,
-    tutorialLight.position.z,
-    expectedColor.x,
-    expectedColor.y,
-    expectedColor.z);
-  // TESTING light.position END*/
-  /*// TESTING frag_nor BEGIN
-  glm::vec3 positiveZ = glm::vec3(0.f, 0.f, 1.f);
-  // Transform positiveZ to view space
-  positiveZ = glm::normalize(glm::mat3(matModelview) * positiveZ);
-  expectedColor = (glm::normalize(positiveZ) +
-    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
-  printf("posZ: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n",
-    positiveZ.x,
-    positiveZ.y,
-    positiveZ.z,
-    expectedColor.x,
-    expectedColor.y,
-    expectedColor.z);
-  // TESTING frag_nor END*/
-  // TESTING lv_position START
-  glm::vec3 lv_position = glm::vec3(matModelview *
-    glm::vec4(
-      tutorialLight.position.x,
-      tutorialLight.position.y,
-      tutorialLight.position.z,
-      1.f
-    )
-  );
-  expectedColor = (glm::normalize(lv_position) +
-    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
-  printf("lvpos: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n",
-    lv_position.x,
-    lv_position.y,
-    lv_position.z,
-    expectedColor.x,
-    expectedColor.y,
-    expectedColor.z);
-  // TESTING lv_position END
-  /*// TESTING frag_pos START
-  // box view position
-  glm::vec3 bv_position =
-    glm::vec3(matModelview * glm::vec4(0.0, 0.0, 0.0, 1.0));
-  expectedColor = (glm::normalize(bv_position) +
-    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
-  printf("bv_position: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n",
-    bv_position.x,
-    bv_position.y,
-    bv_position.z,
-    expectedColor.x,
-    expectedColor.y,
-    expectedColor.z);
-  // TESTING frag_pos END*/
-  /*// TESTING lv_position - bv_position START
-  glm::vec3 lv_position =
-    glm::vec3(matModelview * glm::vec4(tutorialLight.position, 1.f));
-  glm::vec3 bv_position =
-    glm::vec3(matModelview * glm::vec4(0.0, 0.0, 0.0, 1.0));
-  glm::vec3 lightDir = glm::normalize(
-    lv_position - bv_position
-  );
-  expectedColor = (glm::normalize(lightDir) +
-    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
-  printf("lvp: [%.2f, %.2f, %.2f], bvp: [%.2f, %.2f, %.2f]\n",
-    lv_position.x,
-    lv_position.y,
-    lv_position.z,
-    bv_position.x,
-    bv_position.y,
-    bv_position.z
-  );
-  printf("lightDir: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n\n",
-    lightDir.x,
-    lightDir.y,
-    lightDir.z,
-    expectedColor.x,
-    expectedColor.y,
-    expectedColor.z
-  );
-  // TESTING lv_position - bv_position END*/
-  // TESTING END
-  }
 
   // Bind vertex array object
   glBindVertexArray(woodcube_vaoID);
