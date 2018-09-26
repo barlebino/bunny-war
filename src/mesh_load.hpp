@@ -18,9 +18,15 @@ void sendMesh(unsigned *posBufID, unsigned *eleBufID,
 // Skybox is not indexed, so needs separate send function
 void sendSkyboxMesh(unsigned *posBufID, int *posBufSize);
 
+// Box is not indexed, so needs separate send function
+// Assumes posBufSize == norBufSize
+void sendPhongBoxMesh(unsigned *posBufID, unsigned *norBufID,
+  int *bufSize);
+
 // "Get" operations for programmer-defined meshes
 // Loads data into one or more of posBuf, norBuf, texCoordBuf, and eleBuf
 void getRectangleMesh();
 void getSkyboxMesh();
+void getPhongBoxMesh();
 
 #endif

@@ -161,6 +161,26 @@ void sendSkyboxMesh(unsigned *posBufID, int *posBufSize) {
   *posBufSize = posBuf.size();
 }
 
+// Box is not indexed, so needs separate send function
+// Assumes posBufSize == norBufSize
+void sendPhongBoxMesh(unsigned *posBufID, unsigned *norBufID,
+  int *bufSize) {
+  // Send vertex position array to GPU
+  glGenBuffers(1, posBufID);
+  glBindBuffer(GL_ARRAY_BUFFER, *posBufID);
+  glBufferData(GL_ARRAY_BUFFER, posBuf.size() * sizeof(float), &posBuf[0],
+    GL_STATIC_DRAW);
+
+  // Send normals array to GPU
+  glGenBuffers(1, norBufID);
+  glBindBuffer(GL_ARRAY_BUFFER, *norBufID);
+  glBufferData(GL_ARRAY_BUFFER, norBuf.size() * sizeof(float),
+    &norBuf[0], GL_STATIC_DRAW);
+
+  // This data is not on the GPU
+  *bufSize = posBuf.size();
+}
+
 // "Get" operations for programmer-defined meshes
 // Loads data into one or more of posBuf, norBuf, texCoordBuf, and eleBuf
 
@@ -251,5 +271,154 @@ void getSkyboxMesh() {
 
   // Skybox does not need texture coordinates
   // Vertex format does not use element indexing
+  // Eighteen floats per cube face
   copy(&posArr[0], &posArr[18 * 6], back_inserter(posBuf));
+}
+
+void getPhongBoxMesh() {
+  /*float posArr[] = {
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f, -1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+  };*/
+
+  float posArr[] = {
+    // positions
+    -1.0f,  1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+
+     1.0f, -1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f,  1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f
+  };
+
+  float norArr[] = {
+     0.0f,  0.0f, -1.0f,
+     0.0f,  0.0f, -1.0f,
+     0.0f,  0.0f, -1.0f,
+     0.0f,  0.0f, -1.0f,
+     0.0f,  0.0f, -1.0f,
+     0.0f,  0.0f, -1.0f,
+
+    -1.0f,  0.0f,  0.0f,
+    -1.0f,  0.0f,  0.0f,
+    -1.0f,  0.0f,  0.0f,
+    -1.0f,  0.0f,  0.0f,
+    -1.0f,  0.0f,  0.0f,
+    -1.0f,  0.0f,  0.0f,
+
+     1.0f,  0.0f,  0.0f,
+     1.0f,  0.0f,  0.0f,
+     1.0f,  0.0f,  0.0f,
+     1.0f,  0.0f,  0.0f,
+     1.0f,  0.0f,  0.0f,
+     1.0f,  0.0f,  0.0f,
+
+     0.0f,  0.0f,  1.0f,
+     0.0f,  0.0f,  1.0f,
+     0.0f,  0.0f,  1.0f,
+     0.0f,  0.0f,  1.0f,
+     0.0f,  0.0f,  1.0f,
+     0.0f,  0.0f,  1.0f,
+
+     0.0f,  1.0f,  0.0f,
+     0.0f,  1.0f,  0.0f,
+     0.0f,  1.0f,  0.0f,
+     0.0f,  1.0f,  0.0f,
+     0.0f,  1.0f,  0.0f,
+     0.0f,  1.0f,  0.0f,
+
+     0.0f, -1.0f,  0.0f,
+     0.0f, -1.0f,  0.0f,
+     0.0f, -1.0f,  0.0f,
+     0.0f, -1.0f,  0.0f,
+     0.0f, -1.0f,  0.0f,
+     0.0f, -1.0f,  0.0f,
+  };
+
+  // Clear the CPU buffers
+  // TODO: Consider changing this process
+  posBuf.clear();
+  norBuf.clear();
+  texCoordBuf.clear();
+  eleBuf.clear();
+
+  // Info needed for phong box
+  // Does not use element indexing
+  // Eighteen floats per cube face
+  copy(&posArr[0], &posArr[18 * 6], back_inserter(posBuf));
+  copy(&norArr[0], &norArr[18 * 6], back_inserter(norBuf));
 }

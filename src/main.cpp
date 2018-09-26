@@ -56,11 +56,11 @@ glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
 glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 
 // Light object
-Light tutorialLight = {
-  glm::vec3(-8.f, 0.f, -2.f),
-  glm::vec3(.2f, .2f, .2f),
-  glm::vec3(.5f, .5f, .5f),
-  glm::vec3(1.f, 1.f, 1.f)
+struct Light tutorialLight = {
+  glm::vec3(-8.f, 0.f, -2.f), // position
+  glm::vec3(.2f, .2f, .2f), // ambient
+  glm::vec3(.5f, .5f, .5f), // diffuse
+  glm::vec3(1.f, 1.f, 1.f) // specular
 };
 
 // Input
@@ -105,6 +105,11 @@ unsigned grass_texBufID;
 // Skybox data
 unsigned skybox_posBufID;
 int skybox_posBufSize;
+
+// Phong box data
+unsigned phongbox_posBufID;
+unsigned phongbox_norBufID;
+int phongbox_bufSize;
 
 // Shader programs
 
@@ -152,7 +157,10 @@ unsigned int fbo_depth_stencil_texture;
 
 // Cubemaps
 unsigned int cubemapTexture;
-unsigned int skyTexture;
+unsigned int woodcubeDiffuseMap;
+unsigned int woodcubeSpecularMap;
+
+bool debug = true;
 
 // For debugging
 void printMatrix(glm::mat4 mat) {
@@ -173,6 +181,10 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action,
   int mods) {
   if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, GL_TRUE);
+  } else if(key == GLFW_KEY_P) { // toggle debugging
+    if(action == GLFW_RELEASE) {
+      debug = !debug;
+    }
   } else if(key == GLFW_KEY_W) {
     if(action == GLFW_PRESS) {
       keys[0] = 1;
@@ -310,9 +322,16 @@ unsigned int loadCubemap(std::vector<std::string> faces) {
     unsigned char *data = stbi_load(faces[i].c_str(), &width, &height,
       &nrChannels, 0);
     if(data) {
-      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
-        0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-      stbi_image_free(data);
+      if(nrChannels == 3) {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
+          0, GL_RGB, width, height,
+          0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        stbi_image_free(data);
+      } else if(nrChannels == 4) {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
+          0, GL_RGBA, width, height,
+          0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+      }
     } else {
       std::cout << "Cubemap texture failed to load at path: " <<
         faces[i] << std::endl;
@@ -391,32 +410,43 @@ static void init() {
   // Unbind
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-  // Get mesh
+  // -------- Initialize all of the meshes --------
+
+  // Sphere mesh
   getMesh("../resources/sphere.obj");
   resizeMesh();
-
   // Send mesh to GPU and store buffer IDs
   sendMesh(&sphere_posBufID, &sphere_eleBufID, &sphere_texCoordBufID,
     &sphere_eleBufSize, &sphere_norBufID);
 
-  // Do again for bunny
+  // Bunny mesh
   getMesh("../resources/bunny.obj");
   resizeMesh();
   sendMesh(&bunny_posBufID, &bunny_eleBufID, NULL,
     &bunny_eleBufSize, &bunny_norBufID);
-
-  // Do again for rectangle
+  
+  // Rectangle mesh
   getRectangleMesh();
   // No need to resize, explicitly specified coordinates
   sendMesh(&rect_posBufID, &rect_eleBufID, &rect_texCoordBufID,
     &rect_eleBufSize, NULL);
 
-  // Do again for cube
+  // Skybox mesh
   getSkyboxMesh();
   sendSkyboxMesh(&skybox_posBufID, &skybox_posBufSize);
 
+  // Phong box mesh
+  getPhongBoxMesh();
+  sendPhongBoxMesh(&phongbox_posBufID, &phongbox_norBufID,
+    &phongbox_bufSize);
+
+  // -------- Load textures onto the GPU --------
+  // TODO: Do the same thing as with mesh_load
+
   // Read textures into CPU memory
   struct Image image;
+
+  // ------ Load world texture ------
 
   // For some reason stb loads images upside-down to how we want
   stbi_set_flip_vertically_on_load(true);
@@ -454,6 +484,8 @@ static void init() {
   // Clear image to prepare loading another image to GPU
   free(image.data);
 
+  // ------ Load grass texture ------
+
   // Load image
   image.data = stbi_load("../resources/grass.png", &(image.sizeX),
     &(image.sizeY), &(image.numChannels), 0);
@@ -465,7 +497,7 @@ static void init() {
   // Bind current texture unit to texture buffer object as a GL_TEXTURE_2D
   glBindTexture(GL_TEXTURE_2D, grass_texBufID);
   // Load texture data into texBufID
-  // Base level is 0, number of channels is 3, and border is 0
+  // Base level is 0, number of channels is (4?), and border is 0
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.sizeX, image.sizeY,
     0, GL_RGBA, GL_UNSIGNED_BYTE, (GLubyte *) image.data);
 
@@ -486,10 +518,13 @@ static void init() {
   // Clear image
   free(image.data);
 
+  // ------ Load the skybox ------
+
   // Cubemap images are upside down
   stbi_set_flip_vertically_on_load(false);
-  // Load cubemap
   std::vector<std::string> faces;
+  
+  // ---- Load skybox cubemap ----
   faces = {
     "../resources/skybox/right.jpg",
     "../resources/skybox/left.jpg",
@@ -499,19 +534,34 @@ static void init() {
     "../resources/skybox/back.jpg"
   };
   cubemapTexture = loadCubemap(faces);
+
+  // ---- Load wood cube diffuse ----
+  // TODO: One texture, six faces??? Any memory-friendly alternative?
   faces = {
-    "../resources/skybox/top.jpg",
-    "../resources/skybox/top.jpg",
-    "../resources/skybox/top.jpg",
-    "../resources/skybox/top.jpg",
-    "../resources/skybox/top.jpg",
-    "../resources/skybox/top.jpg"
+    "../resources/woodcube/diffuse_container.png",
+    "../resources/woodcube/diffuse_container.png",
+    "../resources/woodcube/diffuse_container.png",
+    "../resources/woodcube/diffuse_container.png",
+    "../resources/woodcube/diffuse_container.png",
+    "../resources/woodcube/diffuse_container.png"
   };
-  skyTexture = loadCubemap(faces);
+  woodcubeDiffuseMap = loadCubemap(faces);
 
-  // Initialize shader programs
+  // ---- Load wood cube specular ----
+  // TODO: One texture, six faces??? Any memory-friendly alternative?
+  faces = {
+    "../resources/woodcube/specular_container.png",
+    "../resources/woodcube/specular_container.png",
+    "../resources/woodcube/specular_container.png",
+    "../resources/woodcube/specular_container.png",
+    "../resources/woodcube/specular_container.png",
+    "../resources/woodcube/specular_container.png"
+  };
+  woodcubeSpecularMap = loadCubemap(faces);
 
-  // Texture only shader program
+  // -------- Initialize shader programs --------
+
+  // ------ Texture only shader program ------
 
   textureShader.pid = initShader("../resources/vertTextureOnly.glsl",
     "../resources/fragTextureOnly.glsl");
@@ -528,6 +578,7 @@ static void init() {
   // Get the location of the sampler2D in fragment shader (???)
   textureShader.texLoc = glGetUniformLocation(textureShader.pid, "texCol");
 
+  // TODO: Do VAOs separate from shader initialization
   // VAO for globe
   // Create vertex array object
   glGenVertexArrays(1, &to_vaoID);
@@ -590,8 +641,7 @@ static void init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // Depth Only shader program
-
+  // ------ Depth Only shader program ------
   depthShader.pid = initShader("../resources/vertDepthOnly.glsl",
     "../resources/fragDepthOnly.glsl");
 
@@ -654,8 +704,7 @@ static void init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // Rectangle shader program
-
+  // ------ Rectangle shader program ------
   rectShader.pid = initShader("../resources/vertRectangle.glsl",
     "../resources/fragRectangle.glsl");
 
@@ -696,8 +745,8 @@ static void init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // Cubemap shader program
-
+  // ------ Cubemap shader program ------
+  // TODO: Change from vertCubemap to vertSkybox
   sbShader.pid = initShader("../resources/vertCubemap.glsl",
     "../resources/fragCubemap.glsl");
 
@@ -735,8 +784,7 @@ static void init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // One color shader program
-
+  // ------ One color shader program ------
   ocShader.pid = initShader("../resources/vertOneColor.glsl",
     "../resources/fragOneColor.glsl");
 
@@ -798,8 +846,7 @@ static void init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // One material phong shader program
-
+  // ------ One material phong shader program ------
   ompShader.pid = initShader("../resources/vertOneMaterialPhong.glsl",
     "../resources/fragOneMaterialPhong.glsl");
 
@@ -911,9 +958,7 @@ static void init() {
   pcShader.modelview = glGetUniformLocation(pcShader.pid, "modelview");
   pcShader.projection = glGetUniformLocation(pcShader.pid, "projection");
   // Fragment shader uniforms
-  pcShader.camPos = glGetUniformLocation(pcShader.pid, "cam_pos");
-  pcShader.materialAmbient = glGetUniformLocation(pcShader.pid,
-    "material.ambient");
+  //pcShader.camPos = glGetUniformLocation(pcShader.pid, "cam_pos");
   pcShader.materialDiffuse = glGetUniformLocation(pcShader.pid,
     "material.diffuse");
   pcShader.materialSpecular = glGetUniformLocation(pcShader.pid,
@@ -928,6 +973,35 @@ static void init() {
     "light.diffuse");
   pcShader.lightSpecular = glGetUniformLocation(pcShader.pid,
     "light.specular");
+
+  // Wooden cube vertex array object
+
+  // Create vertex array object
+  glGenVertexArrays(1, &woodcube_vaoID);
+  glBindVertexArray(woodcube_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(pcShader.vertPos);
+  glBindBuffer(GL_ARRAY_BUFFER, phongbox_posBufID);
+  glVertexAttribPointer(pcShader.vertPos, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind normal uffer
+  glEnableVertexAttribArray(pcShader.vertNor);
+  glBindBuffer(GL_ARRAY_BUFFER, phongbox_norBufID);
+  glVertexAttribPointer(pcShader.vertNor, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(pcShader.vertPos);
+  glDisableVertexAttribArray(pcShader.vertNor);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 static void render() {
@@ -966,6 +1040,8 @@ static void render() {
   screenPos.x = cursorPos.x / (double) width;
   screenPos.y = cursorPos.y / (double) height;
 
+  // CHANGED BEGIN
+  if(debug) {
   // Rotation along y axis
   if(screenPos.x > .9f && screenPos.x < 1.f &&
     screenPos.y > 0.f && screenPos.y < 1.f) {
@@ -1026,10 +1102,12 @@ static void render() {
   if(keys[5]) {
     camLocation = camLocation - glm::vec3(0.f, 0.05f, 0.f);
   }
+  }
+  // CHANGED END
 
   // Perspective matrix
   aspect = width / (float) height;
-  matPerspective = glm::perspective(70.f, aspect, .1f, 10.f);
+  matPerspective = glm::perspective(70.f, aspect, .1f, 100.f);
 
   matProjection = matPerspective;
 
@@ -1406,6 +1484,192 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
+  // Draw the wood cube
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matModel;
+  
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+
+  // Object position is the location of the camera
+  matModel = glm::translate(glm::mat4(1.f),
+    glm::vec3(-12.f, 0.f, -4.f)) * matModel;
+
+  // Modify object relative to the eye
+  matModelview = matView * matModel;
+
+  // Bind shader program
+  glUseProgram(pcShader.pid);
+
+  // Fill in matrices
+  // Fill in vertex shader uniforms
+  glUniformMatrix4fv(pcShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(pcShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  // Fill in fragment shader uniforms
+  //glUniform3fv(pcShader.camPos, 1,
+  //  glm::value_ptr(camLocation));
+  // Give light position in view space
+  glUniform3fv(pcShader.lightPosition, 1,
+    glm::value_ptr(
+      glm::vec3(
+        matView * glm::vec4(tutorialLight.position, 1.f)
+      )
+    )
+  );
+  glUniform3fv(pcShader.lightAmbient, 1,
+    glm::value_ptr(tutorialLight.ambient));
+  glUniform3fv(pcShader.lightDiffuse, 1,
+    glm::value_ptr(tutorialLight.diffuse));
+  glUniform3fv(pcShader.lightSpecular, 1,
+    glm::value_ptr(tutorialLight.specular));
+  
+  if(debug) {
+  // TESTING BEGIN
+  glm::vec3 expectedColor;
+  /*// TESTING cam_pos BEGIN
+  expectedColor = (glm::normalize(camLocation) +
+    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
+  printf("camLoc: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n",
+    camLocation.x,
+    camLocation.y,
+    camLocation.z,
+    expectedColor.x,
+    expectedColor.y,
+    expectedColor.z);
+  // TESTING cam_pos END*/
+  /*// TESTING light.position BEGIN
+  expectedColor = (glm::normalize(tutorialLight.position) +
+    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
+  printf("lightpos: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n",
+    tutorialLight.position.x,
+    tutorialLight.position.y,
+    tutorialLight.position.z,
+    expectedColor.x,
+    expectedColor.y,
+    expectedColor.z);
+  // TESTING light.position END*/
+  /*// TESTING frag_nor BEGIN
+  glm::vec3 positiveZ = glm::vec3(0.f, 0.f, 1.f);
+  // Transform positiveZ to view space
+  positiveZ = glm::normalize(glm::mat3(matModelview) * positiveZ);
+  expectedColor = (glm::normalize(positiveZ) +
+    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
+  printf("posZ: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n",
+    positiveZ.x,
+    positiveZ.y,
+    positiveZ.z,
+    expectedColor.x,
+    expectedColor.y,
+    expectedColor.z);
+  // TESTING frag_nor END*/
+  // TESTING lv_position START
+  glm::vec3 lv_position = glm::vec3(matModelview *
+    glm::vec4(
+      tutorialLight.position.x,
+      tutorialLight.position.y,
+      tutorialLight.position.z,
+      1.f
+    )
+  );
+  expectedColor = (glm::normalize(lv_position) +
+    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
+  printf("lvpos: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n",
+    lv_position.x,
+    lv_position.y,
+    lv_position.z,
+    expectedColor.x,
+    expectedColor.y,
+    expectedColor.z);
+  // TESTING lv_position END
+  /*// TESTING frag_pos START
+  // box view position
+  glm::vec3 bv_position =
+    glm::vec3(matModelview * glm::vec4(0.0, 0.0, 0.0, 1.0));
+  expectedColor = (glm::normalize(bv_position) +
+    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
+  printf("bv_position: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n",
+    bv_position.x,
+    bv_position.y,
+    bv_position.z,
+    expectedColor.x,
+    expectedColor.y,
+    expectedColor.z);
+  // TESTING frag_pos END*/
+  /*// TESTING lv_position - bv_position START
+  glm::vec3 lv_position =
+    glm::vec3(matModelview * glm::vec4(tutorialLight.position, 1.f));
+  glm::vec3 bv_position =
+    glm::vec3(matModelview * glm::vec4(0.0, 0.0, 0.0, 1.0));
+  glm::vec3 lightDir = glm::normalize(
+    lv_position - bv_position
+  );
+  expectedColor = (glm::normalize(lightDir) +
+    glm::vec3(1.f, 1.f, 1.f)) / 2.f * 256.f;
+  printf("lvp: [%.2f, %.2f, %.2f], bvp: [%.2f, %.2f, %.2f]\n",
+    lv_position.x,
+    lv_position.y,
+    lv_position.z,
+    bv_position.x,
+    bv_position.y,
+    bv_position.z
+  );
+  printf("lightDir: [%.2f, %.2f, %.2f], col: [%.2f, %.2f, %.2f]\n\n",
+    lightDir.x,
+    lightDir.y,
+    lightDir.z,
+    expectedColor.x,
+    expectedColor.y,
+    expectedColor.z
+  );
+  // TESTING lv_position - bv_position END*/
+  // TESTING END
+  }
+
+  // Bind vertex array object
+  glBindVertexArray(woodcube_vaoID);
+
+  // Bind the maps
+  // Diffuse Map
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, woodcubeDiffuseMap);
+  glUniform1i(pcShader.materialDiffuse, 0);
+  // Specular Map
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, woodcubeSpecularMap);
+  glUniform1i(pcShader.materialSpecular, 1);
+
+  // Draw the cube
+  // Divide by 3 because per vertex
+  glDrawArrays(GL_TRIANGLES, 0, phongbox_bufSize / 3);
+
+  // Unbind maps
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
   // Draw the cubemap
 
   // Do nothing to the stencil buffer ever
@@ -1451,7 +1715,7 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
   // 0 because correct skybox is in texture unit GL_TEXTURE0
-  glUniform1i(sbShader.texLoc, 0);
+  glUniform1i(sbShader.texLoc, 1); // Changed
 
   // Draw the cube
   // Divide by 3 because per vertex

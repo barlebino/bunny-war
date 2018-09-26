@@ -13,12 +13,10 @@ struct PhongCubeShader {
   // Vertex shader uniforms
   GLint modelview;
   GLint projection;
-  GLint texLoc; // samplerCube
   // Fragment shader uniforms
   GLint camPos;
-  GLint materialAmbient;
-  GLint materialDiffuse;
-  GLint materialSpecular;
+  GLint materialDiffuse; // samplerCube
+  GLint materialSpecular; // samplerCube
   GLint materialShininess;
   GLint lightPosition;
   GLint lightAmbient;
