@@ -10,14 +10,15 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+/*#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"*/
 
 #define PI 3.14159
 
 #include <unistd.h>
 
 #include "mesh_load.hpp"
+#include "image_load.hpp"
 
 #include "material.hpp"
 #include "omp_shader.hpp"
@@ -29,10 +30,10 @@
 #include "phongcube_shader.hpp"
 
 // Image code, for textures
-struct Image {
+/*struct Image {
   int sizeX, sizeY, numChannels;
   unsigned char *data;
-};
+};*/
 
 // Light struct
 struct Light {
@@ -112,32 +113,7 @@ unsigned phongbox_norBufID;
 int phongbox_bufSize;
 
 // Shader programs
-
-// TODO: Convert to enums ???
-// TODO: Change to omp (one material phong) shader
-// TODO: Create cube phong
-// Phong shader
-GLuint phong_pid;
-// Shader attribs
-GLint phong_vertPosLoc;
-GLint phong_vertNorLoc;
-// Shader uniforms
-// Vertex shader uniforms
-GLint phong_modelLoc;
-GLint phong_viewLoc;
-GLint phong_projectionLoc;
-// Fragment shader uniforms
-GLint phong_camPosLoc;
-GLint phong_materialAmbientLoc;
-GLint phong_materialDiffuseLoc;
-GLint phong_materialSpecularLoc;
-GLint phong_materialShininessLoc;
-GLint phong_lightPositionLoc;
-GLint phong_lightAmbientLoc;
-GLint phong_lightDiffuseLoc;
-GLint phong_lightSpecularLoc;
-
-// TODO: Change all shaders into similar format
+// TODO: All shaders inherit from "shader"
 struct OmpShader ompShader;
 struct OcShader ocShader;
 struct SkyboxShader sbShader;
@@ -308,6 +284,7 @@ GLuint initShader(const char *vsfn, const char *fsfn) {
   return pid;
 }
 
+/*
 // Parameter is a vector of strings that are the file names
 // Taken from https://learnopengl.com/Advanced-OpenGL/Cubemaps
 unsigned int loadCubemap(std::vector<std::string> faces) {
@@ -331,6 +308,7 @@ unsigned int loadCubemap(std::vector<std::string> faces) {
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
           0, GL_RGBA, width, height,
           0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        stbi_image_free(data)
       }
     } else {
       std::cout << "Cubemap texture failed to load at path: " <<
@@ -349,6 +327,7 @@ unsigned int loadCubemap(std::vector<std::string> faces) {
 
   return textureID;
 }
+*/
 
 static void init() {
   // Set background color
@@ -385,7 +364,7 @@ static void init() {
   // Unbind texture
   glBindTexture(GL_TEXTURE_2D, 0);
 
-  // TODO : attach depth and stencil separately
+  // TODO : attach depth and stencil separately ???
   // Depth and stencil texture for fbo
   glGenTextures(1, &fbo_depth_stencil_texture);
   glBindTexture(GL_TEXTURE_2D, fbo_depth_stencil_texture);
@@ -444,10 +423,11 @@ static void init() {
   // TODO: Do the same thing as with mesh_load
 
   // Read textures into CPU memory
-  struct Image image;
+  //struct Image image;
 
   // ------ Load world texture ------
 
+  /*
   // For some reason stb loads images upside-down to how we want
   stbi_set_flip_vertically_on_load(true);
 
@@ -483,9 +463,13 @@ static void init() {
 
   // Clear image to prepare loading another image to GPU
   free(image.data);
+  */
+
+  defaultImageLoad("../resources/world.bmp", &sphere_texBufID);
 
   // ------ Load grass texture ------
 
+  /*
   // Load image
   image.data = stbi_load("../resources/grass.png", &(image.sizeX),
     &(image.sizeY), &(image.numChannels), 0);
@@ -517,13 +501,17 @@ static void init() {
 
   // Clear image
   free(image.data);
+  */
+  defaultImageLoad("../resources/grass.png", &grass_texBufID);
 
   // ------ Load the skybox ------
 
+  /*
   // Cubemap images are upside down
   stbi_set_flip_vertically_on_load(false);
+  */
   std::vector<std::string> faces;
-  
+
   // ---- Load skybox cubemap ----
   faces = {
     "../resources/skybox/right.jpg",
@@ -533,7 +521,8 @@ static void init() {
     "../resources/skybox/front.jpg",
     "../resources/skybox/back.jpg"
   };
-  cubemapTexture = loadCubemap(faces);
+  //cubemapTexture = loadCubemap(faces);
+  defaultCubemapLoad(faces, &cubemapTexture);
 
   // ---- Load wood cube diffuse ----
   // TODO: One texture, six faces??? Any memory-friendly alternative?
@@ -545,7 +534,8 @@ static void init() {
     "../resources/woodcube/diffuse_container.png",
     "../resources/woodcube/diffuse_container.png"
   };
-  woodcubeDiffuseMap = loadCubemap(faces);
+  //woodcubeDiffuseMap = loadCubemap(faces);
+  defaultCubemapLoad(faces, &woodcubeDiffuseMap);
 
   // ---- Load wood cube specular ----
   // TODO: One texture, six faces??? Any memory-friendly alternative?
@@ -557,7 +547,8 @@ static void init() {
     "../resources/woodcube/specular_container.png",
     "../resources/woodcube/specular_container.png"
   };
-  woodcubeSpecularMap = loadCubemap(faces);
+  //woodcubeSpecularMap = loadCubemap(faces);
+  defaultCubemapLoad(faces, &woodcubeSpecularMap);
 
   // -------- Initialize shader programs --------
 

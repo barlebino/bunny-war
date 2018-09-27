@@ -12,6 +12,7 @@ void resizeMesh();
 
 // Sends data from CPU buffers to GPU buffers
 // Assumes indexed data
+// Places IDs into the memory locations specified by the parameters
 void sendMesh(unsigned *posBufID, unsigned *eleBufID,
   unsigned *texCoordBufID, int *eleBufSize, unsigned *norBufID);
 
