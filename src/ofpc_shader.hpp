@@ -1,11 +1,11 @@
-#ifndef PHONGCUBE_SHADER_HPP
-#define PHONGCUBE_SHADER_HPP
+#ifndef OFPC_SHADER_HPP
+#define OFPC_SHADER_HPP
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-struct PhongCubeShader {
-  GLuint pid;
+struct OfpcShader {
+  GLint pid;
   // Attribs
   GLint vertPos;
   GLint vertNor;
@@ -14,8 +14,8 @@ struct PhongCubeShader {
   GLint modelview;
   GLint projection;
   // Fragment shader uniforms
-  GLint materialDiffuse; // samplerCube
-  GLint materialSpecular; // samplerCube
+  GLint materialDiffuse; // sampler2D
+  GLint materialSpecular; // sampler2D
   GLint materialShininess;
   GLint lightPosition;
   GLint lightAmbient;

@@ -25,6 +25,7 @@
 #include "depth_shader.hpp"
 #include "texture_shader.hpp"
 #include "phongcube_shader.hpp"
+#include "ofpc_shader.hpp"
 
 // Light struct
 struct Light {
@@ -69,6 +70,7 @@ unsigned oc_bunny_vaoID;
 unsigned ls_vaoID;
 unsigned omp_bunny_vaoID;
 unsigned woodcube_vaoID;
+unsigned facecube_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
@@ -114,6 +116,7 @@ struct RectShader rectShader;
 struct DepthShader depthShader;
 struct TextureShader textureShader;
 struct PhongCubeShader pcShader;
+struct OfpcShader ofpcShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -774,7 +777,7 @@ static void init() {
   glVertexAttribPointer(pcShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
-  // Bind normal uffer
+  // Bind normal buffer
   glEnableVertexAttribArray(pcShader.vertNor);
   glBindBuffer(GL_ARRAY_BUFFER, phongbox_norBufID);
   glVertexAttribPointer(pcShader.vertNor, 3, GL_FLOAT, GL_FALSE,
@@ -786,6 +789,63 @@ static void init() {
   // Disable
   glDisableVertexAttribArray(pcShader.vertPos);
   glDisableVertexAttribArray(pcShader.vertNor);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // ------ One face phong cube shader program ------
+  ofpcShader.pid = initShader("../resources/vertOneFacePhongCube.glsl",
+    "../resources/fragOneFacePhongCube.glsl");
+
+  // TODO: Do this in shader.hpp file
+  // Attribs
+  ofpcShader.vertPos = glGetAttribLocation(ofpcShader.pid, "vertPos");
+  ofpcShader.vertNor = glGetAttribLocation(ofpcShader.pid, "vertNor");
+
+  // Per-object matrices to pass to shaders
+  ofpcShader.modelview = glGetUniformLocation(ofpcShader.pid, "modelview");
+  ofpcShader.projection = glGetUniformLocation(ofpcShader.pid, "projection");
+  ofpcShader.materialDiffuse = glGetUniformLocation(ofpcShader.pid,
+    "material.diffuse");
+  ofpcShader.materialSpecular = glGetUniformLocation(ofpcShader.pid,
+    "material.specular");
+  ofpcShader.materialShininess = glGetUniformLocation(ofpcShader.pid,
+    "material.shininess");
+  ofpcShader.lightPosition = glGetUniformLocation(ofpcShader.pid,
+    "light.position");
+  ofpcShader.lightAmbient = glGetUniformLocation(ofpcShader.pid,
+    "light.ambient");
+  ofpcShader.lightDiffuse = glGetUniformLocation(ofpcShader.pid,
+    "light.diffuse");
+  ofpcShader.lightSpecular = glGetUniformLocation(ofpcShader.pid,
+    "light.specular");
+
+  // TODO: Initialize VAO function per shader
+  // Wooden cube vertex array object
+
+  // Create vertex array object
+  glGenVertexArrays(1, &facecube_vaoID);
+  glBindVertexArray(facecube_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(ofpcShader.vertPos);
+  glBindBuffer(GL_ARRAY_BUFFER, phongbox_posBufID);
+  glVertexAttribPointer(ofpcShader.vertPos, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind normal buffer
+  glEnableVertexAttribArray(ofpcShader.vertNor);
+  glBindBuffer(GL_ARRAY_BUFFER, phongbox_norBufID);
+  glVertexAttribPointer(ofpcShader.vertNor, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+  
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(ofpcShader.vertPos);
+  glDisableVertexAttribArray(ofpcShader.vertNor);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1052,7 +1112,6 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  /*glUseProgram(to_pid);*/
   glUseProgram(textureShader.pid);
 
   // Fill in matrices
@@ -1345,6 +1404,8 @@ static void render() {
 
   // Unbind shader program
   glUseProgram(0);
+
+  // TODO: Draw the other wood cube
 
   // Draw the skybox
 
