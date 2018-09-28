@@ -10,9 +10,6 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-/*#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"*/
-
 #define PI 3.14159
 
 #include <unistd.h>
@@ -28,12 +25,6 @@
 #include "depth_shader.hpp"
 #include "texture_shader.hpp"
 #include "phongcube_shader.hpp"
-
-// Image code, for textures
-/*struct Image {
-  int sizeX, sizeY, numChannels;
-  unsigned char *data;
-};*/
 
 // Light struct
 struct Light {
@@ -84,7 +75,6 @@ unsigned sphere_posBufID;
 unsigned sphere_norBufID;
 unsigned sphere_eleBufID;
 unsigned sphere_texCoordBufID;
-unsigned sphere_texBufID;
 int sphere_eleBufSize;
 
 // Bunny data
@@ -99,6 +89,9 @@ unsigned rect_eleBufID;
 unsigned rect_texCoordBufID;
 unsigned rect_texBufID;
 int rect_eleBufSize;
+
+// World image (uses sphere)
+unsigned world_texBufID;
 
 // Grass data (uses rectangle)
 unsigned grass_texBufID;
@@ -132,9 +125,9 @@ unsigned int fbo_color_texture;
 unsigned int fbo_depth_stencil_texture;
 
 // Cubemaps
-unsigned int cubemapTexture;
-unsigned int woodcubeDiffuseMap;
-unsigned int woodcubeSpecularMap;
+unsigned int skybox_texBufID;
+unsigned int woodcube_diffuseMapID;
+unsigned int woodcube_specularMapID;
 
 bool cameraFreeze = true;
 
@@ -284,51 +277,6 @@ GLuint initShader(const char *vsfn, const char *fsfn) {
   return pid;
 }
 
-/*
-// Parameter is a vector of strings that are the file names
-// Taken from https://learnopengl.com/Advanced-OpenGL/Cubemaps
-unsigned int loadCubemap(std::vector<std::string> faces) {
-  unsigned int textureID;
-  glGenTextures(1, &textureID);
-
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-
-  int width, height, nrChannels;
-  for (unsigned int i = 0; i < faces.size(); i++) {
-    unsigned char *data = stbi_load(faces[i].c_str(), &width, &height,
-      &nrChannels, 0);
-    if(data) {
-      if(nrChannels == 3) {
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
-          0, GL_RGB, width, height,
-          0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        stbi_image_free(data);
-      } else if(nrChannels == 4) {
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
-          0, GL_RGBA, width, height,
-          0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        stbi_image_free(data)
-      }
-    } else {
-      std::cout << "Cubemap texture failed to load at path: " <<
-        faces[i] << std::endl;
-      stbi_image_free(data);
-    }
-  }
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-  // Unbind texture
-  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-
-  return textureID;
-}
-*/
-
 static void init() {
   // Set background color
   glClearColor(.125f, .375f, .5f, 0.f);
@@ -364,7 +312,7 @@ static void init() {
   // Unbind texture
   glBindTexture(GL_TEXTURE_2D, 0);
 
-  // TODO : attach depth and stencil separately ???
+  // TODO : attach depth and stencil separately
   // Depth and stencil texture for fbo
   glGenTextures(1, &fbo_depth_stencil_texture);
   glBindTexture(GL_TEXTURE_2D, fbo_depth_stencil_texture);
@@ -420,96 +368,14 @@ static void init() {
     &phongbox_bufSize);
 
   // -------- Load textures onto the GPU --------
-  // TODO: Do the same thing as with mesh_load
-
-  // Read textures into CPU memory
-  //struct Image image;
 
   // ------ Load world texture ------
-
-  /*
-  // For some reason stb loads images upside-down to how we want
-  stbi_set_flip_vertically_on_load(true);
-
-  // Load image
-  image.data = stbi_load("../resources/world.bmp", &(image.sizeX),
-    &(image.sizeY), &(image.numChannels), 0);
-
-  // Allocate space on GPU then load texture into the GPU
-
-  // Set the first texture unit as active
-  glActiveTexture(GL_TEXTURE0);
-  // Generate texture buffer object
-  glGenTextures(1, &sphere_texBufID);
-  // Bind current texture unit to texture buffer object as a GL_TEXTURE_2D
-  glBindTexture(GL_TEXTURE_2D, sphere_texBufID);
-  // Load texture data into texBufID
-  // Base level is 0, number of channels is 3, and border is 0
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.sizeX, image.sizeY,
-    0, GL_RGB, GL_UNSIGNED_BYTE, (GLubyte *) image.data);
-
-  // Generate image pyramid
-  glGenerateMipmap(GL_TEXTURE_2D);
-  // Set texture wrap modes for S and T directions
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  // Set filtering mode for magnification and minification
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-    GL_LINEAR_MIPMAP_LINEAR);
-
-  // Unbind from texture buffer object from current texture unit
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  // Clear image to prepare loading another image to GPU
-  free(image.data);
-  */
-
-  defaultImageLoad("../resources/world.bmp", &sphere_texBufID);
+  defaultImageLoad("../resources/world.bmp", &world_texBufID); 
 
   // ------ Load grass texture ------
-
-  /*
-  // Load image
-  image.data = stbi_load("../resources/grass.png", &(image.sizeX),
-    &(image.sizeY), &(image.numChannels), 0);
-  
-  // Set the first texture unit as active
-  glActiveTexture(GL_TEXTURE0);
-  // Generate texture buffer object
-  glGenTextures(1, &grass_texBufID);
-  // Bind current texture unit to texture buffer object as a GL_TEXTURE_2D
-  glBindTexture(GL_TEXTURE_2D, grass_texBufID);
-  // Load texture data into texBufID
-  // Base level is 0, number of channels is (4?), and border is 0
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.sizeX, image.sizeY,
-    0, GL_RGBA, GL_UNSIGNED_BYTE, (GLubyte *) image.data);
-
-  // Generate image pyramid
-  glGenerateMipmap(GL_TEXTURE_2D);
-  // Set texture wrap modes for S and T directions
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  // Set filtering mode for magnification and minification
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  // glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-    GL_LINEAR_MIPMAP_LINEAR);
-
-  // Unbind from texture buffer object from current texture unit
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  // Clear image
-  free(image.data);
-  */
   defaultImageLoad("../resources/grass.png", &grass_texBufID);
 
-  // ------ Load the skybox ------
-
-  /*
-  // Cubemap images are upside down
-  stbi_set_flip_vertically_on_load(false);
-  */
+  // ------ Load the cubemaps ------
   std::vector<std::string> faces;
 
   // ---- Load skybox cubemap ----
@@ -521,8 +387,7 @@ static void init() {
     "../resources/skybox/front.jpg",
     "../resources/skybox/back.jpg"
   };
-  //cubemapTexture = loadCubemap(faces);
-  defaultCubemapLoad(faces, &cubemapTexture);
+  defaultCubemapLoad(faces, &skybox_texBufID);
 
   // ---- Load wood cube diffuse ----
   // TODO: One texture, six faces??? Any memory-friendly alternative?
@@ -534,8 +399,7 @@ static void init() {
     "../resources/woodcube/diffuse_container.png",
     "../resources/woodcube/diffuse_container.png"
   };
-  //woodcubeDiffuseMap = loadCubemap(faces);
-  defaultCubemapLoad(faces, &woodcubeDiffuseMap);
+  defaultCubemapLoad(faces, &woodcube_diffuseMapID);
 
   // ---- Load wood cube specular ----
   // TODO: One texture, six faces??? Any memory-friendly alternative?
@@ -547,8 +411,7 @@ static void init() {
     "../resources/woodcube/specular_container.png",
     "../resources/woodcube/specular_container.png"
   };
-  //woodcubeSpecularMap = loadCubemap(faces);
-  defaultCubemapLoad(faces, &woodcubeSpecularMap);
+  defaultCubemapLoad(faces, &woodcube_specularMapID);
 
   // -------- Initialize shader programs --------
 
@@ -561,7 +424,6 @@ static void init() {
   textureShader.texCoord = glGetAttribLocation(textureShader.pid, "texCoord");
 
   // Per-object matrices to pass to shaders
-  // TODO: Replace perspective and placement with modelview and projection
   textureShader.modelview = glGetUniformLocation(textureShader.pid,
     "modelview");
   textureShader.projection = glGetUniformLocation(textureShader.pid,
@@ -641,35 +503,8 @@ static void init() {
   depthShader.vertPos = glGetAttribLocation(depthShader.pid, "vertPos");
 
   // Per-object matrices to pass to shaders
-  // TODO: Replace perspective and placement with modelview and projection
   depthShader.modelview = glGetUniformLocation(depthShader.pid, "modelview");
   depthShader.projection = glGetUniformLocation(depthShader.pid, "projection");
-
-  // Bunny vertex array object
-  // TODO: Currently unused
-
-  // Create vertex array object
-  glGenVertexArrays(1, &do_vaoID);
-  glBindVertexArray(do_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(depthShader.vertPos);
-  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
-  glVertexAttribPointer(depthShader.vertPos, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(depthShader.vertPos);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // Sphere vertex array object
 
@@ -738,21 +573,18 @@ static void init() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // ------ Cubemap shader program ------
-  // TODO: Change from vertCubemap to vertSkybox
-  sbShader.pid = initShader("../resources/vertCubemap.glsl",
-    "../resources/fragCubemap.glsl");
+  sbShader.pid = initShader("../resources/vertSkybox.glsl",
+    "../resources/fragSkybox.glsl");
 
   // Attribs
   sbShader.vertPos = glGetAttribLocation(sbShader.pid, "vertPos");
 
   // Per-object matrices to pass to shaders
-  // TODO: Replace perspective and placement with modelview and projection
   sbShader.modelview = glGetUniformLocation(sbShader.pid, "modelview");
   sbShader.projection = glGetUniformLocation(sbShader.pid, "projection");
 
   // Get the location of the samplerCube in fragment shader (???)
-  // TODO: change the names to match
-  sbShader.texLoc = glGetUniformLocation(sbShader.pid, "skybox");
+  sbShader.skybox = glGetUniformLocation(sbShader.pid, "skybox");
 
   // Skybox vertex array object
 
@@ -1117,8 +949,7 @@ static void render() {
 
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
-  // TODO: change from sphere_texBufID to globe_texBufID
-  glBindTexture(GL_TEXTURE_2D, sphere_texBufID);
+  glBindTexture(GL_TEXTURE_2D, world_texBufID);
   // 0 because texture unit GL_TEXTURE0
   glUniform1i(textureShader.texLoc, 0);
 
@@ -1387,7 +1218,6 @@ static void render() {
     glm::vec3(-12.f, 0.f, -2.f)) * matModel;
 
   // Bind shader program
-  // TODO: Light going behind object
   glUseProgram(ompShader.pid);
 
   // Bind vertex array object
@@ -1494,11 +1324,11 @@ static void render() {
   // Bind the maps
   // Diffuse Map
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, woodcubeDiffuseMap);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, woodcube_diffuseMapID);
   glUniform1i(pcShader.materialDiffuse, 0);
   // Specular Map
   glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, woodcubeSpecularMap);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, woodcube_specularMapID);
   glUniform1i(pcShader.materialSpecular, 1);
 
   // Draw the cube
@@ -1517,7 +1347,7 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
-  // Draw the cubemap
+  // Draw the skybox
 
   // Do nothing to the stencil buffer ever
   glStencilFunc(GL_ALWAYS, 1, 0xFF);
@@ -1560,9 +1390,9 @@ static void render() {
   // Texture unit example below
   // Bind the texture
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_texBufID);
   // 0 because correct skybox is in texture unit GL_TEXTURE0
-  glUniform1i(sbShader.texLoc, 1); // Changed
+  glUniform1i(sbShader.skybox, 1); // Changed
 
   // Draw the cube
   // Divide by 3 because per vertex

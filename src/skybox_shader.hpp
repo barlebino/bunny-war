@@ -12,7 +12,7 @@ struct SkyboxShader {
   // Shader uniforms
   GLint modelview;
   GLint projection;
-  GLint texLoc; // samplerCube
+  GLint skybox; // samplerCube
 };
 
 #endif
