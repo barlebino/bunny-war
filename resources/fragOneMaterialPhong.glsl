@@ -8,7 +8,7 @@ struct Material {
 };
 
 struct Light {
-  vec3 position;
+  vec3 position; // Given in view space
   vec3 ambient;
   vec3 diffuse;
   vec3 specular;
@@ -18,8 +18,6 @@ in vec3 frag_nor;
 in vec3 frag_pos;
 
 out vec4 out_color;
-
-uniform vec3 cam_pos;
 
 uniform Material material;
 uniform Light light;
@@ -33,7 +31,7 @@ void main() {
   float diff = max(dot(norm, lightDir), 0.0);
   vec3 diffuse = light.diffuse * (diff * material.diffuse);
   // Specular
-  vec3 viewDir = normalize(cam_pos - frag_pos);
+  vec3 viewDir = normalize(-frag_pos); // Vector from fragment to camera
   vec3 reflectDir = reflect(-lightDir, norm);
   float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
   vec3 specular = light.specular * (spec * material.specular);  

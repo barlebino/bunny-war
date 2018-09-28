@@ -680,11 +680,9 @@ static void init() {
 
   // Per-object matrices to pass to shaders
   // Vertex shader uniforms
-  ompShader.model = glGetUniformLocation(ompShader.pid, "model");
-  ompShader.view = glGetUniformLocation(ompShader.pid, "view");
+  ompShader.modelview = glGetUniformLocation(ompShader.pid, "modelview");
   ompShader.projection = glGetUniformLocation(ompShader.pid, "projection");
   // Fragment shader uniforms
-  ompShader.camPos = glGetUniformLocation(ompShader.pid, "cam_pos");
   ompShader.materialAmbient = glGetUniformLocation(ompShader.pid,
     "material.ambient");
   ompShader.materialDiffuse = glGetUniformLocation(ompShader.pid,
@@ -749,7 +747,6 @@ static void init() {
   pcShader.modelview = glGetUniformLocation(pcShader.pid, "modelview");
   pcShader.projection = glGetUniformLocation(pcShader.pid, "projection");
   // Fragment shader uniforms
-  //pcShader.camPos = glGetUniformLocation(pcShader.pid, "cam_pos");
   pcShader.materialDiffuse = glGetUniformLocation(pcShader.pid,
     "material.diffuse");
   pcShader.materialSpecular = glGetUniformLocation(pcShader.pid,
@@ -1217,6 +1214,9 @@ static void render() {
   matModel = glm::translate(glm::mat4(1.f),
     glm::vec3(-12.f, 0.f, -2.f)) * matModel;
 
+  // Set modelview matrix
+  matModelview = matView * matModel;
+
   // Bind shader program
   glUseProgram(ompShader.pid);
 
@@ -1225,17 +1225,11 @@ static void render() {
 
   // Fill in matrices
   // Fill in vertex shader uniforms
-  // TODO: Change to modelview matrix
-  // TODO: Lighting calculation in view space
-  glUniformMatrix4fv(ompShader.model, 1, GL_FALSE,
-    glm::value_ptr(matModel));
-  glUniformMatrix4fv(ompShader.view, 1, GL_FALSE,
-    glm::value_ptr(matView));
+  glUniformMatrix4fv(ompShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
   glUniformMatrix4fv(ompShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   // Fill in fragment shader uniforms
-  glUniform3fv(ompShader.camPos, 1,
-    glm::value_ptr(camLocation));
   glUniform3fv(ompShader.materialAmbient, 1,
     glm::value_ptr(copper.ambient));
   glUniform3fv(ompShader.materialDiffuse, 1,
@@ -1245,7 +1239,12 @@ static void render() {
   glUniform1f(ompShader.materialShininess,
     copper.shininess);
   glUniform3fv(ompShader.lightPosition, 1,
-    glm::value_ptr(tutorialLight.position));
+    glm::value_ptr(
+      glm::vec3(
+        matView * glm::vec4(tutorialLight.position, 1.f)
+      )
+    )
+  );
   glUniform3fv(ompShader.lightAmbient, 1,
     glm::value_ptr(tutorialLight.ambient));
   glUniform3fv(ompShader.lightDiffuse, 1,

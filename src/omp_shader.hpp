@@ -11,11 +11,9 @@ struct OmpShader {
   GLint vertNor;
   // Uniforms
   // Vertex shader uniforms
-  GLint model;
-  GLint view;
+  GLint modelview;
   GLint projection;
   // Fragment shader uniforms
-  GLint camPos;
   GLint materialAmbient;
   GLint materialDiffuse;
   GLint materialSpecular;
