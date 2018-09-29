@@ -23,11 +23,12 @@ uniform Material material;
 uniform Light light;
 
 vec2 convertTexCoord(vec3 texCoord) {
-  if(texCoord.x >= texCoord.y && texCoord.x >= texCoord.z) {
+  vec3 absCoord = vec3(abs(texCoord.x), abs(texCoord.y), abs(texCoord.z));
+  if(absCoord.x >= absCoord.y && absCoord.x >= absCoord.z) {
     return vec2(texCoord.y / texCoord.x, texCoord.z / texCoord.x);
-  } else if(texCoord.y >= texCoord.x && texCoord.y >= texCoord.z) {
+  } else if(absCoord.y >= absCoord.x && absCoord.y >= absCoord.z) {
     return vec2(texCoord.x / texCoord.y, texCoord.z / texCoord.y);
-  } else if(texCoord.z >= texCoord.x && texCoord.z >= texCoord.y) {
+  } else if(absCoord.z >= absCoord.x && absCoord.z >= absCoord.y) {
     return vec2(texCoord.x / texCoord.z, texCoord.y / texCoord.z);
   } else {
     return vec2(0.0, 0.0);
@@ -35,7 +36,7 @@ vec2 convertTexCoord(vec3 texCoord) {
 }
 
 void main() {
-  vec2 texCoord2D = convertTexCoord(tex_coord);
+  vec2 texCoord2D = (convertTexCoord(tex_coord) + vec2(1.0, 1.0)) / 2.0;
   // Ambient
   vec3 ambient = light.ambient *
     texture(material.diffuse, texCoord2D).rgb;

@@ -131,6 +131,8 @@ unsigned int fbo_depth_stencil_texture;
 unsigned int skybox_texBufID;
 unsigned int woodcube_diffuseMapID;
 unsigned int woodcube_specularMapID;
+unsigned int facecube_diffuseMapID;
+unsigned int facecube_specularMapID;
 
 bool cameraFreeze = true;
 
@@ -377,6 +379,16 @@ static void init() {
 
   // ------ Load grass texture ------
   defaultImageLoad("../resources/grass.png", &grass_texBufID);
+
+  // -------- Load face cubemaps --------
+
+  // ------ Load diffuse container texture ------
+  defaultImageLoad("../resources/woodcube/diffuse_container.png",
+    &facecube_diffuseMapID);
+
+  // ------ Load specular container texture ------
+  defaultImageLoad("../resources/woodcube/specular_container.png",
+    &facecube_specularMapID);
 
   // ------ Load the cubemaps ------
   std::vector<std::string> faces;
@@ -1342,7 +1354,7 @@ static void render() {
   matModel = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
-  // Object position is the location of the camera
+  // Object position is -12, 0, -4
   matModel = glm::translate(glm::mat4(1.f),
     glm::vec3(-12.f, 0.f, -4.f)) * matModel;
 
@@ -1406,6 +1418,87 @@ static void render() {
   glUseProgram(0);
 
   // TODO: Draw the other wood cube
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matModel;
+  
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+
+  // Object position is -12, 0, -4
+  matModel = glm::translate(glm::mat4(1.f),
+    glm::vec3(-12.f, 0.f, 4.f)) * matModel;
+
+  // Modify object relative to the eye
+  matModelview = matView * matModel;
+
+  // Bind shader program
+  glUseProgram(ofpcShader.pid);
+
+  // Fill in shader uniforms
+  glUniformMatrix4fv(ofpcShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(ofpcShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  // Give light position in view space
+  glUniform3fv(ofpcShader.lightPosition, 1,
+    glm::value_ptr(
+      glm::vec3(
+        matView * glm::vec4(tutorialLight.position, 1.f)
+      )
+    )
+  );
+  glUniform3fv(ofpcShader.lightAmbient, 1,
+    glm::value_ptr(tutorialLight.ambient));
+  glUniform3fv(ofpcShader.lightDiffuse, 1,
+    glm::value_ptr(tutorialLight.diffuse));
+  glUniform3fv(ofpcShader.lightSpecular, 1,
+    glm::value_ptr(tutorialLight.specular));
+  // Shininess is 64.0, a MAGIC NUMBER
+  glUniform1f(ofpcShader.materialShininess, 64.f);
+
+  // Bind vertex array object
+  glBindVertexArray(facecube_vaoID);
+
+  // Bind the maps
+  // Bind diffuse map
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, facecube_diffuseMapID);
+  // 0 because texture unit GL_TEXTURE0
+  glUniform1i(ofpcShader.materialDiffuse, 0);
+  // Bind specular map
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, facecube_specularMapID);
+  // 1 because texture unit GL_TEXTURE1
+  glUniform1i(ofpcShader.materialSpecular, 1);
+
+  // Draw one object
+  glDrawArrays(GL_TRIANGLES, 0, phongbox_bufSize / 3);
+
+  // Unbind maps
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
 
   // Draw the skybox
 
