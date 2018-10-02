@@ -405,7 +405,6 @@ static void init() {
   defaultCubemapLoad(faces, &skybox_texBufID);
 
   // ---- Load wood cube diffuse ----
-  // TODO: One texture, six faces??? Any memory-friendly alternative?
   faces = {
     "../resources/woodcube/diffuse_container.png",
     "../resources/woodcube/diffuse_container.png",
@@ -417,7 +416,6 @@ static void init() {
   defaultCubemapLoad(faces, &woodcube_diffuseMapID);
 
   // ---- Load wood cube specular ----
-  // TODO: One texture, six faces??? Any memory-friendly alternative?
   faces = {
     "../resources/woodcube/specular_container.png",
     "../resources/woodcube/specular_container.png",
@@ -810,7 +808,7 @@ static void init() {
   ofpcShader.pid = initShader("../resources/vertOneFacePhongCube.glsl",
     "../resources/fragOneFacePhongCube.glsl");
 
-  // TODO: Do this in shader.hpp file
+  // TODO: Do this in ...shader.hpp file
   // Attribs
   ofpcShader.vertPos = glGetAttribLocation(ofpcShader.pid, "vertPos");
   ofpcShader.vertNor = glGetAttribLocation(ofpcShader.pid, "vertNor");
@@ -1417,7 +1415,7 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
-  // TODO: Draw the other wood cube
+  // Draw the other wood cube
 
   // Do nothing to the stencil buffer ever
   glStencilFunc(GL_ALWAYS, 1, 0xFF);
