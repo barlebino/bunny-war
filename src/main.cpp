@@ -14,18 +14,19 @@
 
 #include <unistd.h>
 
-#include "mesh_load.hpp"
-#include "image_load.hpp"
+#include "asset_loaders/mesh_load.hpp"
+#include "asset_loaders/image_load.hpp"
 
 #include "material.hpp"
-#include "omp_shader.hpp"
-#include "oc_shader.hpp"
-#include "skybox_shader.hpp"
-#include "rect_shader.hpp"
-#include "depth_shader.hpp"
-#include "texture_shader.hpp"
-#include "phongcube_shader.hpp"
-#include "ofpc_shader.hpp"
+
+#include "shaders_c/omp_shader.hpp"
+#include "shaders_c/oc_shader.hpp"
+#include "shaders_c/skybox_shader.hpp"
+#include "shaders_c/rect_shader.hpp"
+#include "shaders_c/depth_shader.hpp"
+#include "shaders_c/texture_shader.hpp"
+#include "shaders_c/phongcube_shader.hpp"
+#include "shaders_c/ofpc_shader.hpp"
 
 // Light struct
 struct Light {
@@ -345,14 +346,14 @@ static void init() {
   // -------- Initialize all of the meshes --------
 
   // Sphere mesh
-  getMesh("../resources/sphere.obj");
+  getMesh("../resources/objs/sphere.obj");
   resizeMesh();
   // Send mesh to GPU and store buffer IDs
   sendMesh(&sphere_posBufID, &sphere_eleBufID, &sphere_texCoordBufID,
     &sphere_eleBufSize, &sphere_norBufID);
 
   // Bunny mesh
-  getMesh("../resources/bunny.obj");
+  getMesh("../resources/objs/bunny.obj");
   resizeMesh();
   sendMesh(&bunny_posBufID, &bunny_eleBufID, NULL,
     &bunny_eleBufSize, &bunny_norBufID);
@@ -429,8 +430,9 @@ static void init() {
   // -------- Initialize shader programs --------
 
   // ------ Texture only shader program ------
-  textureShader.pid = initShader("../resources/vertTextureOnly.glsl",
-    "../resources/fragTextureOnly.glsl");
+  textureShader.pid = initShader(
+    "../resources/shaders_glsl/vertTextureOnly.glsl",
+    "../resources/shaders_glsl/fragTextureOnly.glsl");
 
   // Attribs
   textureShader.vertPos = glGetAttribLocation(textureShader.pid, "vertPos");
@@ -509,8 +511,9 @@ static void init() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // ------ Depth Only shader program ------
-  depthShader.pid = initShader("../resources/vertDepthOnly.glsl",
-    "../resources/fragDepthOnly.glsl");
+  depthShader.pid = initShader(
+    "../resources/shaders_glsl/vertDepthOnly.glsl",
+    "../resources/shaders_glsl/fragDepthOnly.glsl");
 
   // Attribs
   depthShader.vertPos = glGetAttribLocation(depthShader.pid, "vertPos");
@@ -545,8 +548,9 @@ static void init() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // ------ Rectangle shader program ------
-  rectShader.pid = initShader("../resources/vertRectangle.glsl",
-    "../resources/fragRectangle.glsl");
+  rectShader.pid = initShader(
+    "../resources/shaders_glsl/vertRectangle.glsl",
+    "../resources/shaders_glsl/fragRectangle.glsl");
 
   // Attribs
   rectShader.vertPos = glGetAttribLocation(rectShader.pid, "vertPos");
@@ -586,8 +590,9 @@ static void init() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // ------ Cubemap shader program ------
-  sbShader.pid = initShader("../resources/vertSkybox.glsl",
-    "../resources/fragSkybox.glsl");
+  sbShader.pid = initShader(
+    "../resources/shaders_glsl/vertSkybox.glsl",
+    "../resources/shaders_glsl/fragSkybox.glsl");
 
   // Attribs
   sbShader.vertPos = glGetAttribLocation(sbShader.pid, "vertPos");
@@ -622,8 +627,9 @@ static void init() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // ------ One color shader program ------
-  ocShader.pid = initShader("../resources/vertOneColor.glsl",
-    "../resources/fragOneColor.glsl");
+  ocShader.pid = initShader(
+    "../resources/shaders_glsl/vertOneColor.glsl",
+    "../resources/shaders_glsl/fragOneColor.glsl");
 
   // Attribs
   ocShader.vertPos = glGetAttribLocation(ocShader.pid, "vertPos");
@@ -684,8 +690,9 @@ static void init() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // ------ One material phong shader program ------
-  ompShader.pid = initShader("../resources/vertOneMaterialPhong.glsl",
-    "../resources/fragOneMaterialPhong.glsl");
+  ompShader.pid = initShader(
+    "../resources/shaders_glsl/vertOneMaterialPhong.glsl",
+    "../resources/shaders_glsl/fragOneMaterialPhong.glsl");
 
   // Attribs
   ompShader.vertPos = glGetAttribLocation(ompShader.pid, "vertPos");
@@ -748,8 +755,9 @@ static void init() {
   // TODO: General phong shader
 
   // ------ Phong cubemap shader ------
-  pcShader.pid = initShader("../resources/vertPhongCube.glsl",
-    "../resources/fragPhongCube.glsl");
+  pcShader.pid = initShader(
+    "../resources/shaders_glsl/vertPhongCube.glsl",
+    "../resources/shaders_glsl/fragPhongCube.glsl");
 
   // Attribs
   pcShader.vertPos = glGetAttribLocation(pcShader.pid, "vertPos");
@@ -805,8 +813,9 @@ static void init() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // ------ One face phong cube shader program ------
-  ofpcShader.pid = initShader("../resources/vertOneFacePhongCube.glsl",
-    "../resources/fragOneFacePhongCube.glsl");
+  ofpcShader.pid = initShader(
+    "../resources/shaders_glsl/vertOneFacePhongCube.glsl",
+    "../resources/shaders_glsl/fragOneFacePhongCube.glsl");
 
   // TODO: Do this in ...shader.hpp file
   // Attribs
