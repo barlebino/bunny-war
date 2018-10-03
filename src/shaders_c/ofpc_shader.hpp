@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+// One face phong cube
 struct OfpcShader {
   GLint pid;
   // Attribs
@@ -22,5 +23,8 @@ struct OfpcShader {
   GLint lightDiffuse;
   GLint lightSpecular;
 };
+
+// Put attrib and uniform locations into struct
+void getOfpcShaderLocations(struct OfpcShader *);
 
 #endif

@@ -15,4 +15,7 @@ struct SkyboxShader {
   GLint skybox; // samplerCube
 };
 
+// Put attrib and uniform locations into struct
+void getSkyboxShaderLocations(struct SkyboxShader *);
+
 #endif

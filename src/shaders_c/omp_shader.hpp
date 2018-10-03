@@ -24,4 +24,7 @@ struct OmpShader {
   GLint lightSpecular;
 };
 
+// Put attrib and uniform locations into struct
+void getOmpShaderLocations(struct OmpShader *);
+
 #endif

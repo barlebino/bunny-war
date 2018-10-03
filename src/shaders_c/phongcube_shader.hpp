@@ -23,4 +23,7 @@ struct PhongCubeShader {
   GLint lightSpecular;
 };
 
+// Put attrib and uniform locations into struct
+void getPhongCubeShaderLocations(struct PhongCubeShader *);
+
 #endif

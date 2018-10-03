@@ -434,18 +434,8 @@ static void init() {
     "../resources/shaders_glsl/vertTextureOnly.glsl",
     "../resources/shaders_glsl/fragTextureOnly.glsl");
 
-  // Attribs
-  textureShader.vertPos = glGetAttribLocation(textureShader.pid, "vertPos");
-  textureShader.texCoord = glGetAttribLocation(textureShader.pid, "texCoord");
-
-  // Per-object matrices to pass to shaders
-  textureShader.modelview = glGetUniformLocation(textureShader.pid,
-    "modelview");
-  textureShader.projection = glGetUniformLocation(textureShader.pid,
-    "projection");
-
-  // Get the location of the sampler2D in fragment shader (???)
-  textureShader.texLoc = glGetUniformLocation(textureShader.pid, "texCol");
+  // Put locations of attribs and uniforms into textureShader
+  getTextureShaderLocations(&textureShader);
 
   // TODO: Do VAOs separate from shader initialization
   // VAO for globe
@@ -515,12 +505,8 @@ static void init() {
     "../resources/shaders_glsl/vertDepthOnly.glsl",
     "../resources/shaders_glsl/fragDepthOnly.glsl");
 
-  // Attribs
-  depthShader.vertPos = glGetAttribLocation(depthShader.pid, "vertPos");
-
-  // Per-object matrices to pass to shaders
-  depthShader.modelview = glGetUniformLocation(depthShader.pid, "modelview");
-  depthShader.projection = glGetUniformLocation(depthShader.pid, "projection");
+  // Put locations of attribs and uniforms into depthShader
+  getDepthShaderLocations(&depthShader);
 
   // Sphere vertex array object
 
@@ -552,12 +538,8 @@ static void init() {
     "../resources/shaders_glsl/vertRectangle.glsl",
     "../resources/shaders_glsl/fragRectangle.glsl");
 
-  // Attribs
-  rectShader.vertPos = glGetAttribLocation(rectShader.pid, "vertPos");
-  rectShader.texCoord = glGetAttribLocation(rectShader.pid, "texCoord");
-
-  // Get the location of the sampler2D in fragment shader (???)
-  rectShader.texLoc = glGetUniformLocation(rectShader.pid, "texCol");
+  // Put locations of attribs and uniforms into rectShader
+  getRectShaderLocations(&rectShader);
 
   // Create vertex array object
   glGenVertexArrays(1, &rect_vaoID);
@@ -594,15 +576,8 @@ static void init() {
     "../resources/shaders_glsl/vertSkybox.glsl",
     "../resources/shaders_glsl/fragSkybox.glsl");
 
-  // Attribs
-  sbShader.vertPos = glGetAttribLocation(sbShader.pid, "vertPos");
-
-  // Per-object matrices to pass to shaders
-  sbShader.modelview = glGetUniformLocation(sbShader.pid, "modelview");
-  sbShader.projection = glGetUniformLocation(sbShader.pid, "projection");
-
-  // Get the location of the samplerCube in fragment shader (???)
-  sbShader.skybox = glGetUniformLocation(sbShader.pid, "skybox");
+  // Put locations of attribs and uniforms into sbShader
+  getSkyboxShaderLocations(&sbShader);
 
   // Skybox vertex array object
 
@@ -631,13 +606,8 @@ static void init() {
     "../resources/shaders_glsl/vertOneColor.glsl",
     "../resources/shaders_glsl/fragOneColor.glsl");
 
-  // Attribs
-  ocShader.vertPos = glGetAttribLocation(ocShader.pid, "vertPos");
-
-  // Per-object matrices to pass to shaders
-  ocShader.modelview = glGetUniformLocation(ocShader.pid, "modelview");
-  ocShader.projection = glGetUniformLocation(ocShader.pid, "projection");
-  ocShader.in_color = glGetUniformLocation(ocShader.pid, "in_color");
+  // Put locations of attribs and uniforms into ocShader
+  getOcShaderLocations(&ocShader);
 
   // Pink bunny vertex array object
 
@@ -694,31 +664,8 @@ static void init() {
     "../resources/shaders_glsl/vertOneMaterialPhong.glsl",
     "../resources/shaders_glsl/fragOneMaterialPhong.glsl");
 
-  // Attribs
-  ompShader.vertPos = glGetAttribLocation(ompShader.pid, "vertPos");
-  ompShader.vertNor = glGetAttribLocation(ompShader.pid, "vertNor");
-
-  // Per-object matrices to pass to shaders
-  // Vertex shader uniforms
-  ompShader.modelview = glGetUniformLocation(ompShader.pid, "modelview");
-  ompShader.projection = glGetUniformLocation(ompShader.pid, "projection");
-  // Fragment shader uniforms
-  ompShader.materialAmbient = glGetUniformLocation(ompShader.pid,
-    "material.ambient");
-  ompShader.materialDiffuse = glGetUniformLocation(ompShader.pid,
-    "material.diffuse");
-  ompShader.materialSpecular = glGetUniformLocation(ompShader.pid,
-    "material.specular");
-  ompShader.materialShininess = glGetUniformLocation(ompShader.pid,
-    "material.shininess");
-  ompShader.lightPosition = glGetUniformLocation(ompShader.pid,
-    "light.position");
-  ompShader.lightAmbient = glGetUniformLocation(ompShader.pid,
-    "light.ambient");
-  ompShader.lightDiffuse = glGetUniformLocation(ompShader.pid,
-    "light.diffuse");
-  ompShader.lightSpecular = glGetUniformLocation(ompShader.pid,
-    "light.specular");
+  // Put locations of attribs and uniforms into ompShader
+  getOmpShaderLocations(&ompShader);
 
   // One Material Phong bunny VAO
 
@@ -759,29 +706,8 @@ static void init() {
     "../resources/shaders_glsl/vertPhongCube.glsl",
     "../resources/shaders_glsl/fragPhongCube.glsl");
 
-  // Attribs
-  pcShader.vertPos = glGetAttribLocation(pcShader.pid, "vertPos");
-  pcShader.vertNor = glGetAttribLocation(pcShader.pid, "vertNor");
-
-  // Per-object matrices to pass to shaders
-  // Vertex shader uniforms
-  pcShader.modelview = glGetUniformLocation(pcShader.pid, "modelview");
-  pcShader.projection = glGetUniformLocation(pcShader.pid, "projection");
-  // Fragment shader uniforms
-  pcShader.materialDiffuse = glGetUniformLocation(pcShader.pid,
-    "material.diffuse");
-  pcShader.materialSpecular = glGetUniformLocation(pcShader.pid,
-    "material.specular");
-  pcShader.materialShininess = glGetUniformLocation(pcShader.pid,
-    "material.shininess");
-  pcShader.lightPosition = glGetUniformLocation(pcShader.pid,
-    "light.position");
-  pcShader.lightAmbient = glGetUniformLocation(pcShader.pid,
-    "light.ambient");
-  pcShader.lightDiffuse = glGetUniformLocation(pcShader.pid,
-    "light.diffuse");
-  pcShader.lightSpecular = glGetUniformLocation(pcShader.pid,
-    "light.specular");
+  // Put locations of attribs and uniforms into pcShader
+  getPhongCubeShaderLocations(&pcShader);
 
   // Wooden cube vertex array object
 
@@ -818,27 +744,9 @@ static void init() {
     "../resources/shaders_glsl/fragOneFacePhongCube.glsl");
 
   // TODO: Do this in ...shader.hpp file
-  // Attribs
-  ofpcShader.vertPos = glGetAttribLocation(ofpcShader.pid, "vertPos");
-  ofpcShader.vertNor = glGetAttribLocation(ofpcShader.pid, "vertNor");
-
-  // Per-object matrices to pass to shaders
-  ofpcShader.modelview = glGetUniformLocation(ofpcShader.pid, "modelview");
-  ofpcShader.projection = glGetUniformLocation(ofpcShader.pid, "projection");
-  ofpcShader.materialDiffuse = glGetUniformLocation(ofpcShader.pid,
-    "material.diffuse");
-  ofpcShader.materialSpecular = glGetUniformLocation(ofpcShader.pid,
-    "material.specular");
-  ofpcShader.materialShininess = glGetUniformLocation(ofpcShader.pid,
-    "material.shininess");
-  ofpcShader.lightPosition = glGetUniformLocation(ofpcShader.pid,
-    "light.position");
-  ofpcShader.lightAmbient = glGetUniformLocation(ofpcShader.pid,
-    "light.ambient");
-  ofpcShader.lightDiffuse = glGetUniformLocation(ofpcShader.pid,
-    "light.diffuse");
-  ofpcShader.lightSpecular = glGetUniformLocation(ofpcShader.pid,
-    "light.specular");
+  
+  // Put locations of attribs and uniforms into ofpcShader
+  getOfpcShaderLocations(&ofpcShader);
 
   // TODO: Initialize VAO function per shader
   // Wooden cube vertex array object

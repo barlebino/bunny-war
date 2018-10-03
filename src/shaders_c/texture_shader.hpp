@@ -15,4 +15,7 @@ struct TextureShader {
   GLint texLoc; // sampler2D
 };
 
+// Put attrib and uniform locations into struct
+void getTextureShaderLocations(struct TextureShader *);
+
 #endif

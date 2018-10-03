@@ -14,4 +14,7 @@ struct DepthShader {
   GLint projection;
 };
 
+// Put attrib and uniform locations into struct
+void getDepthShaderLocations(struct DepthShader *);
+
 #endif
