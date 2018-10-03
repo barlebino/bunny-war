@@ -659,6 +659,8 @@ static void init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+  // TODO: Change to "point light phong"
+  // TODO: Attenuation
   // ------ One material phong shader program ------
   ompShader.pid = initShader(
     "../resources/shaders_glsl/vertOneMaterialPhong.glsl",
@@ -701,6 +703,8 @@ static void init() {
 
   // TODO: General phong shader
 
+  // TODO: Change to "point light phong"
+  // TODO: Attenuation
   // ------ Phong cubemap shader ------
   pcShader.pid = initShader(
     "../resources/shaders_glsl/vertPhongCube.glsl",
@@ -738,12 +742,12 @@ static void init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+  // TODO: Change to "point light phong"
+  // TODO: Attenuation
   // ------ One face phong cube shader program ------
   ofpcShader.pid = initShader(
     "../resources/shaders_glsl/vertOneFacePhongCube.glsl",
     "../resources/shaders_glsl/fragOneFacePhongCube.glsl");
-
-  // TODO: Do this in ...shader.hpp file
   
   // Put locations of attribs and uniforms into ofpcShader
   getOfpcShaderLocations(&ofpcShader);
