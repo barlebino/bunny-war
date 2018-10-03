@@ -31,4 +31,11 @@ void getOmpShaderLocations(struct OmpShader *ompShader) {
     "light.diffuse");
   ompShader->lightSpecular = glGetUniformLocation(ompShader->pid,
     "light.specular");
+  // Attenuation
+  ompShader->lightConstant = glGetUniformLocation(ompShader->pid,
+    "light.constant");
+  ompShader->lightLinear = glGetUniformLocation(ompShader->pid,
+    "light.linear");
+  ompShader->lightQuadratic = glGetUniformLocation(ompShader->pid,
+    "light.quadratic");
 }

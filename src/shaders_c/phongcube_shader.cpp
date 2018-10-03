@@ -29,4 +29,11 @@ void getPhongCubeShaderLocations(struct PhongCubeShader *pcShader) {
     "light.diffuse");
   pcShader->lightSpecular = glGetUniformLocation(pcShader->pid,
     "light.specular");
+  // Attenuation
+  pcShader->lightConstant = glGetUniformLocation(pcShader->pid,
+    "light.constant");
+  pcShader->lightLinear = glGetUniformLocation(pcShader->pid,
+    "light.linear");
+  pcShader->lightQuadratic = glGetUniformLocation(pcShader->pid,
+    "light.quadratic");
 }

@@ -22,6 +22,10 @@ struct OfpcShader {
   GLint lightAmbient;
   GLint lightDiffuse;
   GLint lightSpecular;
+  // Attenuation
+  GLint lightConstant;
+  GLint lightLinear;
+  GLint lightQuadratic;
 };
 
 // Put attrib and uniform locations into struct

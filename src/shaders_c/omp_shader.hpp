@@ -22,6 +22,10 @@ struct OmpShader {
   GLint lightAmbient;
   GLint lightDiffuse;
   GLint lightSpecular;
+  // Attentuation
+  GLint lightConstant;
+  GLint lightLinear;
+  GLint lightQuadratic;
 };
 
 // Put attrib and uniform locations into struct

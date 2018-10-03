@@ -11,6 +11,10 @@ struct Light {
   vec3 ambient;
   vec3 diffuse;
   vec3 specular;
+  // Attenuation
+  float constant;
+  float linear;
+  float quadratic;
 };
 
 in vec3 frag_nor;
@@ -36,6 +40,11 @@ vec2 convertTexCoord(vec3 texCoord) {
 }
 
 void main() {
+  // Calculate Attenuation
+  float distance = length(light.position - frag_pos);
+  float attenuation = 1.0 / (light.constant + light.linear * distance + 
+    light.quadratic * (distance * distance)); 
+  // Convert texture coordinates
   vec2 texCoord2D = (convertTexCoord(tex_coord) + vec2(1.0, 1.0)) / 2.0;
   // Ambient
   vec3 ambient = light.ambient *
@@ -52,6 +61,10 @@ void main() {
   float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
   vec3 specular = light.specular *
     (spec * texture(material.specular, texCoord2D).rgb);
+  // Apply attenuation
+  ambient = attenuation * ambient;
+  diffuse = attenuation * diffuse;
+  specular = attenuation * specular;
   // Final
   out_color = vec4(ambient + diffuse + specular, 1.0);
 }

@@ -660,7 +660,6 @@ static void init() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // TODO: Change to "point light phong"
-  // TODO: Attenuation
   // ------ One material phong shader program ------
   ompShader.pid = initShader(
     "../resources/shaders_glsl/vertOneMaterialPhong.glsl",
@@ -704,7 +703,6 @@ static void init() {
   // TODO: General phong shader
 
   // TODO: Change to "point light phong"
-  // TODO: Attenuation
   // ------ Phong cubemap shader ------
   pcShader.pid = initShader(
     "../resources/shaders_glsl/vertPhongCube.glsl",
@@ -743,7 +741,6 @@ static void init() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // TODO: Change to "point light phong"
-  // TODO: Attenuation
   // ------ One face phong cube shader program ------
   ofpcShader.pid = initShader(
     "../resources/shaders_glsl/vertOneFacePhongCube.glsl",
@@ -1241,6 +1238,12 @@ static void render() {
     glm::value_ptr(tutorialLight.diffuse));
   glUniform3fv(ompShader.lightSpecular, 1,
     glm::value_ptr(tutorialLight.specular));
+  // Attenuation
+  // Range of 50, from:
+  // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
+  glUniform1f(ompShader.lightConstant, 1.f);
+  glUniform1f(ompShader.lightLinear, .045f);
+  glUniform1f(ompShader.lightQuadratic, .0075f);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
@@ -1306,6 +1309,12 @@ static void render() {
     glm::value_ptr(tutorialLight.specular));
   // Shininess is 64.0, a MAGIC NUMBER
   glUniform1f(pcShader.materialShininess, 64.f);
+  // Attenuation
+  // Range of 50, from:
+  // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
+  glUniform1f(pcShader.lightConstant, 1.f);
+  glUniform1f(pcShader.lightLinear, .045f);
+  glUniform1f(pcShader.lightQuadratic, .0075f);
 
   // Bind vertex array object
   glBindVertexArray(woodcube_vaoID);
@@ -1388,6 +1397,10 @@ static void render() {
     glm::value_ptr(tutorialLight.specular));
   // Shininess is 64.0, a MAGIC NUMBER
   glUniform1f(ofpcShader.materialShininess, 64.f);
+  // Attenuation
+  glUniform1f(ofpcShader.lightConstant, 1.f);
+  glUniform1f(ofpcShader.lightLinear, .045f);
+  glUniform1f(ofpcShader.lightQuadratic, .0075f);
 
   // Bind vertex array object
   glBindVertexArray(facecube_vaoID);

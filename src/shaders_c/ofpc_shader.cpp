@@ -27,4 +27,11 @@ void getOfpcShaderLocations(struct OfpcShader *ofpcShader) {
     "light.diffuse");
   ofpcShader->lightSpecular = glGetUniformLocation(ofpcShader->pid,
     "light.specular");
+  // Attenuation
+  ofpcShader->lightConstant = glGetUniformLocation(ofpcShader->pid,
+    "light.constant");
+  ofpcShader->lightLinear = glGetUniformLocation(ofpcShader->pid,
+    "light.linear");
+  ofpcShader->lightQuadratic = glGetUniformLocation(ofpcShader->pid,
+    "light.quadratic");
 }

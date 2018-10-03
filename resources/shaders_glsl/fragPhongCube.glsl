@@ -11,6 +11,10 @@ struct Light {
   vec3 ambient;
   vec3 diffuse;
   vec3 specular;
+  // Attenuation
+  float constant;
+  float linear;
+  float quadratic;
 };
 
 in vec3 frag_nor;
@@ -23,6 +27,10 @@ uniform Material material;
 uniform Light light;
 
 void main() {
+  // Calculate Attenuation
+  float distance = length(light.position - frag_pos);
+  float attenuation = 1.0 / (light.constant + light.linear * distance + 
+    light.quadratic * (distance * distance)); 
   // Ambient
   vec3 ambient = light.ambient * texture(material.diffuse, tex_coord).rgb;
   // Diffuse
@@ -37,6 +45,10 @@ void main() {
   float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
   vec3 specular = light.specular *
     (spec * texture(material.specular, tex_coord).rgb);
+  // Apply attenuation
+  ambient = attenuation * ambient;
+  diffuse = attenuation * diffuse;
+  specular = attenuation * specular;
   // Final
   out_color = vec4(ambient + diffuse + specular, 1.0);
 }
