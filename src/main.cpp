@@ -10,27 +10,23 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader.h"
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
 #define PI 3.14159
 
 #include <unistd.h>
 
+#include "asset_loaders/mesh_load.hpp"
+#include "asset_loaders/image_load.hpp"
+
 #include "material.hpp"
 
-// Image code, for textures
-struct Image {
-  int sizeX, sizeY, numChannels;
-  unsigned char *data;
-};
-
-struct RGB {
-  GLubyte r, g, b;
-};
+#include "shaders_c/omp_shader.hpp"
+#include "shaders_c/oc_shader.hpp"
+#include "shaders_c/skybox_shader.hpp"
+#include "shaders_c/rect_shader.hpp"
+#include "shaders_c/depth_shader.hpp"
+#include "shaders_c/texture_shader.hpp"
+#include "shaders_c/phongcube_shader.hpp"
+#include "shaders_c/ofpc_shader.hpp"
 
 // Light struct
 struct Light {
@@ -41,8 +37,6 @@ struct Light {
 };
 
 int ssaaLevel = 2;
-// TESTING
-float rot = 0.f;
 
 GLFWwindow *window; // Main application window
 
@@ -56,21 +50,15 @@ glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
 glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 
 // Light object
-Light tutorialLight = {
-  glm::vec3(-8.f, 0.f, -2.f),
-  glm::vec3(.2f, .2f, .2f),
-  glm::vec3(.5f, .5f, .5f),
-  glm::vec3(1.f, 1.f, 1.f)
+struct Light tutorialLight = {
+  glm::vec3(-8.f, 0.f, -2.f), // position
+  glm::vec3(.2f, .2f, .2f), // ambient
+  glm::vec3(.5f, .5f, .5f), // diffuse
+  glm::vec3(1.f, 1.f, 1.f) // specular
 };
 
 // Input
 char keys[6] = {0, 0, 0, 0, 0, 0};
-
-// CPU buffers
-std::vector<float> posBuf;
-std::vector<float> norBuf;
-std::vector<float> texCoordBuf;
-std::vector<unsigned int> eleBuf;
 
 // VAO IDs
 unsigned to_vaoID;
@@ -81,14 +69,15 @@ unsigned grass_vaoID;
 unsigned skybox_vaoID;
 unsigned oc_bunny_vaoID;
 unsigned ls_vaoID;
-unsigned phong_bunny_vaoID;
+unsigned omp_bunny_vaoID;
+unsigned woodcube_vaoID;
+unsigned facecube_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
 unsigned sphere_norBufID;
 unsigned sphere_eleBufID;
 unsigned sphere_texCoordBufID;
-unsigned sphere_texBufID;
 int sphere_eleBufSize;
 
 // Bunny data
@@ -104,83 +93,31 @@ unsigned rect_texCoordBufID;
 unsigned rect_texBufID;
 int rect_eleBufSize;
 
+// World image (uses sphere)
+unsigned world_texBufID;
+
 // Grass data (uses rectangle)
 unsigned grass_texBufID;
 
 // Skybox data
 unsigned skybox_posBufID;
-unsigned skybox_posBufSize;
+int skybox_posBufSize;
+
+// Phong box data
+unsigned phongbox_posBufID;
+unsigned phongbox_norBufID;
+int phongbox_bufSize;
 
 // Shader programs
-
-// Texture only
-GLuint to_pid;
-// Shader attribs
-GLint to_vertPosLoc;
-GLint to_texCoordLoc;
-// Shader uniforms
-GLint to_modelviewLoc;
-GLint to_projectionLoc;
-// sampler2D location
-GLint to_texLoc;
-
-// Depth only
-GLuint do_pid;
-// Shader attribs
-GLint do_vertPosLoc;
-// Shader uniforms
-GLint do_modelviewLoc;
-GLint do_projectionLoc;
-
-// Rectangle shader
-GLuint r_pid;
-// Shader attribs
-GLint r_vertPosLoc;
-GLint r_texCoordLoc;
-// Shader uniforms
-// None
-// sampler2D location
-GLint r_texLoc;
-
-// Cubemap shader
-GLuint cm_pid;
-// Shader attribs
-GLint cm_vertPosLoc;
-// Shader uniforms
-GLint cm_modelviewLoc;
-GLint cm_projectionLoc;
-// samplerCube location
-GLint cm_texLoc;
-
-// One color shader
-GLuint oc_pid;
-// Shader attribs
-GLint oc_vertPosLoc;
-// Shader uniforms
-GLint oc_modelviewLoc;
-GLint oc_projectionLoc;
-GLint oc_in_colorLoc;
-
-// Phong shader
-GLuint phong_pid;
-// Shader attribs
-GLint phong_vertPosLoc;
-GLint phong_vertNorLoc;
-// Shader uniforms
-// Vertex shader uniforms
-GLint phong_modelLoc;
-GLint phong_viewLoc;
-GLint phong_projectionLoc;
-// Fragment shader uniforms
-GLint phong_camPosLoc;
-GLint phong_materialAmbientLoc;
-GLint phong_materialDiffuseLoc;
-GLint phong_materialSpecularLoc;
-GLint phong_materialShininessLoc;
-GLint phong_lightPositionLoc;
-GLint phong_lightAmbientLoc;
-GLint phong_lightDiffuseLoc;
-GLint phong_lightSpecularLoc;
+// TODO: All shaders inherit from "shader"
+struct OmpShader ompShader;
+struct OcShader ocShader;
+struct SkyboxShader sbShader;
+struct RectShader rectShader;
+struct DepthShader depthShader;
+struct TextureShader textureShader;
+struct PhongCubeShader pcShader;
+struct OfpcShader ofpcShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -192,8 +129,13 @@ unsigned int fbo_color_texture;
 unsigned int fbo_depth_stencil_texture;
 
 // Cubemaps
-unsigned int cubemapTexture;
-unsigned int skyTexture;
+unsigned int skybox_texBufID;
+unsigned int woodcube_diffuseMapID;
+unsigned int woodcube_specularMapID;
+unsigned int facecube_diffuseMapID;
+unsigned int facecube_specularMapID;
+
+bool cameraFreeze = true;
 
 // For debugging
 void printMatrix(glm::mat4 mat) {
@@ -214,6 +156,10 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action,
   int mods) {
   if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, GL_TRUE);
+  } else if(key == GLFW_KEY_P) { // toggle whether or not camera stays in place
+    if(action == GLFW_RELEASE) {
+      cameraFreeze = !cameraFreeze;
+    }
   } else if(key == GLFW_KEY_W) {
     if(action == GLFW_PRESS) {
       keys[0] = 1;
@@ -282,273 +228,59 @@ char *textfileRead(const char *fn) {
   return content;
 }
 
-static void resizeMesh(std::vector<float>& posBuf) {
-  float minX, minY, minZ;
-  float maxX, maxY, maxZ;
-  float scaleX, scaleY, scaleZ;
-  float shiftX, shiftY, shiftZ;
-  float epsilon = 0.001;
+// vsfn = vertex shader file name, fsfn = fragment shader file name
+// Returns the shader program ID
+GLuint initShader(const char *vsfn, const char *fsfn) {
+  GLuint pid;
+  GLint rc;
+  GLuint vsHandle, fsHandle;
+  char *vsSource, *fsSource;
 
-  minX = minY = minZ = 1.1754E+38F;
-  maxX = maxY = maxZ = -1.1754E+38F;
-
-  //Go through all vertices to determine min and max of each dimension
-  for(size_t v = 0; v < posBuf.size() / 3; v++) {
-    if(posBuf[3*v+0] < minX) minX = posBuf[3*v+0];
-    if(posBuf[3*v+0] > maxX) maxX = posBuf[3*v+0];
-
-    if(posBuf[3*v+1] < minY) minY = posBuf[3*v+1];
-    if(posBuf[3*v+1] > maxY) maxY = posBuf[3*v+1];
-
-    if(posBuf[3*v+2] < minZ) minZ = posBuf[3*v+2];
-    if(posBuf[3*v+2] > maxZ) maxZ = posBuf[3*v+2];
-	}
-
-	//From min and max compute necessary scale and shift for each dimension
-  float maxExtent, xExtent, yExtent, zExtent;
+  // Create shader handles
+  vsHandle = glCreateShader(GL_VERTEX_SHADER);
+  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
   
-  xExtent = maxX-minX;
-  yExtent = maxY-minY;
-  zExtent = maxZ-minZ;
+  // Read shader source
+  vsSource = textfileRead(vsfn);
+  fsSource = textfileRead(fsfn);
 
-  if(xExtent >= yExtent && xExtent >= zExtent) {
-    maxExtent = xExtent;
+  glShaderSource(vsHandle, 1, &vsSource, NULL);
+  glShaderSource(fsHandle, 1, &fsSource, NULL);
+
+  free(vsSource);
+  free(fsSource);
+
+  // Compile vertex shader
+  glCompileShader(vsHandle);
+  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling vertex shader" << std::endl;
+    exit(EXIT_FAILURE);
   }
 
-  if(yExtent >= xExtent && yExtent >= zExtent) {
-    maxExtent = yExtent;
+  // Compile fragment shader
+  glCompileShader(fsHandle);
+  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error compiling fragment shader" << std::endl;
+    exit(EXIT_FAILURE);
   }
 
-  if(zExtent >= xExtent && zExtent >= yExtent) {
-    maxExtent = zExtent;
+  // Create program and link
+  pid = glCreateProgram();
+  glAttachShader(pid, vsHandle);
+  glAttachShader(pid, fsHandle);
+  glLinkProgram(pid);
+  glGetProgramiv(pid, GL_LINK_STATUS, &rc);
+
+  if(!rc) {
+    std::cout << "Error linking shaders" << std::endl;
+    exit(EXIT_FAILURE);
   }
 
-  scaleX = 2.0 /maxExtent;
-  shiftX = minX + (xExtent/ 2.0);
-  scaleY = 2.0 / maxExtent;
-  shiftY = minY + (yExtent / 2.0);
-  scaleZ = 2.0/ maxExtent;
-  shiftZ = minZ + (zExtent)/2.0;
-
-  //Go through all verticies shift and scale them
-	for(size_t v = 0; v < posBuf.size() / 3; v++) {
-    posBuf[3*v+0] = (posBuf[3*v+0] - shiftX) * scaleX;
-    assert(posBuf[3*v+0] >= -1.0 - epsilon);
-    assert(posBuf[3*v+0] <= 1.0 + epsilon);
-    posBuf[3*v+1] = (posBuf[3*v+1] - shiftY) * scaleY;
-    assert(posBuf[3*v+1] >= -1.0 - epsilon);
-    assert(posBuf[3*v+1] <= 1.0 + epsilon);
-    posBuf[3*v+2] = (posBuf[3*v+2] - shiftZ) * scaleZ;
-    assert(posBuf[3*v+2] >= -1.0 - epsilon);
-    assert(posBuf[3*v+2] <= 1.0 + epsilon);
-  }
-}
-
-static void getMesh(const std::string &meshName) {
-  std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> objMaterials;
-	std::string errStr;
-  bool rc;
-
-	// Clear the CPU buffers
-  posBuf.clear();
-  norBuf.clear();
-  texCoordBuf.clear();
-  eleBuf.clear();
-  
-  rc = tinyobj::LoadObj(shapes, objMaterials, errStr, meshName.c_str());
-	if(!rc) {
-		std::cerr << errStr << std::endl;
-    exit(0);
-	} else {
-		posBuf = shapes[0].mesh.positions;
-    norBuf = shapes[0].mesh.normals;
-    texCoordBuf = shapes[0].mesh.texcoords;
-		eleBuf = shapes[0].mesh.indices;
-	}
-}
-
-// Store rectangle data in the buffers
-static void getRectangleMesh() {
-  float posArr[] = {
-    1.f, 1.f, 0.f,
-    1.f, -1.f, 0.f,
-    -1.f, 1.f, 0.f,
-    -1.f, -1.f, 0.f
-  };
-
-  float texCoordArr[] = {
-    1.f, 1.f,
-    1.f, 0.f,
-    0.f, 1.f,
-    0.f, 0.f
-  };
-
-  unsigned int eleArr[] = {
-    3, 0, 2,
-    3, 1, 0
-  };
-
-  // Clear the CPU buffers
-  // TODO: Consider changing this process
-  posBuf.clear();
-  norBuf.clear();
-  texCoordBuf.clear();
-  eleBuf.clear();
-
-  copy(&posArr[0], &posArr[12], back_inserter(posBuf));
-  copy(&texCoordArr[0], &texCoordArr[8], back_inserter(texCoordBuf));
-  copy(&eleArr[0], &eleArr[6], back_inserter(eleBuf));
-}
-
-// Store skybox data in the buffers
-static void getSkyboxMesh() {
-  float posArr[] = {
-    // positions          
-    -1.0f,  1.0f, -1.0f,
-    -1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-
-    -1.0f, -1.0f,  1.0f,
-    -1.0f, -1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f,  1.0f,
-    -1.0f, -1.0f,  1.0f,
-
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-
-    -1.0f, -1.0f,  1.0f,
-    -1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f, -1.0f,  1.0f,
-    -1.0f, -1.0f,  1.0f,
-
-    -1.0f,  1.0f, -1.0f,
-     1.0f,  1.0f, -1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-    -1.0f,  1.0f,  1.0f,
-    -1.0f,  1.0f, -1.0f,
-
-    -1.0f, -1.0f, -1.0f,
-    -1.0f, -1.0f,  1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-    -1.0f, -1.0f,  1.0f,
-     1.0f, -1.0f,  1.0f
-  };
-
-  // Clear the CPU buffers
-  // TODO: Consider changing this process
-  posBuf.clear();
-  norBuf.clear();
-  texCoordBuf.clear();
-  eleBuf.clear();
-
-  // Skybox does not need texture coordinates
-  // Vertex format does not use element indexing
-  copy(&posArr[0], &posArr[18 * 6], back_inserter(posBuf));
-}
-
-// Store data about mesh
-// NOTE: Mesh must have element buffer if passed into this function
-static void sendMesh(unsigned *posBufID, unsigned *eleBufID,
-  unsigned *texCoordBufID, int *eleBufSize, unsigned *norBufID) {
-  // Send vertex position array to GPU
-  glGenBuffers(1, posBufID);
-  glBindBuffer(GL_ARRAY_BUFFER, *posBufID);
-  glBufferData(GL_ARRAY_BUFFER, posBuf.size() * sizeof(float), &posBuf[0],
-    GL_STATIC_DRAW);
-
-  // Send normals array to GPU
-  if(!norBuf.empty()) {
-    glGenBuffers(1, norBufID);
-    glBindBuffer(GL_ARRAY_BUFFER, *norBufID);
-    glBufferData(GL_ARRAY_BUFFER, norBuf.size() * sizeof(float),
-      &norBuf[0], GL_STATIC_DRAW);
-  }
-
-  // Send texture coordinate array to GPU
-  if(!texCoordBuf.empty()) {
-    glGenBuffers(1, texCoordBufID);
-    glBindBuffer(GL_ARRAY_BUFFER, *texCoordBufID);
-    glBufferData(GL_ARRAY_BUFFER, texCoordBuf.size() * sizeof(float),
-      &texCoordBuf[0], GL_STATIC_DRAW);
-  }
-
-  // Send element array to GPU
-  glGenBuffers(1, eleBufID);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *eleBufID);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, eleBuf.size() * sizeof(unsigned),
-    &eleBuf[0], GL_STATIC_DRAW);
-
-  // Unbind arrays
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-  // This data is not on the GPU
-  *eleBufSize = eleBuf.size();
-}
-
-// Send skybox data to GPU
-static void sendSkyboxMesh() {
-  // Send vertex position array to GPU
-  glGenBuffers(1, &skybox_posBufID);
-  glBindBuffer(GL_ARRAY_BUFFER, skybox_posBufID);
-  glBufferData(GL_ARRAY_BUFFER, posBuf.size() * sizeof(float), &posBuf[0],
-    GL_STATIC_DRAW);
-
-  // Unbind arrays
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-  // This data is not on the GPU
-  skybox_posBufSize = posBuf.size();
-}
-
-// Parameter is a vector of strings that are the file names
-// Taken from https://learnopengl.com/Advanced-OpenGL/Cubemaps
-unsigned int loadCubemap(std::vector<std::string> faces) {
-  unsigned int textureID;
-  glGenTextures(1, &textureID);
-
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-
-  int width, height, nrChannels;
-  for (unsigned int i = 0; i < faces.size(); i++) {
-    unsigned char *data = stbi_load(faces[i].c_str(), &width, &height,
-      &nrChannels, 0);
-    if(data) {
-      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
-        0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-      stbi_image_free(data);
-    } else {
-      std::cout << "Cubemap texture failed to load at path: " <<
-        faces[i] << std::endl;
-      stbi_image_free(data);
-    }
-  }
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-  // Unbind texture
-  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-
-  return textureID;
+  return pid;
 }
 
 static void init() {
@@ -611,105 +343,58 @@ static void init() {
   // Unbind
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-  // Get mesh
-  getMesh("../resources/sphere.obj");
-  resizeMesh(posBuf);
+  // -------- Initialize all of the meshes --------
 
+  // Sphere mesh
+  getMesh("../resources/objs/sphere.obj");
+  resizeMesh();
   // Send mesh to GPU and store buffer IDs
   sendMesh(&sphere_posBufID, &sphere_eleBufID, &sphere_texCoordBufID,
     &sphere_eleBufSize, &sphere_norBufID);
 
-  // Do again for bunny
-  getMesh("../resources/bunny.obj");
-  resizeMesh(posBuf);
+  // Bunny mesh
+  getMesh("../resources/objs/bunny.obj");
+  resizeMesh();
   sendMesh(&bunny_posBufID, &bunny_eleBufID, NULL,
     &bunny_eleBufSize, &bunny_norBufID);
-
-  // Do again for rectangle
+  
+  // Rectangle mesh
   getRectangleMesh();
   // No need to resize, explicitly specified coordinates
   sendMesh(&rect_posBufID, &rect_eleBufID, &rect_texCoordBufID,
     &rect_eleBufSize, NULL);
 
-  // Do again for cube
+  // Skybox mesh
   getSkyboxMesh();
-  sendSkyboxMesh();
+  sendSkyboxMesh(&skybox_posBufID, &skybox_posBufSize);
 
-  // Read textures into CPU memory
-  struct Image image;
+  // Phong box mesh
+  getPhongBoxMesh();
+  sendPhongBoxMesh(&phongbox_posBufID, &phongbox_norBufID,
+    &phongbox_bufSize);
 
-  // For some reason stb loads images upside-down to how we want
-  stbi_set_flip_vertically_on_load(true);
+  // -------- Load textures onto the GPU --------
 
-  // Load image
-  image.data = stbi_load("../resources/world.bmp", &(image.sizeX),
-    &(image.sizeY), &(image.numChannels), 0);
+  // ------ Load world texture ------
+  defaultImageLoad("../resources/world.bmp", &world_texBufID); 
 
-  // Allocate space on GPU then load texture into the GPU
+  // ------ Load grass texture ------
+  defaultImageLoad("../resources/grass.png", &grass_texBufID);
 
-  // Set the first texture unit as active
-  glActiveTexture(GL_TEXTURE0);
-  // Generate texture buffer object
-  glGenTextures(1, &sphere_texBufID);
-  // Bind current texture unit to texture buffer object as a GL_TEXTURE_2D
-  glBindTexture(GL_TEXTURE_2D, sphere_texBufID);
-  // Load texture data into texBufID
-  // Base level is 0, number of channels is 3, and border is 0
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.sizeX, image.sizeY,
-    0, GL_RGB, GL_UNSIGNED_BYTE, (GLubyte *) image.data);
+  // -------- Load face cubemaps --------
 
-  // Generate image pyramid
-  glGenerateMipmap(GL_TEXTURE_2D);
-  // Set texture wrap modes for S and T directions
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  // Set filtering mode for magnification and minification
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-    GL_LINEAR_MIPMAP_LINEAR);
+  // ------ Load diffuse container texture ------
+  defaultImageLoad("../resources/woodcube/diffuse_container.png",
+    &facecube_diffuseMapID);
 
-  // Unbind from texture buffer object from current texture unit
-  glBindTexture(GL_TEXTURE_2D, 0);
+  // ------ Load specular container texture ------
+  defaultImageLoad("../resources/woodcube/specular_container.png",
+    &facecube_specularMapID);
 
-  // Clear image to prepare loading another image to GPU
-  free(image.data);
-
-  // Load image
-  image.data = stbi_load("../resources/grass.png", &(image.sizeX),
-    &(image.sizeY), &(image.numChannels), 0);
-  
-  // Set the first texture unit as active
-  glActiveTexture(GL_TEXTURE0);
-  // Generate texture buffer object
-  glGenTextures(1, &grass_texBufID);
-  // Bind current texture unit to texture buffer object as a GL_TEXTURE_2D
-  glBindTexture(GL_TEXTURE_2D, grass_texBufID);
-  // Load texture data into texBufID
-  // Base level is 0, number of channels is 3, and border is 0
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.sizeX, image.sizeY,
-    0, GL_RGBA, GL_UNSIGNED_BYTE, (GLubyte *) image.data);
-
-  // Generate image pyramid
-  glGenerateMipmap(GL_TEXTURE_2D);
-  // Set texture wrap modes for S and T directions
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  // Set filtering mode for magnification and minification
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  // glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-    GL_LINEAR_MIPMAP_LINEAR);
-
-  // Unbind from texture buffer object from current texture unit
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  // Clear image
-  free(image.data);
-
-  // Cubemap images are upside down
-  stbi_set_flip_vertically_on_load(false);
-  // Load cubemap
+  // ------ Load the cubemaps ------
   std::vector<std::string> faces;
+
+  // ---- Load skybox cubemap ----
   faces = {
     "../resources/skybox/right.jpg",
     "../resources/skybox/left.jpg",
@@ -718,98 +403,56 @@ static void init() {
     "../resources/skybox/front.jpg",
     "../resources/skybox/back.jpg"
   };
-  cubemapTexture = loadCubemap(faces);
+  defaultCubemapLoad(faces, &skybox_texBufID);
+
+  // ---- Load wood cube diffuse ----
   faces = {
-    "../resources/skybox/top.jpg",
-    "../resources/skybox/top.jpg",
-    "../resources/skybox/top.jpg",
-    "../resources/skybox/top.jpg",
-    "../resources/skybox/top.jpg",
-    "../resources/skybox/top.jpg"
+    "../resources/woodcube/diffuse_container.png",
+    "../resources/woodcube/diffuse_container.png",
+    "../resources/woodcube/diffuse_container.png",
+    "../resources/woodcube/diffuse_container.png",
+    "../resources/woodcube/diffuse_container.png",
+    "../resources/woodcube/diffuse_container.png"
   };
-  skyTexture = loadCubemap(faces);
+  defaultCubemapLoad(faces, &woodcube_diffuseMapID);
 
-  // Create shader programs
+  // ---- Load wood cube specular ----
+  faces = {
+    "../resources/woodcube/specular_container.png",
+    "../resources/woodcube/specular_container.png",
+    "../resources/woodcube/specular_container.png",
+    "../resources/woodcube/specular_container.png",
+    "../resources/woodcube/specular_container.png",
+    "../resources/woodcube/specular_container.png"
+  };
+  defaultCubemapLoad(faces, &woodcube_specularMapID);
 
-  // Initialize shader program
-  GLint rc;
-  GLuint vsHandle, fsHandle;
-  //const char *vsSource, *fsSource;
-  char *vsSource, *fsSource;
+  // -------- Initialize shader programs --------
 
-  // Texture only shader program
+  // ------ Texture only shader program ------
+  textureShader.pid = initShader(
+    "../resources/shaders_glsl/vertTextureOnly.glsl",
+    "../resources/shaders_glsl/fragTextureOnly.glsl");
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+  // Put locations of attribs and uniforms into textureShader
+  getTextureShaderLocations(&textureShader);
 
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertTextureOnly.glsl");
-  fsSource = textfileRead("../resources/fragTextureOnly.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Create program and link
-  to_pid = glCreateProgram();
-  glAttachShader(to_pid, vsHandle);
-  glAttachShader(to_pid, fsHandle);
-  glLinkProgram(to_pid);
-  glGetProgramiv(to_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Attribs
-  to_vertPosLoc = glGetAttribLocation(to_pid, "vertPos");
-  to_texCoordLoc = glGetAttribLocation(to_pid, "texCoord");
-
-  // Per-object matrices to pass to shaders
-  // TODO: Replace perspective and placement with modelview and projection
-  to_modelviewLoc = glGetUniformLocation(to_pid, "modelview");
-  to_projectionLoc = glGetUniformLocation(to_pid, "projection");
-
-  // Get the location of the sampler2D in fragment shader (???)
-  to_texLoc = glGetUniformLocation(to_pid, "texCol");
-
+  // TODO: Do VAOs separate from shader initialization
   // VAO for globe
   // Create vertex array object
   glGenVertexArrays(1, &to_vaoID);
   glBindVertexArray(to_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(to_vertPosLoc);
+  glEnableVertexAttribArray(textureShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
-  glVertexAttribPointer(to_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(textureShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind texture coordinate buffer
-  glEnableVertexAttribArray(to_texCoordLoc);
+  glEnableVertexAttribArray(textureShader.texCoord);
   glBindBuffer(GL_ARRAY_BUFFER, sphere_texCoordBufID);
-  glVertexAttribPointer(to_texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
+  glVertexAttribPointer(textureShader.texCoord, 2, GL_FLOAT, GL_FALSE, 
     sizeof(GL_FLOAT) * 2, (const void *) 0);
 
   // Bind element buffer
@@ -819,8 +462,8 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(to_vertPosLoc);
-  glDisableVertexAttribArray(to_texCoordLoc);
+  glDisableVertexAttribArray(textureShader.vertPos);
+  glDisableVertexAttribArray(textureShader.texCoord);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -832,15 +475,15 @@ static void init() {
   glBindVertexArray(grass_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(to_vertPosLoc);
+  glEnableVertexAttribArray(textureShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, rect_posBufID);
-  glVertexAttribPointer(to_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(textureShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind texture coordinate buffer
-  glEnableVertexAttribArray(to_texCoordLoc);
+  glEnableVertexAttribArray(textureShader.texCoord);
   glBindBuffer(GL_ARRAY_BUFFER, rect_texCoordBufID);
-  glVertexAttribPointer(to_texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
+  glVertexAttribPointer(textureShader.texCoord, 2, GL_FLOAT, GL_FALSE, 
     sizeof(GL_FLOAT) * 2, (const void *) 0);
 
   // Bind element buffer
@@ -850,91 +493,20 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(to_vertPosLoc);
-  glDisableVertexAttribArray(to_texCoordLoc);
+  glDisableVertexAttribArray(textureShader.vertPos);
+  glDisableVertexAttribArray(textureShader.texCoord);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // Depth Only shader program
+  // ------ Depth Only shader program ------
+  depthShader.pid = initShader(
+    "../resources/shaders_glsl/vertDepthOnly.glsl",
+    "../resources/shaders_glsl/fragDepthOnly.glsl");
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertDepthOnly.glsl");
-  fsSource = textfileRead("../resources/fragDepthOnly.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Create program and link
-  do_pid = glCreateProgram();
-  glAttachShader(do_pid, vsHandle);
-  glAttachShader(do_pid, fsHandle);
-  glLinkProgram(do_pid);
-  glGetProgramiv(do_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Attribs
-  do_vertPosLoc = glGetAttribLocation(do_pid, "vertPos");
-
-  // Per-object matrices to pass to shaders
-  // TODO: Replace perspective and placement with modelview and projection
-  do_modelviewLoc = glGetUniformLocation(do_pid, "modelview");
-  do_projectionLoc = glGetUniformLocation(do_pid, "projection");
-
-  // Bunny vertex array object
-
-  // Create vertex array object
-  glGenVertexArrays(1, &do_vaoID);
-  glBindVertexArray(do_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(do_vertPosLoc);
-  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
-  glVertexAttribPointer(do_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(do_vertPosLoc);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  // Put locations of attribs and uniforms into depthShader
+  getDepthShaderLocations(&depthShader);
 
   // Sphere vertex array object
 
@@ -943,9 +515,9 @@ static void init() {
   glBindVertexArray(do_sphere_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(do_vertPosLoc);
+  glEnableVertexAttribArray(depthShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
-  glVertexAttribPointer(do_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(depthShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
@@ -955,79 +527,34 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(do_vertPosLoc);
+  glDisableVertexAttribArray(depthShader.vertPos);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // Rectangle shader program
+  // ------ Rectangle shader program ------
+  rectShader.pid = initShader(
+    "../resources/shaders_glsl/vertRectangle.glsl",
+    "../resources/shaders_glsl/fragRectangle.glsl");
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertRectangle.glsl");
-  fsSource = textfileRead("../resources/fragRectangle.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-  
-  // Create program and link
-  r_pid = glCreateProgram();
-  glAttachShader(r_pid, vsHandle);
-  glAttachShader(r_pid, fsHandle);
-  glLinkProgram(r_pid);
-  glGetProgramiv(r_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Attribs
-  r_vertPosLoc = glGetAttribLocation(r_pid, "vertPos");
-  r_texCoordLoc = glGetAttribLocation(r_pid, "texCoord");
-
-  // Get the location of the sampler2D in fragment shader (???)
-  r_texLoc = glGetUniformLocation(r_pid, "texCol");
+  // Put locations of attribs and uniforms into rectShader
+  getRectShaderLocations(&rectShader);
 
   // Create vertex array object
   glGenVertexArrays(1, &rect_vaoID);
   glBindVertexArray(rect_vaoID);
-
+  
   // Bind position buffer
-  glEnableVertexAttribArray(r_vertPosLoc);
+  glEnableVertexAttribArray(rectShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, rect_posBufID);
-  glVertexAttribPointer(r_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(rectShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind texture coordinate buffer
-  glEnableVertexAttribArray(r_texCoordLoc);
+  glEnableVertexAttribArray(rectShader.texCoord);
   glBindBuffer(GL_ARRAY_BUFFER, rect_texCoordBufID);
-  glVertexAttribPointer(r_texCoordLoc, 2, GL_FLOAT, GL_FALSE, 
+  glVertexAttribPointer(rectShader.texCoord, 2, GL_FLOAT, GL_FALSE, 
     sizeof(GL_FLOAT) * 2, (const void *) 0);
 
   // Bind element buffer
@@ -1037,69 +564,20 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(r_vertPosLoc);
-  glDisableVertexAttribArray(r_texCoordLoc);
+  glDisableVertexAttribArray(rectShader.vertPos);
+  glDisableVertexAttribArray(rectShader.texCoord);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // Cubemap shader program
+  // ------ Cubemap shader program ------
+  sbShader.pid = initShader(
+    "../resources/shaders_glsl/vertSkybox.glsl",
+    "../resources/shaders_glsl/fragSkybox.glsl");
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertCubemap.glsl");
-  fsSource = textfileRead("../resources/fragCubemap.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Create program and link
-  cm_pid = glCreateProgram();
-  glAttachShader(cm_pid, vsHandle);
-  glAttachShader(cm_pid, fsHandle);
-  glLinkProgram(cm_pid);
-  glGetProgramiv(cm_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Attribs
-  cm_vertPosLoc = glGetAttribLocation(cm_pid, "vertPos");
-
-  // Per-object matrices to pass to shaders
-  // TODO: Replace perspective and placement with modelview and projection
-  cm_modelviewLoc = glGetUniformLocation(cm_pid, "modelview");
-  cm_projectionLoc = glGetUniformLocation(cm_pid, "projection");
-
-  // Get the location of the samplerCube in fragment shader (???)
-  cm_texLoc = glGetUniformLocation(cm_pid, "skybox");
+  // Put locations of attribs and uniforms into sbShader
+  getSkyboxShaderLocations(&sbShader);
 
   // Skybox vertex array object
 
@@ -1108,75 +586,28 @@ static void init() {
   glBindVertexArray(skybox_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(cm_vertPosLoc);
+  glEnableVertexAttribArray(sbShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, skybox_posBufID);
-  glVertexAttribPointer(cm_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(sbShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(to_vertPosLoc);
-  glDisableVertexAttribArray(to_texCoordLoc);
+  glDisableVertexAttribArray(sbShader.vertPos);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // One color shader program
+  // ------ One color shader program ------
+  ocShader.pid = initShader(
+    "../resources/shaders_glsl/vertOneColor.glsl",
+    "../resources/shaders_glsl/fragOneColor.glsl");
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertOneColor.glsl");
-  fsSource = textfileRead("../resources/fragOneColor.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Create program and link
-  oc_pid = glCreateProgram();
-  glAttachShader(oc_pid, vsHandle);
-  glAttachShader(oc_pid, fsHandle);
-  glLinkProgram(oc_pid);
-  glGetProgramiv(oc_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Attribs
-  oc_vertPosLoc = glGetAttribLocation(oc_pid, "vertPos");
-
-  // Per-object matrices to pass to shaders
-  oc_modelviewLoc = glGetUniformLocation(oc_pid, "modelview");
-  oc_projectionLoc = glGetUniformLocation(oc_pid, "projection");
-  oc_in_colorLoc = glGetUniformLocation(oc_pid, "in_color");
+  // Put locations of attribs and uniforms into ocShader
+  getOcShaderLocations(&ocShader);
 
   // Pink bunny vertex array object
 
@@ -1185,9 +616,9 @@ static void init() {
   glBindVertexArray(oc_bunny_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(oc_vertPosLoc);
+  glEnableVertexAttribArray(ocShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
-  glVertexAttribPointer(oc_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(ocShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
@@ -1197,7 +628,7 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(oc_vertPosLoc);
+  glDisableVertexAttribArray(ocShader.vertPos);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1210,9 +641,9 @@ static void init() {
   glBindVertexArray(ls_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(oc_vertPosLoc);
+  glEnableVertexAttribArray(ocShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
-  glVertexAttribPointer(oc_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(ocShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
@@ -1222,102 +653,37 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(oc_vertPosLoc);
+  glDisableVertexAttribArray(ocShader.vertPos);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // Phong shader program
+  // TODO: Change to "point light phong"
+  // ------ One material phong shader program ------
+  ompShader.pid = initShader(
+    "../resources/shaders_glsl/vertOneMaterialPhong.glsl",
+    "../resources/shaders_glsl/fragOneMaterialPhong.glsl");
 
-  // Create shader handles
-  vsHandle = glCreateShader(GL_VERTEX_SHADER);
-  fsHandle = glCreateShader(GL_FRAGMENT_SHADER);
+  // Put locations of attribs and uniforms into ompShader
+  getOmpShaderLocations(&ompShader);
 
-  // Read shader source code
-  vsSource = textfileRead("../resources/vertPhong.glsl");
-  fsSource = textfileRead("../resources/fragPhong.glsl");
-
-  glShaderSource(vsHandle, 1, &vsSource, NULL);
-  glShaderSource(fsHandle, 1, &fsSource, NULL);
-
-  free(vsSource);
-  free(fsSource);
-
-  // Compile vertex shader
-  glCompileShader(vsHandle);
-  glGetShaderiv(vsHandle, GL_COMPILE_STATUS, &rc);
-  
-  if(!rc) {
-    std::cout << "Error compiling vertex shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Compile fragment shader
-  glCompileShader(fsHandle);
-  glGetShaderiv(fsHandle, GL_COMPILE_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error compiling fragment shader" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Create program and link
-  phong_pid = glCreateProgram();
-  glAttachShader(phong_pid, vsHandle);
-  glAttachShader(phong_pid, fsHandle);
-  glLinkProgram(phong_pid);
-  glGetProgramiv(phong_pid, GL_LINK_STATUS, &rc);
-
-  if(!rc) {
-    std::cout << "Error linking shaders" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // Attribs
-  phong_vertPosLoc = glGetAttribLocation(phong_pid, "vertPos");
-  phong_vertNorLoc = glGetAttribLocation(phong_pid, "vertNor");
-
-  // Per-object matrices to pass to shaders
-  // Vertex shader uniforms
-  phong_modelLoc = glGetUniformLocation(phong_pid, "model");
-  phong_viewLoc = glGetUniformLocation(phong_pid, "view");
-  phong_projectionLoc = glGetUniformLocation(phong_pid, "projection");
-  // Fragment shader uniforms
-  phong_camPosLoc = glGetUniformLocation(phong_pid, "cam_pos");
-  phong_materialAmbientLoc = glGetUniformLocation(phong_pid,
-    "material.ambient");
-  phong_materialDiffuseLoc = glGetUniformLocation(phong_pid,
-    "material.diffuse");
-  phong_materialSpecularLoc = glGetUniformLocation(phong_pid,
-    "material.specular");
-  phong_materialShininessLoc = glGetUniformLocation(phong_pid,
-    "material.shininess");
-  phong_lightPositionLoc = glGetUniformLocation(phong_pid,
-    "light.position");
-  phong_lightAmbientLoc = glGetUniformLocation(phong_pid,
-    "light.ambient");
-  phong_lightDiffuseLoc = glGetUniformLocation(phong_pid,
-    "light.diffuse");
-  phong_lightSpecularLoc = glGetUniformLocation(phong_pid,
-    "light.specular");
-
-  // Phong bunny vertex array object
+  // One Material Phong bunny VAO
 
   // Create vertex array object
-  glGenVertexArrays(1, &phong_bunny_vaoID);
-  glBindVertexArray(phong_bunny_vaoID);
+  glGenVertexArrays(1, &omp_bunny_vaoID);
+  glBindVertexArray(omp_bunny_vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(phong_vertPosLoc);
+  glEnableVertexAttribArray(ompShader.vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
-  glVertexAttribPointer(phong_vertPosLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(ompShader.vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
-
+  
   // Bind normal buffer
-  glEnableVertexAttribArray(phong_vertNorLoc);
+  glEnableVertexAttribArray(ompShader.vertNor);
   glBindBuffer(GL_ARRAY_BUFFER, bunny_norBufID);
-  glVertexAttribPointer(phong_vertNorLoc, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(ompShader.vertNor, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
@@ -1327,10 +693,87 @@ static void init() {
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(phong_vertPosLoc);
-  glDisableVertexAttribArray(phong_vertNorLoc);
+  glDisableVertexAttribArray(ompShader.vertPos);
+  glDisableVertexAttribArray(ompShader.vertNor);
 
-  // TODO: Cube vertex array object
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // TODO: General phong shader
+
+  // TODO: Change to "point light phong"
+  // ------ Phong cubemap shader ------
+  pcShader.pid = initShader(
+    "../resources/shaders_glsl/vertPhongCube.glsl",
+    "../resources/shaders_glsl/fragPhongCube.glsl");
+
+  // Put locations of attribs and uniforms into pcShader
+  getPhongCubeShaderLocations(&pcShader);
+
+  // Wooden cube vertex array object
+
+  // Create vertex array object
+  glGenVertexArrays(1, &woodcube_vaoID);
+  glBindVertexArray(woodcube_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(pcShader.vertPos);
+  glBindBuffer(GL_ARRAY_BUFFER, phongbox_posBufID);
+  glVertexAttribPointer(pcShader.vertPos, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind normal buffer
+  glEnableVertexAttribArray(pcShader.vertNor);
+  glBindBuffer(GL_ARRAY_BUFFER, phongbox_norBufID);
+  glVertexAttribPointer(pcShader.vertNor, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(pcShader.vertPos);
+  glDisableVertexAttribArray(pcShader.vertNor);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  // TODO: Change to "point light phong"
+  // ------ One face phong cube shader program ------
+  ofpcShader.pid = initShader(
+    "../resources/shaders_glsl/vertOneFacePhongCube.glsl",
+    "../resources/shaders_glsl/fragOneFacePhongCube.glsl");
+  
+  // Put locations of attribs and uniforms into ofpcShader
+  getOfpcShaderLocations(&ofpcShader);
+
+  // TODO: Initialize VAO function per shader
+  // Wooden cube vertex array object
+
+  // Create vertex array object
+  glGenVertexArrays(1, &facecube_vaoID);
+  glBindVertexArray(facecube_vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(ofpcShader.vertPos);
+  glBindBuffer(GL_ARRAY_BUFFER, phongbox_posBufID);
+  glVertexAttribPointer(ofpcShader.vertPos, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind normal buffer
+  glEnableVertexAttribArray(ofpcShader.vertNor);
+  glBindBuffer(GL_ARRAY_BUFFER, phongbox_norBufID);
+  glVertexAttribPointer(ofpcShader.vertNor, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+  
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(ofpcShader.vertPos);
+  glDisableVertexAttribArray(ofpcShader.vertNor);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -1344,10 +787,6 @@ static void render() {
   glm::dvec2 screenPos;
 
   // Create matrices
-  glm::mat4 matPlacement;
-  glm::mat4 matPerspective;
-  glm::mat4 matCamera;
-
   glm::mat4 matModel;
   glm::mat4 matView;
   glm::mat4 matModelview;
@@ -1373,85 +812,83 @@ static void render() {
   screenPos.x = cursorPos.x / (double) width;
   screenPos.y = cursorPos.y / (double) height;
 
-  // Rotation along y axis
-  if(screenPos.x > .9f && screenPos.x < 1.f &&
-    screenPos.y > 0.f && screenPos.y < 1.f) {
-    camRotation.y = camRotation.y - .01f;
-  } else if(screenPos.x < .1f && screenPos.x > 0.f &&
-    screenPos.y > 0.f && screenPos.y < 1.f) {
-    camRotation.y = camRotation.y + .01f;
+  if(cameraFreeze) {
+    // Rotation along y axis
+    if(screenPos.x > .9f && screenPos.x < 1.f &&
+      screenPos.y > 0.f && screenPos.y < 1.f) {
+      camRotation.y = camRotation.y - .01f;
+    } else if(screenPos.x < .1f && screenPos.x > 0.f &&
+      screenPos.y > 0.f && screenPos.y < 1.f) {
+      camRotation.y = camRotation.y + .01f;
+    }
+
+    if(camRotation.y <= 0.00001f) {
+      camRotation.y = 2.f * PI;
+    } else if(camRotation.y >= 2.f * PI) {
+      camRotation.y = 0.00001f;
+    }
+
+    // Rotation along x axis
+    // NOTE POSITIVE DIRECTION
+    if(screenPos.y > .9f && screenPos.y < 1.f &&
+      camRotation.x > -PI / 2.f &&
+      screenPos.x > 0.f && screenPos.x < 1.f) {
+      camRotation.x = camRotation.x - .01f;
+    } else if(screenPos.y < .1f && screenPos.y > 0.f &&
+      camRotation.x < PI / 2.f &&
+      screenPos.x > 0.f && screenPos.x < 1.f) {
+      camRotation.x = camRotation.x + .01f;
+    }
+
+    // Update the forward direction
+    forward = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
+      glm::vec3(0.f, 1.f, 0.f)) *
+      glm::rotate(glm::mat4(1.f), camRotation.x,
+      glm::vec3(1.f, 0.f, 0.f)) *
+      glm::vec4(0.f, 0.f, -1.f, 1.f));
+    forward = glm::normalize(glm::vec3(forward.x, 0.f, forward.z));
+    // Update the side direction
+    sideways = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
+      glm::vec3(0.f, 1.f, 0.f)) *
+      glm::rotate(glm::mat4(1.f), camRotation.x,
+      glm::vec3(1.f, 0.f, 0.f)) *
+      glm::vec4(1.f, 0.f, 0.f, 1.f));
+    sideways = glm::normalize(glm::vec3(sideways.x, 0.f, sideways.z));
+    // Update position
+    if(keys[0]) {
+      camLocation = camLocation + forward * 0.05f;
+    }
+    if(keys[1]) {
+      camLocation = camLocation - sideways * 0.05f;
+    }
+    if(keys[2]) {
+      camLocation = camLocation - forward * 0.05f;
+    }
+    if(keys[3]) {
+      camLocation = camLocation + sideways * 0.05f;
+    }
+    if(keys[4]) {
+      camLocation = camLocation + glm::vec3(0.f, 0.05f, 0.f);
+    }
+    if(keys[5]) {
+      camLocation = camLocation - glm::vec3(0.f, 0.05f, 0.f);
+    }
   }
 
-  if(camRotation.y <= 0.00001f) {
-    camRotation.y = 2.f * PI;
-  } else if(camRotation.y >= 2.f * PI) {
-    camRotation.y = 0.00001f;
-  }
-
-  // Rotation along x axis
-  // NOTE POSITIVE DIRECTION
-  if(screenPos.y > .9f && screenPos.y < 1.f &&
-    camRotation.x > -PI / 2.f &&
-    screenPos.x > 0.f && screenPos.x < 1.f) {
-    camRotation.x = camRotation.x - .01f;
-  } else if(screenPos.y < .1f && screenPos.y > 0.f &&
-    camRotation.x < PI / 2.f &&
-    screenPos.x > 0.f && screenPos.x < 1.f) {
-    camRotation.x = camRotation.x + .01f;
-  }
-
-  // Update the forward direction
-  forward = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
-    glm::vec3(0.f, 1.f, 0.f)) *
-    glm::rotate(glm::mat4(1.f), camRotation.x,
-    glm::vec3(1.f, 0.f, 0.f)) *
-    glm::vec4(0.f, 0.f, -1.f, 1.f));
-  forward = glm::normalize(glm::vec3(forward.x, 0.f, forward.z));
-  // Update the side direction
-  sideways = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
-    glm::vec3(0.f, 1.f, 0.f)) *
-    glm::rotate(glm::mat4(1.f), camRotation.x,
-    glm::vec3(1.f, 0.f, 0.f)) *
-    glm::vec4(1.f, 0.f, 0.f, 1.f));
-  sideways = glm::normalize(glm::vec3(sideways.x, 0.f, sideways.z));
-  // Update position
-  if(keys[0]) {
-    camLocation = camLocation + forward * 0.05f;
-  }
-  if(keys[1]) {
-    camLocation = camLocation - sideways * 0.05f;
-  }
-  if(keys[2]) {
-    camLocation = camLocation - forward * 0.05f;
-  }
-  if(keys[3]) {
-    camLocation = camLocation + sideways * 0.05f;
-  }
-  if(keys[4]) {
-    camLocation = camLocation + glm::vec3(0.f, 0.05f, 0.f);
-  }
-  if(keys[5]) {
-    camLocation = camLocation - glm::vec3(0.f, 0.05f, 0.f);
-  }
-
-  // Perspective matrix
+  // Projection matrix
   aspect = width / (float) height;
-  matPerspective = glm::perspective(70.f, aspect, .1f, 10.f);
+  matProjection = glm::perspective(70.f, aspect, .1f, 100.f);
 
-  matProjection = matPerspective;
+  // View matrix
+  matView = glm::mat4(1.f);
+  matView = glm::translate(glm::mat4(1.f), -camLocation) *
+    matView;
 
-  // Transformations regarding the camera
-  matCamera = glm::mat4(1.f);
-  matCamera = glm::translate(glm::mat4(1.f), -camLocation) *
-    matCamera;
-
-  matCamera = glm::rotate(glm::mat4(1.f), -camRotation.x,
-    sideways) * matCamera;
-  matCamera = glm::rotate(glm::mat4(1.f), -camRotation.y,
-    glm::vec3(0.f, 1.f, 0.f)) * matCamera;
-
-  matView = matCamera;
-
+  matView = glm::rotate(glm::mat4(1.f), -camRotation.x,
+    sideways) * matView;
+  matView = glm::rotate(glm::mat4(1.f), -camRotation.y,
+    glm::vec3(0.f, 1.f, 0.f)) * matView;
+  
   // Draw the globe
 
   // Stencil for outline
@@ -1484,12 +921,12 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(to_pid);
+  glUseProgram(textureShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(to_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(textureShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(to_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(textureShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
 
   // Bind vertex array object
@@ -1497,9 +934,9 @@ static void render() {
 
   // Bind texture to texture unit 0
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, sphere_texBufID);
+  glBindTexture(GL_TEXTURE_2D, world_texBufID);
   // 0 because texture unit GL_TEXTURE0
-  glUniform1i(to_texLoc, 0);
+  glUniform1i(textureShader.texLoc, 0);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
@@ -1548,12 +985,12 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(do_pid);
+  glUseProgram(depthShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(do_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(depthShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(do_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(depthShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
 
   // Bind vertex array object
@@ -1603,12 +1040,12 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(to_pid);
+  glUseProgram(textureShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(to_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(textureShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(to_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(textureShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
 
   // Bind vertex array object
@@ -1618,7 +1055,7 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, grass_texBufID);
   // 0 because texture unit GL_TEXTURE0
-  glUniform1i(r_texLoc, 0);
+  glUniform1i(textureShader.texLoc, 0);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
@@ -1663,15 +1100,15 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(oc_pid);
+  glUseProgram(ocShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(oc_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ocShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(oc_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   // Bunny is red (1.0, 0.0, 0.0)
-  glUniform3fv(oc_in_colorLoc, 1,
+  glUniform3fv(ocShader.in_color, 1,
     glm::value_ptr(glm::vec3(1.0, 0.0, 0.0)));
 
   // Bind vertex array object
@@ -1716,14 +1153,14 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(oc_pid);
+  glUseProgram(ocShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(oc_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ocShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(oc_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
-  glUniform3fv(oc_in_colorLoc, 1,
+  glUniform3fv(ocShader.in_color, 1,
     glm::value_ptr(tutorialLight.specular));
 
   // Bind vertex array object
@@ -1753,15 +1190,9 @@ static void render() {
     glm::vec3(1.f, 1.f, 1.f)) * 
     matModel;
 
-  // TESTING
-  rot = (rot + .01f);
-  if(rot > 6.28f)
-    rot = 0.0;
-  printf("rot: %f\n", rot);
-
   matModel = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), rot, // Rotation here
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
   matModel = glm::rotate(glm::mat4(1.f), 0.f,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
@@ -1770,41 +1201,49 @@ static void render() {
   matModel = glm::translate(glm::mat4(1.f),
     glm::vec3(-12.f, 0.f, -2.f)) * matModel;
 
+  // Set modelview matrix
+  matModelview = matView * matModel;
+
   // Bind shader program
-  // TODO: Light going behind object
-  glUseProgram(phong_pid);
+  glUseProgram(ompShader.pid);
+
+  // Bind vertex array object
+  glBindVertexArray(omp_bunny_vaoID);
 
   // Fill in matrices
   // Fill in vertex shader uniforms
-  // TODO: Change to modelview matrix
-  glUniformMatrix4fv(phong_modelLoc, 1, GL_FALSE,
-    glm::value_ptr(matModel));
-  glUniformMatrix4fv(phong_viewLoc, 1, GL_FALSE,
-    glm::value_ptr(matView));
-  glUniformMatrix4fv(phong_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(ompShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(ompShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   // Fill in fragment shader uniforms
-  glUniform3fv(phong_camPosLoc, 1,
-    glm::value_ptr(camLocation));
-  glUniform3fv(phong_materialAmbientLoc, 1,
+  glUniform3fv(ompShader.materialAmbient, 1,
     glm::value_ptr(copper.ambient));
-  glUniform3fv(phong_materialDiffuseLoc, 1,
+  glUniform3fv(ompShader.materialDiffuse, 1,
     glm::value_ptr(copper.diffuse));
-  glUniform3fv(phong_materialSpecularLoc, 1,
+  glUniform3fv(ompShader.materialSpecular, 1,
     glm::value_ptr(copper.specular));
-  glUniform1f(phong_materialShininessLoc,
+  glUniform1f(ompShader.materialShininess,
     copper.shininess);
-  glUniform3fv(phong_lightPositionLoc, 1,
-    glm::value_ptr(tutorialLight.position));
-  glUniform3fv(phong_lightAmbientLoc, 1,
+  glUniform3fv(ompShader.lightPosition, 1,
+    glm::value_ptr(
+      glm::vec3(
+        matView * glm::vec4(tutorialLight.position, 1.f)
+      )
+    )
+  );
+  glUniform3fv(ompShader.lightAmbient, 1,
     glm::value_ptr(tutorialLight.ambient));
-  glUniform3fv(phong_lightDiffuseLoc, 1,
+  glUniform3fv(ompShader.lightDiffuse, 1,
     glm::value_ptr(tutorialLight.diffuse));
-  glUniform3fv(phong_lightSpecularLoc, 1,
+  glUniform3fv(ompShader.lightSpecular, 1,
     glm::value_ptr(tutorialLight.specular));
-
-  // Bind vertex array object
-  glBindVertexArray(phong_bunny_vaoID);
+  // Attenuation
+  // Range of 50, from:
+  // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
+  glUniform1f(ompShader.lightConstant, 1.f);
+  glUniform1f(ompShader.lightLinear, .045f);
+  glUniform1f(ompShader.lightQuadratic, .0075f);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
@@ -1816,7 +1255,184 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
-  // Draw the cubemap
+  // Draw the wood cube
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matModel;
+  
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+
+  // Object position is -12, 0, -4
+  matModel = glm::translate(glm::mat4(1.f),
+    glm::vec3(-12.f, 0.f, -4.f)) * matModel;
+
+  // Modify object relative to the eye
+  matModelview = matView * matModel;
+
+  // Bind shader program
+  glUseProgram(pcShader.pid);
+
+  // Fill in matrices
+  // Fill in vertex shader uniforms
+  glUniformMatrix4fv(pcShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(pcShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  // Fill in fragment shader uniforms
+  // Give light position in view space
+  glUniform3fv(pcShader.lightPosition, 1,
+    glm::value_ptr(
+      glm::vec3(
+        matView * glm::vec4(tutorialLight.position, 1.f)
+      )
+    )
+  );
+  glUniform3fv(pcShader.lightAmbient, 1,
+    glm::value_ptr(tutorialLight.ambient));
+  glUniform3fv(pcShader.lightDiffuse, 1,
+    glm::value_ptr(tutorialLight.diffuse));
+  glUniform3fv(pcShader.lightSpecular, 1,
+    glm::value_ptr(tutorialLight.specular));
+  // Shininess is 64.0, a MAGIC NUMBER
+  glUniform1f(pcShader.materialShininess, 64.f);
+  // Attenuation
+  // Range of 50, from:
+  // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
+  glUniform1f(pcShader.lightConstant, 1.f);
+  glUniform1f(pcShader.lightLinear, .045f);
+  glUniform1f(pcShader.lightQuadratic, .0075f);
+
+  // Bind vertex array object
+  glBindVertexArray(woodcube_vaoID);
+
+  // Bind the maps
+  // Diffuse Map
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, woodcube_diffuseMapID);
+  glUniform1i(pcShader.materialDiffuse, 0);
+  // Specular Map
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, woodcube_specularMapID);
+  glUniform1i(pcShader.materialSpecular, 1);
+
+  // Draw the cube
+  // Divide by 3 because per vertex
+  glDrawArrays(GL_TRIANGLES, 0, phongbox_bufSize / 3);
+
+  // Unbind maps
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the other wood cube
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matModel;
+  
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+
+  // Object position is -12, 0, -4
+  matModel = glm::translate(glm::mat4(1.f),
+    glm::vec3(-12.f, 0.f, 4.f)) * matModel;
+
+  // Modify object relative to the eye
+  matModelview = matView * matModel;
+
+  // Bind shader program
+  glUseProgram(ofpcShader.pid);
+
+  // Fill in shader uniforms
+  glUniformMatrix4fv(ofpcShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(ofpcShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  // Give light position in view space
+  glUniform3fv(ofpcShader.lightPosition, 1,
+    glm::value_ptr(
+      glm::vec3(
+        matView * glm::vec4(tutorialLight.position, 1.f)
+      )
+    )
+  );
+  glUniform3fv(ofpcShader.lightAmbient, 1,
+    glm::value_ptr(tutorialLight.ambient));
+  glUniform3fv(ofpcShader.lightDiffuse, 1,
+    glm::value_ptr(tutorialLight.diffuse));
+  glUniform3fv(ofpcShader.lightSpecular, 1,
+    glm::value_ptr(tutorialLight.specular));
+  // Shininess is 64.0, a MAGIC NUMBER
+  glUniform1f(ofpcShader.materialShininess, 64.f);
+  // Attenuation
+  glUniform1f(ofpcShader.lightConstant, 1.f);
+  glUniform1f(ofpcShader.lightLinear, .045f);
+  glUniform1f(ofpcShader.lightQuadratic, .0075f);
+
+  // Bind vertex array object
+  glBindVertexArray(facecube_vaoID);
+
+  // Bind the maps
+  // Bind diffuse map
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, facecube_diffuseMapID);
+  // 0 because texture unit GL_TEXTURE0
+  glUniform1i(ofpcShader.materialDiffuse, 0);
+  // Bind specular map
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, facecube_specularMapID);
+  // 1 because texture unit GL_TEXTURE1
+  glUniform1i(ofpcShader.materialSpecular, 1);
+
+  // Draw one object
+  glDrawArrays(GL_TRIANGLES, 0, phongbox_bufSize / 3);
+
+  // Unbind maps
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the skybox
 
   // Do nothing to the stencil buffer ever
   glStencilFunc(GL_ALWAYS, 1, 0xFF);
@@ -1845,12 +1461,12 @@ static void render() {
   matModelview = matView * matModel;
 
   // Bind shader program
-  glUseProgram(cm_pid);
+  glUseProgram(sbShader.pid);
 
   // Fill in matrices
-  glUniformMatrix4fv(cm_modelviewLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(sbShader.modelview, 1, GL_FALSE,
     glm::value_ptr(matModelview));
-  glUniformMatrix4fv(cm_projectionLoc, 1, GL_FALSE,
+  glUniformMatrix4fv(sbShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
 
   // Bind vertex array object
@@ -1859,12 +1475,9 @@ static void render() {
   // Texture unit example below
   // Bind the texture
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, skyTexture);
-  // TESTING
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-  // 1 because correct skybox is in texture unit GL_TEXTURE1
-  glUniform1i(cm_texLoc, 1);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_texBufID);
+  // 0 because correct skybox is in texture unit GL_TEXTURE0
+  glUniform1i(sbShader.skybox, 1); // Changed
 
   // Draw the cube
   // Divide by 3 because per vertex
@@ -1896,7 +1509,7 @@ static void render() {
   glStencilMask(0x00);
 
   // Bind shader program
-  glUseProgram(r_pid);
+  glUseProgram(rectShader.pid);
 
   // Bind vertex array object
   glBindVertexArray(rect_vaoID);
@@ -1905,7 +1518,7 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   // 0 because texture unit GL_TEXTURE0
-  glUniform1i(r_texLoc, 0);
+  glUniform1i(rectShader.texLoc, 0);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
