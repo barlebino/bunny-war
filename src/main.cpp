@@ -1,3 +1,6 @@
+// TODO: rect_shader -> texture_shader
+// TODO: Change to bind program -> bind vao -> make mat -> fill mat
+
 #include <iostream>
 
 #include <unistd.h>
@@ -113,7 +116,6 @@ int phongbox_bufSize;
 struct OneMaterialPhongShader ompShader;
 struct OneColorShader ocShader;
 struct SkyboxShader sbShader;
-struct RectShader rectShader;
 struct DepthShader depthShader;
 struct TextureShader textureShader;
 struct PhongCubeShader pcShader;
@@ -445,14 +447,6 @@ static void init() {
   // Put locations of attribs and uniforms into depthShader
   getDepthShaderLocations(&depthShader);
 
-  // ------ Rectangle shader program ------
-  rectShader.pid = initShader(
-    "../resources/shaders_glsl/vertRectangle.glsl",
-    "../resources/shaders_glsl/fragRectangle.glsl");
-
-  // Put locations of attribs and uniforms into rectShader
-  getRectShaderLocations(&rectShader);
-
   // ------ Cubemap shader program ------
   sbShader.pid = initShader(
     "../resources/shaders_glsl/vertSkybox.glsl",
@@ -506,11 +500,6 @@ static void init() {
   // Depth-only sphere (globe highlight)
   makeDepthShaderVAO(&do_sphere_vaoID, &depthShader,
     sphere_posBufID, sphere_eleBufID);
-
-  // TODO: Use texture shader for screen
-  // Screen rectangle
-  makeRectShaderVAO(&rect_vaoID, &rectShader, rect_posBufID,
-    rect_texCoordBufID, rect_eleBufID);
 
   // Skybox VAO (sky)
   makeSkyboxShaderVAO(&skybox_vaoID, &sbShader, skybox_posBufID);
@@ -1270,18 +1259,25 @@ static void render() {
   glStencilMask(0x00);
 
   // Bind shader program
-  glUseProgram(rectShader.pid);
+  glUseProgram(textureShader.pid);
 
   // Bind vertex array object
-  glBindVertexArray(rect_vaoID);
+  glBindVertexArray(grass_vaoID);
 
-  // Bind texture to texture unit 0
+  // Calculate placement matrix (do nothing)
+  matModel = glm::mat4(1.f);
+
+  // Fill in shader uniforms
+  glUniformMatrix4fv(textureShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModel));
+  glUniformMatrix4fv(textureShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matModel));
+  // Bind texture
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
-  // 0 because texture unit GL_TEXTURE0
-  glUniform1i(rectShader.texLoc, 0);
+  glUniform1i(textureShader.texLoc, 0);
 
-  // Draw one object
+  // Draw screen
   glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
 
@@ -1289,13 +1285,13 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, 0);
 
-  // Unbind vertex array object
+  // Unbind VAO
   glBindVertexArray(0);
 
   // Unbind shader program
   glUseProgram(0);
 
-  // Re-Enable
+  // Re-enable
   glStencilMask(0xFF);
   glEnable(GL_DEPTH_TEST);
 }
