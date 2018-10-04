@@ -17,4 +17,12 @@ struct DepthShader {
 // Put attrib and uniform locations into struct
 void getDepthShaderLocations(struct DepthShader *);
 
+// Create VAO then put ID into vaoID
+// Assumes depthShader locations are initialized
+void makeDepthShaderVAO(
+  unsigned *vaoID,
+  struct DepthShader *depthShader,
+  unsigned posBufID, // ID given by OpenGL
+  unsigned eleBufID);
+
 #endif

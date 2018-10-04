@@ -18,4 +18,11 @@ struct SkyboxShader {
 // Put attrib and uniform locations into struct
 void getSkyboxShaderLocations(struct SkyboxShader *);
 
+// Create VAO then put ID into vaoID
+// Assumes skyboxShader locations are initialized
+void makeSkyboxShaderVAO(
+  unsigned *vaoID,
+  struct SkyboxShader *skyboxShader,
+  unsigned posBufID);
+
 #endif

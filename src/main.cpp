@@ -1,3 +1,6 @@
+// TODO: Capitalization
+// TODO: Index all meshes???
+
 #include <iostream>
 
 #include <unistd.h>
@@ -19,14 +22,14 @@
 
 #include "material.hpp"
 
-#include "shaders_c/omp_shader.hpp"
-#include "shaders_c/oc_shader.hpp"
+#include "shaders_c/onematerialphong_shader.hpp"
+#include "shaders_c/onecolor_shader.hpp"
 #include "shaders_c/skybox_shader.hpp"
 #include "shaders_c/rect_shader.hpp"
 #include "shaders_c/depth_shader.hpp"
 #include "shaders_c/texture_shader.hpp"
 #include "shaders_c/phongcube_shader.hpp"
-#include "shaders_c/ofpc_shader.hpp"
+#include "shaders_c/onefacephongcube_shader.hpp"
 
 // Light struct
 struct Light {
@@ -110,14 +113,14 @@ int phongbox_bufSize;
 
 // Shader programs
 // TODO: All shaders inherit from "shader"
-struct OmpShader ompShader;
-struct OcShader ocShader;
+struct OneMaterialPhongShader ompShader;
+struct OneColorShader ocShader;
 struct SkyboxShader sbShader;
 struct RectShader rectShader;
 struct DepthShader depthShader;
 struct TextureShader textureShader;
 struct PhongCubeShader pcShader;
-struct OfpcShader ofpcShader;
+struct OneFacePhongCubeShader ofpcShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -428,6 +431,7 @@ static void init() {
   defaultCubemapLoad(faces, &woodcube_specularMapID);
 
   // -------- Initialize shader programs --------
+  // TODO: each makeVAO assumes a certain data format
 
   // ------ Texture only shader program ------
   textureShader.pid = initShader(
@@ -439,66 +443,12 @@ static void init() {
 
   // TODO: Do VAOs separate from shader initialization
   // VAO for globe
-  // Create vertex array object
-  glGenVertexArrays(1, &to_vaoID);
-  glBindVertexArray(to_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(textureShader.vertPos);
-  glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
-  glVertexAttribPointer(textureShader.vertPos, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind texture coordinate buffer
-  glEnableVertexAttribArray(textureShader.texCoord);
-  glBindBuffer(GL_ARRAY_BUFFER, sphere_texCoordBufID);
-  glVertexAttribPointer(textureShader.texCoord, 2, GL_FLOAT, GL_FALSE, 
-    sizeof(GL_FLOAT) * 2, (const void *) 0);
-
-  // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphere_eleBufID);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(textureShader.vertPos);
-  glDisableVertexAttribArray(textureShader.texCoord);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  makeTextureShaderVAO(&to_vaoID, &textureShader,
+    sphere_posBufID, sphere_texCoordBufID, sphere_eleBufID);
 
   // VAO for grass
-  // Create vertex array object
-  glGenVertexArrays(1, &grass_vaoID);
-  glBindVertexArray(grass_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(textureShader.vertPos);
-  glBindBuffer(GL_ARRAY_BUFFER, rect_posBufID);
-  glVertexAttribPointer(textureShader.vertPos, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind texture coordinate buffer
-  glEnableVertexAttribArray(textureShader.texCoord);
-  glBindBuffer(GL_ARRAY_BUFFER, rect_texCoordBufID);
-  glVertexAttribPointer(textureShader.texCoord, 2, GL_FLOAT, GL_FALSE, 
-    sizeof(GL_FLOAT) * 2, (const void *) 0);
-
-  // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, rect_eleBufID);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(textureShader.vertPos);
-  glDisableVertexAttribArray(textureShader.texCoord);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  makeTextureShaderVAO(&grass_vaoID, &textureShader,
+    rect_posBufID, rect_texCoordBufID, rect_eleBufID);
 
   // ------ Depth Only shader program ------
   depthShader.pid = initShader(
@@ -508,30 +458,9 @@ static void init() {
   // Put locations of attribs and uniforms into depthShader
   getDepthShaderLocations(&depthShader);
 
-  // Sphere vertex array object
-
-  // Create vertex array object
-  glGenVertexArrays(1, &do_sphere_vaoID);
-  glBindVertexArray(do_sphere_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(depthShader.vertPos);
-  glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
-  glVertexAttribPointer(depthShader.vertPos, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphere_eleBufID);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(depthShader.vertPos);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  // Depth sphere VAO
+  makeDepthShaderVAO(&do_sphere_vaoID, &depthShader,
+    sphere_posBufID, sphere_eleBufID);
 
   // ------ Rectangle shader program ------
   rectShader.pid = initShader(
@@ -541,35 +470,9 @@ static void init() {
   // Put locations of attribs and uniforms into rectShader
   getRectShaderLocations(&rectShader);
 
-  // Create vertex array object
-  glGenVertexArrays(1, &rect_vaoID);
-  glBindVertexArray(rect_vaoID);
-  
-  // Bind position buffer
-  glEnableVertexAttribArray(rectShader.vertPos);
-  glBindBuffer(GL_ARRAY_BUFFER, rect_posBufID);
-  glVertexAttribPointer(rectShader.vertPos, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind texture coordinate buffer
-  glEnableVertexAttribArray(rectShader.texCoord);
-  glBindBuffer(GL_ARRAY_BUFFER, rect_texCoordBufID);
-  glVertexAttribPointer(rectShader.texCoord, 2, GL_FLOAT, GL_FALSE, 
-    sizeof(GL_FLOAT) * 2, (const void *) 0);
-
-  // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, rect_eleBufID);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(rectShader.vertPos);
-  glDisableVertexAttribArray(rectShader.texCoord);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  // Screen rectangle VAO
+  makeRectShaderVAO(&rect_vaoID, &rectShader, rect_posBufID,
+    rect_texCoordBufID, rect_eleBufID);
 
   // ------ Cubemap shader program ------
   sbShader.pid = initShader(
@@ -580,26 +483,7 @@ static void init() {
   getSkyboxShaderLocations(&sbShader);
 
   // Skybox vertex array object
-
-  // Create vertex array object
-  glGenVertexArrays(1, &skybox_vaoID);
-  glBindVertexArray(skybox_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(sbShader.vertPos);
-  glBindBuffer(GL_ARRAY_BUFFER, skybox_posBufID);
-  glVertexAttribPointer(sbShader.vertPos, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(sbShader.vertPos);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  makeSkyboxShaderVAO(&skybox_vaoID, &sbShader, skybox_posBufID);
 
   // ------ One color shader program ------
   ocShader.pid = initShader(
@@ -607,58 +491,16 @@ static void init() {
     "../resources/shaders_glsl/fragOneColor.glsl");
 
   // Put locations of attribs and uniforms into ocShader
-  getOcShaderLocations(&ocShader);
+  getOneColorShaderLocations(&ocShader);
 
   // Pink bunny vertex array object
-
-  // Create vertex array object
-  glGenVertexArrays(1, &oc_bunny_vaoID);
-  glBindVertexArray(oc_bunny_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(ocShader.vertPos);
-  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
-  glVertexAttribPointer(ocShader.vertPos, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(ocShader.vertPos);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
+  makeOneColorShaderVAO(&oc_bunny_vaoID, &ocShader,
+    bunny_posBufID, bunny_eleBufID);
+  
   // Light source vertex array object
-
-  // Create vertex array object
-  glGenVertexArrays(1, &ls_vaoID);
-  glBindVertexArray(ls_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(ocShader.vertPos);
-  glBindBuffer(GL_ARRAY_BUFFER, sphere_posBufID);
-  glVertexAttribPointer(ocShader.vertPos, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphere_eleBufID);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(ocShader.vertPos);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
+  makeOneColorShaderVAO(&ls_vaoID, &ocShader,
+    sphere_posBufID, sphere_eleBufID);
+  
   // TODO: Change to "point light phong"
   // ------ One material phong shader program ------
   ompShader.pid = initShader(
@@ -666,43 +508,15 @@ static void init() {
     "../resources/shaders_glsl/fragOneMaterialPhong.glsl");
 
   // Put locations of attribs and uniforms into ompShader
-  getOmpShaderLocations(&ompShader);
+  getOneMaterialPhongShaderLocations(&ompShader);
 
   // One Material Phong bunny VAO
-
-  // Create vertex array object
-  glGenVertexArrays(1, &omp_bunny_vaoID);
-  glBindVertexArray(omp_bunny_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(ompShader.vertPos);
-  glBindBuffer(GL_ARRAY_BUFFER, bunny_posBufID);
-  glVertexAttribPointer(ompShader.vertPos, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-  
-  // Bind normal buffer
-  glEnableVertexAttribArray(ompShader.vertNor);
-  glBindBuffer(GL_ARRAY_BUFFER, bunny_norBufID);
-  glVertexAttribPointer(ompShader.vertNor, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind element buffer
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunny_eleBufID);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(ompShader.vertPos);
-  glDisableVertexAttribArray(ompShader.vertNor);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  makeOneMaterialPhongShaderVAO(&omp_bunny_vaoID, &ompShader,
+    bunny_posBufID, bunny_norBufID, bunny_eleBufID);
 
   // TODO: General phong shader
 
-  // TODO: Change to "point light phong"
+  // TODO: Change to "point light phong" ???
   // ------ Phong cubemap shader ------
   pcShader.pid = initShader(
     "../resources/shaders_glsl/vertPhongCube.glsl",
@@ -712,72 +526,22 @@ static void init() {
   getPhongCubeShaderLocations(&pcShader);
 
   // Wooden cube vertex array object
-
-  // Create vertex array object
-  glGenVertexArrays(1, &woodcube_vaoID);
-  glBindVertexArray(woodcube_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(pcShader.vertPos);
-  glBindBuffer(GL_ARRAY_BUFFER, phongbox_posBufID);
-  glVertexAttribPointer(pcShader.vertPos, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind normal buffer
-  glEnableVertexAttribArray(pcShader.vertNor);
-  glBindBuffer(GL_ARRAY_BUFFER, phongbox_norBufID);
-  glVertexAttribPointer(pcShader.vertNor, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(pcShader.vertPos);
-  glDisableVertexAttribArray(pcShader.vertNor);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-  // TODO: Change to "point light phong"
+  makePhongCubeShaderVAO(&woodcube_vaoID, &pcShader,
+    phongbox_posBufID, phongbox_norBufID);
+  
+  // TODO: Change to "point light phong" ???
   // ------ One face phong cube shader program ------
   ofpcShader.pid = initShader(
     "../resources/shaders_glsl/vertOneFacePhongCube.glsl",
     "../resources/shaders_glsl/fragOneFacePhongCube.glsl");
   
   // Put locations of attribs and uniforms into ofpcShader
-  getOfpcShaderLocations(&ofpcShader);
+  getOneFacePhongCubeShaderLocations(&ofpcShader);
 
   // TODO: Initialize VAO function per shader
   // Wooden cube vertex array object
-
-  // Create vertex array object
-  glGenVertexArrays(1, &facecube_vaoID);
-  glBindVertexArray(facecube_vaoID);
-
-  // Bind position buffer
-  glEnableVertexAttribArray(ofpcShader.vertPos);
-  glBindBuffer(GL_ARRAY_BUFFER, phongbox_posBufID);
-  glVertexAttribPointer(ofpcShader.vertPos, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-
-  // Bind normal buffer
-  glEnableVertexAttribArray(ofpcShader.vertNor);
-  glBindBuffer(GL_ARRAY_BUFFER, phongbox_norBufID);
-  glVertexAttribPointer(ofpcShader.vertNor, 3, GL_FLOAT, GL_FALSE,
-    sizeof(GL_FLOAT) * 3, (const void *) 0);
-  
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Disable
-  glDisableVertexAttribArray(ofpcShader.vertPos);
-  glDisableVertexAttribArray(ofpcShader.vertNor);
-
-  // Unbind GPU buffers
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  makeOneFacePhongCubeShaderVAO(&facecube_vaoID, &ofpcShader,
+    phongbox_posBufID, phongbox_norBufID);
 }
 
 static void render() {
@@ -1477,7 +1241,7 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_texBufID);
   // 0 because correct skybox is in texture unit GL_TEXTURE0
-  glUniform1i(sbShader.skybox, 1); // Changed
+  glUniform1i(sbShader.skybox, 0); // Changed
 
   // Draw the cube
   // Divide by 3 because per vertex

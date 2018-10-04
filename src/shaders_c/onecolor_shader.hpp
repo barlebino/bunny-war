@@ -1,30 +1,29 @@
-#ifndef TEXTURE_SHADER_HPP
-#define TEXTURE_SHADER_HPP
+#ifndef OC_SHADER_HPP
+#define OC_SHADER_HPP
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-struct TextureShader {
+// One color shader
+struct OneColorShader {
   GLuint pid;
   // Attribs
   GLint vertPos;
-  GLint texCoord;
   // Uniforms
   GLint modelview;
   GLint projection;
-  GLint texLoc; // sampler2D
+  GLint in_color;
 };
 
 // Put attrib and uniform locations into struct
-void getTextureShaderLocations(struct TextureShader *);
+void getOneColorShaderLocations(struct OneColorShader *);
 
 // Create VAO then put ID into vaoID
-// Assumes textureShader locations are initialized
-void makeTextureShaderVAO(
+// Assumes ocShader locations are initialized
+void makeOneColorShaderVAO(
   unsigned *vaoID,
-  struct TextureShader *textureShader,
+  struct OneColorShader *ocShader,
   unsigned posBufID, // ID given by OpenGL
-  unsigned texCoordBufID,
   unsigned eleBufID);
 
 #endif

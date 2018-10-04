@@ -37,3 +37,38 @@ void getPhongCubeShaderLocations(struct PhongCubeShader *pcShader) {
   pcShader->lightQuadratic = glGetUniformLocation(pcShader->pid,
     "light.quadratic");
 }
+
+// Create VAO then put ID into vaoID
+// Assumes pcShader locations are initialized
+void makePhongCubeShaderVAO(
+  unsigned *vaoID,
+  struct PhongCubeShader *pcShader,
+  unsigned posBufID, // ID given by OpenGL
+  unsigned norBufID) {
+  // Create vertex array object
+  glGenVertexArrays(1, vaoID);
+  glBindVertexArray(*vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(pcShader->vertPos);
+  glBindBuffer(GL_ARRAY_BUFFER, posBufID);
+  glVertexAttribPointer(pcShader->vertPos, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind normal buffer
+  glEnableVertexAttribArray(pcShader->vertNor);
+  glBindBuffer(GL_ARRAY_BUFFER, norBufID);
+  glVertexAttribPointer(pcShader->vertNor, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(pcShader->vertPos);
+  glDisableVertexAttribArray(pcShader->vertNor);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}

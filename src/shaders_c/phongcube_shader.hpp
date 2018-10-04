@@ -30,4 +30,12 @@ struct PhongCubeShader {
 // Put attrib and uniform locations into struct
 void getPhongCubeShaderLocations(struct PhongCubeShader *);
 
+// Create VAO then put ID into vaoID
+// Assumes pcShader locations are initialized
+void makePhongCubeShaderVAO(
+  unsigned *vaoID,
+  struct PhongCubeShader *pcShader,
+  unsigned posBufID, // ID given by OpenGL
+  unsigned norBufID);
+
 #endif

@@ -1,25 +1,25 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-#include "depth_shader.hpp"
+#include "onecolor_shader.hpp"
 
 // Put attrib and uniform locations into struct
-// Assumes depthShader->pid is initialized
-void getDepthShaderLocations(struct DepthShader *depthShader) {
+// Assumes ocShader->pid is initialized
+void getOneColorShaderLocations(struct OneColorShader *ocShader) {
   // Attribs
-  depthShader->vertPos = glGetAttribLocation(depthShader->pid, "vertPos");
+  ocShader->vertPos = glGetAttribLocation(ocShader->pid, "vertPos");
 
   // Per-object matrices to pass to shaders
-  depthShader->modelview = glGetUniformLocation(depthShader->pid, "modelview");
-  depthShader->projection = glGetUniformLocation(depthShader->pid,
-    "projection");
+  ocShader->modelview = glGetUniformLocation(ocShader->pid, "modelview");
+  ocShader->projection = glGetUniformLocation(ocShader->pid, "projection");
+  ocShader->in_color = glGetUniformLocation(ocShader->pid, "in_color");
 }
 
 // Create VAO then put ID into vaoID
-// Assumes depthShader locations are initialized
-void makeDepthShaderVAO(
+// Assumes ocShader locations are initialized
+void makeOneColorShaderVAO(
   unsigned *vaoID,
-  struct DepthShader *depthShader,
+  struct OneColorShader *ocShader,
   unsigned posBufID, // ID given by OpenGL
   unsigned eleBufID) {
   // Create vertex array object
@@ -27,9 +27,9 @@ void makeDepthShaderVAO(
   glBindVertexArray(*vaoID);
 
   // Bind position buffer
-  glEnableVertexAttribArray(depthShader->vertPos);
+  glEnableVertexAttribArray(ocShader->vertPos);
   glBindBuffer(GL_ARRAY_BUFFER, posBufID);
-  glVertexAttribPointer(depthShader->vertPos, 3, GL_FLOAT, GL_FALSE,
+  glVertexAttribPointer(ocShader->vertPos, 3, GL_FLOAT, GL_FALSE,
     sizeof(GL_FLOAT) * 3, (const void *) 0);
 
   // Bind element buffer
@@ -39,7 +39,7 @@ void makeDepthShaderVAO(
   glBindVertexArray(0);
 
   // Disable
-  glDisableVertexAttribArray(depthShader->vertPos);
+  glDisableVertexAttribArray(ocShader->vertPos);
 
   // Unbind GPU buffers
   glBindBuffer(GL_ARRAY_BUFFER, 0);

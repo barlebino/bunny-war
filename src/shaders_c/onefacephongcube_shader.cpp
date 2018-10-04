@@ -1,11 +1,12 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-#include "ofpc_shader.hpp"
+#include "onefacephongcube_shader.hpp"
 
 // Put attrib and uniform locations into struct
 // Assumes ofpcShader->pid is initialized
-void getOfpcShaderLocations(struct OfpcShader *ofpcShader) {
+void getOneFacePhongCubeShaderLocations(
+  struct OneFacePhongCubeShader *ofpcShader) {
   // Attribs
   ofpcShader->vertPos = glGetAttribLocation(ofpcShader->pid, "vertPos");
   ofpcShader->vertNor = glGetAttribLocation(ofpcShader->pid, "vertNor");
@@ -34,4 +35,39 @@ void getOfpcShaderLocations(struct OfpcShader *ofpcShader) {
     "light.linear");
   ofpcShader->lightQuadratic = glGetUniformLocation(ofpcShader->pid,
     "light.quadratic");
+}
+
+// Create VAO then put ID into vaoID
+// Assumes ofpcShader locations are initialized
+void makeOneFacePhongCubeShaderVAO(
+  unsigned *vaoID,
+  struct OneFacePhongCubeShader *ofpcShader,
+  unsigned posBufID, // ID given by OpenGL
+  unsigned norBufID) {
+  // Create vertex array object
+  glGenVertexArrays(1, vaoID);
+  glBindVertexArray(*vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(ofpcShader->vertPos);
+  glBindBuffer(GL_ARRAY_BUFFER, posBufID);
+  glVertexAttribPointer(ofpcShader->vertPos, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind normal buffer
+  glEnableVertexAttribArray(ofpcShader->vertNor);
+  glBindBuffer(GL_ARRAY_BUFFER, norBufID);
+  glVertexAttribPointer(ofpcShader->vertNor, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+  
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(ofpcShader->vertPos);
+  glDisableVertexAttribArray(ofpcShader->vertNor);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }

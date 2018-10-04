@@ -1,10 +1,10 @@
-#ifndef OMP_SHADER_HPP
-#define OMP_SHADER_HPP
+#ifndef ONEMATERIALPHONG_SHADER_HPP
+#define ONEMATERIALPHONG_SHADER_HPP
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-struct OmpShader {
+struct OneMaterialPhongShader {
   GLint pid;
   // Attribs
   GLint vertPos;
@@ -29,6 +29,16 @@ struct OmpShader {
 };
 
 // Put attrib and uniform locations into struct
-void getOmpShaderLocations(struct OmpShader *);
+void getOneMaterialPhongShaderLocations(
+  struct OneMaterialPhongShader *);
+
+// Create VAO then put ID into vaoID
+// Assumes ompShader locations are initialized
+void makeOneMaterialPhongShaderVAO(
+  unsigned *vaoID,
+  struct OneMaterialPhongShader *ompShader,
+  unsigned posBufID, // ID given by OpenGL
+  unsigned norBufID,
+  unsigned eleBufID);
 
 #endif

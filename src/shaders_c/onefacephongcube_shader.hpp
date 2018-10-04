@@ -1,11 +1,11 @@
-#ifndef OFPC_SHADER_HPP
-#define OFPC_SHADER_HPP
+#ifndef ONEFACEPHONGCUBE_SHADER_HPP
+#define ONEFACEPHONGCUBE_SHADER_HPP
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
 // One face phong cube
-struct OfpcShader {
+struct OneFacePhongCubeShader {
   GLint pid;
   // Attribs
   GLint vertPos;
@@ -29,6 +29,15 @@ struct OfpcShader {
 };
 
 // Put attrib and uniform locations into struct
-void getOfpcShaderLocations(struct OfpcShader *);
+void getOneFacePhongCubeShaderLocations(
+  struct OneFacePhongCubeShader *);
+
+// Create VAO then put ID into vaoID
+// Assumes ofpcShader locations are initialized
+void makeOneFacePhongCubeShaderVAO(
+  unsigned *vaoID,
+  struct OneFacePhongCubeShader *ofpcShader,
+  unsigned posBufID, // ID given by OpenGL
+  unsigned norBufID);
 
 #endif

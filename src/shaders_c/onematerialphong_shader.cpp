@@ -1,11 +1,12 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-#include "omp_shader.hpp"
+#include "onematerialphong_shader.hpp"
 
 // Put attrib and uniform locations into struct
 // Assumes ompShader->pid is initialized
-void getOmpShaderLocations(struct OmpShader *ompShader) {
+void getOneMaterialPhongShaderLocations(
+  struct OneMaterialPhongShader *ompShader) {
   // Attribs
   ompShader->vertPos = glGetAttribLocation(ompShader->pid, "vertPos");
   ompShader->vertNor = glGetAttribLocation(ompShader->pid, "vertNor");
@@ -38,4 +39,43 @@ void getOmpShaderLocations(struct OmpShader *ompShader) {
     "light.linear");
   ompShader->lightQuadratic = glGetUniformLocation(ompShader->pid,
     "light.quadratic");
+}
+
+// Create VAO then put ID into vaoID
+// Assumes ompShader locations are initialized
+void makeOneMaterialPhongShaderVAO(
+  unsigned *vaoID,
+  struct OneMaterialPhongShader *ompShader,
+  unsigned posBufID, // ID given by OpenGL
+  unsigned norBufID,
+  unsigned eleBufID) {
+  // Create vertex array object
+  glGenVertexArrays(1, vaoID);
+  glBindVertexArray(*vaoID);
+
+  // Bind position buffer
+  glEnableVertexAttribArray(ompShader->vertPos);
+  glBindBuffer(GL_ARRAY_BUFFER, posBufID);
+  glVertexAttribPointer(ompShader->vertPos, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+  
+  // Bind normal buffer
+  glEnableVertexAttribArray(ompShader->vertNor);
+  glBindBuffer(GL_ARRAY_BUFFER, norBufID);
+  glVertexAttribPointer(ompShader->vertNor, 3, GL_FLOAT, GL_FALSE,
+    sizeof(GL_FLOAT) * 3, (const void *) 0);
+
+  // Bind element buffer
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eleBufID);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Disable
+  glDisableVertexAttribArray(ompShader->vertPos);
+  glDisableVertexAttribArray(ompShader->vertNor);
+
+  // Unbind GPU buffers
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
