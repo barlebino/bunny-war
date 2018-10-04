@@ -135,7 +135,7 @@ unsigned int woodcube_specularMapID;
 unsigned int facecube_diffuseMapID;
 unsigned int facecube_specularMapID;
 
-bool cameraFreeze = true;
+bool cameraFreeze = false;
 
 // For debugging
 void printMatrix(glm::mat4 mat) {
@@ -536,11 +536,80 @@ static void init() {
     phongbox_posBufID, phongbox_norBufID);
 }
 
+static void handleInput(int width, int height) {
+  glm::dvec2 cursorPos;
+  glm::dvec2 screenPos;
+
+  // Detect and set the current rotation of the camera
+  glfwGetCursorPos(window, &cursorPos.x, &cursorPos.y);
+  screenPos.x = cursorPos.x / (double) width;
+  screenPos.y = cursorPos.y / (double) height;
+
+  // Rotation along y axis
+  if(screenPos.x > .9f && screenPos.x < 1.f &&
+    screenPos.y > 0.f && screenPos.y < 1.f) {
+    camRotation.y = camRotation.y - .01f;
+  } else if(screenPos.x < .1f && screenPos.x > 0.f &&
+    screenPos.y > 0.f && screenPos.y < 1.f) {
+    camRotation.y = camRotation.y + .01f;
+  }
+
+  if(camRotation.y <= 0.00001f) {
+    camRotation.y = 2.f * PI;
+  } else if(camRotation.y >= 2.f * PI) {
+    camRotation.y = 0.00001f;
+  }
+
+  // Rotation along x axis
+  // NOTE POSITIVE DIRECTION
+  if(screenPos.y > .9f && screenPos.y < 1.f &&
+    camRotation.x > -PI / 2.f &&
+    screenPos.x > 0.f && screenPos.x < 1.f) {
+    camRotation.x = camRotation.x - .01f;
+  } else if(screenPos.y < .1f && screenPos.y > 0.f &&
+    camRotation.x < PI / 2.f &&
+    screenPos.x > 0.f && screenPos.x < 1.f) {
+    camRotation.x = camRotation.x + .01f;
+  }
+
+  // Update the forward direction
+  forward = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
+    glm::vec3(0.f, 1.f, 0.f)) *
+    glm::rotate(glm::mat4(1.f), camRotation.x,
+    glm::vec3(1.f, 0.f, 0.f)) *
+    glm::vec4(0.f, 0.f, -1.f, 1.f));
+  forward = glm::normalize(glm::vec3(forward.x, 0.f, forward.z));
+  // Update the side direction
+  sideways = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
+    glm::vec3(0.f, 1.f, 0.f)) *
+    glm::rotate(glm::mat4(1.f), camRotation.x,
+    glm::vec3(1.f, 0.f, 0.f)) *
+    glm::vec4(1.f, 0.f, 0.f, 1.f));
+  sideways = glm::normalize(glm::vec3(sideways.x, 0.f, sideways.z));
+  // Update position
+  if(keys[0]) {
+    camLocation = camLocation + forward * 0.05f;
+  }
+  if(keys[1]) {
+    camLocation = camLocation - sideways * 0.05f;
+  }
+  if(keys[2]) {
+    camLocation = camLocation - forward * 0.05f;
+  }
+  if(keys[3]) {
+    camLocation = camLocation + sideways * 0.05f;
+  }
+  if(keys[4]) {
+    camLocation = camLocation + glm::vec3(0.f, 0.05f, 0.f);
+  }
+  if(keys[5]) {
+    camLocation = camLocation - glm::vec3(0.f, 0.05f, 0.f);
+  }
+}
+
 static void render() {
   int width, height;
   float aspect;
-  glm::dvec2 cursorPos;
-  glm::dvec2 screenPos;
 
   // Create matrices
   glm::mat4 matModel;
@@ -563,72 +632,8 @@ static void render() {
   // Clear framebuffer
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-  // Detect and set the current rotation of the camera
-  glfwGetCursorPos(window, &cursorPos.x, &cursorPos.y);
-  screenPos.x = cursorPos.x / (double) width;
-  screenPos.y = cursorPos.y / (double) height;
-
-  if(cameraFreeze) {
-    // Rotation along y axis
-    if(screenPos.x > .9f && screenPos.x < 1.f &&
-      screenPos.y > 0.f && screenPos.y < 1.f) {
-      camRotation.y = camRotation.y - .01f;
-    } else if(screenPos.x < .1f && screenPos.x > 0.f &&
-      screenPos.y > 0.f && screenPos.y < 1.f) {
-      camRotation.y = camRotation.y + .01f;
-    }
-
-    if(camRotation.y <= 0.00001f) {
-      camRotation.y = 2.f * PI;
-    } else if(camRotation.y >= 2.f * PI) {
-      camRotation.y = 0.00001f;
-    }
-
-    // Rotation along x axis
-    // NOTE POSITIVE DIRECTION
-    if(screenPos.y > .9f && screenPos.y < 1.f &&
-      camRotation.x > -PI / 2.f &&
-      screenPos.x > 0.f && screenPos.x < 1.f) {
-      camRotation.x = camRotation.x - .01f;
-    } else if(screenPos.y < .1f && screenPos.y > 0.f &&
-      camRotation.x < PI / 2.f &&
-      screenPos.x > 0.f && screenPos.x < 1.f) {
-      camRotation.x = camRotation.x + .01f;
-    }
-
-    // Update the forward direction
-    forward = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
-      glm::vec3(0.f, 1.f, 0.f)) *
-      glm::rotate(glm::mat4(1.f), camRotation.x,
-      glm::vec3(1.f, 0.f, 0.f)) *
-      glm::vec4(0.f, 0.f, -1.f, 1.f));
-    forward = glm::normalize(glm::vec3(forward.x, 0.f, forward.z));
-    // Update the side direction
-    sideways = glm::vec3(glm::rotate(glm::mat4(1.f), camRotation.y,
-      glm::vec3(0.f, 1.f, 0.f)) *
-      glm::rotate(glm::mat4(1.f), camRotation.x,
-      glm::vec3(1.f, 0.f, 0.f)) *
-      glm::vec4(1.f, 0.f, 0.f, 1.f));
-    sideways = glm::normalize(glm::vec3(sideways.x, 0.f, sideways.z));
-    // Update position
-    if(keys[0]) {
-      camLocation = camLocation + forward * 0.05f;
-    }
-    if(keys[1]) {
-      camLocation = camLocation - sideways * 0.05f;
-    }
-    if(keys[2]) {
-      camLocation = camLocation - forward * 0.05f;
-    }
-    if(keys[3]) {
-      camLocation = camLocation + sideways * 0.05f;
-    }
-    if(keys[4]) {
-      camLocation = camLocation + glm::vec3(0.f, 0.05f, 0.f);
-    }
-    if(keys[5]) {
-      camLocation = camLocation - glm::vec3(0.f, 0.05f, 0.f);
-    }
+  if(!cameraFreeze) {
+    handleInput(width, height);
   }
 
   // Projection matrix
