@@ -1,6 +1,3 @@
-// TODO: Capitalization
-// TODO: Index all meshes???
-
 #include <iostream>
 
 #include <unistd.h>
@@ -321,7 +318,6 @@ static void init() {
   // Unbind texture
   glBindTexture(GL_TEXTURE_2D, 0);
 
-  // TODO : attach depth and stencil separately
   // Depth and stencil texture for fbo
   glGenTextures(1, &fbo_depth_stencil_texture);
   glBindTexture(GL_TEXTURE_2D, fbo_depth_stencil_texture);
@@ -441,15 +437,6 @@ static void init() {
   // Put locations of attribs and uniforms into textureShader
   getTextureShaderLocations(&textureShader);
 
-  // TODO: Do VAOs separate from shader initialization
-  // VAO for globe
-  makeTextureShaderVAO(&to_vaoID, &textureShader,
-    sphere_posBufID, sphere_texCoordBufID, sphere_eleBufID);
-
-  // VAO for grass
-  makeTextureShaderVAO(&grass_vaoID, &textureShader,
-    rect_posBufID, rect_texCoordBufID, rect_eleBufID);
-
   // ------ Depth Only shader program ------
   depthShader.pid = initShader(
     "../resources/shaders_glsl/vertDepthOnly.glsl",
@@ -457,10 +444,6 @@ static void init() {
 
   // Put locations of attribs and uniforms into depthShader
   getDepthShaderLocations(&depthShader);
-
-  // Depth sphere VAO
-  makeDepthShaderVAO(&do_sphere_vaoID, &depthShader,
-    sphere_posBufID, sphere_eleBufID);
 
   // ------ Rectangle shader program ------
   rectShader.pid = initShader(
@@ -470,10 +453,6 @@ static void init() {
   // Put locations of attribs and uniforms into rectShader
   getRectShaderLocations(&rectShader);
 
-  // Screen rectangle VAO
-  makeRectShaderVAO(&rect_vaoID, &rectShader, rect_posBufID,
-    rect_texCoordBufID, rect_eleBufID);
-
   // ------ Cubemap shader program ------
   sbShader.pid = initShader(
     "../resources/shaders_glsl/vertSkybox.glsl",
@@ -481,9 +460,6 @@ static void init() {
 
   // Put locations of attribs and uniforms into sbShader
   getSkyboxShaderLocations(&sbShader);
-
-  // Skybox vertex array object
-  makeSkyboxShaderVAO(&skybox_vaoID, &sbShader, skybox_posBufID);
 
   // ------ One color shader program ------
   ocShader.pid = initShader(
@@ -493,15 +469,6 @@ static void init() {
   // Put locations of attribs and uniforms into ocShader
   getOneColorShaderLocations(&ocShader);
 
-  // Pink bunny vertex array object
-  makeOneColorShaderVAO(&oc_bunny_vaoID, &ocShader,
-    bunny_posBufID, bunny_eleBufID);
-  
-  // Light source vertex array object
-  makeOneColorShaderVAO(&ls_vaoID, &ocShader,
-    sphere_posBufID, sphere_eleBufID);
-  
-  // TODO: Change to "point light phong"
   // ------ One material phong shader program ------
   ompShader.pid = initShader(
     "../resources/shaders_glsl/vertOneMaterialPhong.glsl",
@@ -510,13 +477,6 @@ static void init() {
   // Put locations of attribs and uniforms into ompShader
   getOneMaterialPhongShaderLocations(&ompShader);
 
-  // One Material Phong bunny VAO
-  makeOneMaterialPhongShaderVAO(&omp_bunny_vaoID, &ompShader,
-    bunny_posBufID, bunny_norBufID, bunny_eleBufID);
-
-  // TODO: General phong shader
-
-  // TODO: Change to "point light phong" ???
   // ------ Phong cubemap shader ------
   pcShader.pid = initShader(
     "../resources/shaders_glsl/vertPhongCube.glsl",
@@ -525,11 +485,6 @@ static void init() {
   // Put locations of attribs and uniforms into pcShader
   getPhongCubeShaderLocations(&pcShader);
 
-  // Wooden cube vertex array object
-  makePhongCubeShaderVAO(&woodcube_vaoID, &pcShader,
-    phongbox_posBufID, phongbox_norBufID);
-  
-  // TODO: Change to "point light phong" ???
   // ------ One face phong cube shader program ------
   ofpcShader.pid = initShader(
     "../resources/shaders_glsl/vertOneFacePhongCube.glsl",
@@ -538,8 +493,45 @@ static void init() {
   // Put locations of attribs and uniforms into ofpcShader
   getOneFacePhongCubeShaderLocations(&ofpcShader);
 
-  // TODO: Initialize VAO function per shader
-  // Wooden cube vertex array object
+  // -------- Initialize VAOS --------
+  
+  // Texture-only sphere (globe)
+  makeTextureShaderVAO(&to_vaoID, &textureShader,
+    sphere_posBufID, sphere_texCoordBufID, sphere_eleBufID);
+  
+  // Texture-only rectangle (grass)
+  makeTextureShaderVAO(&grass_vaoID, &textureShader,
+    rect_posBufID, rect_texCoordBufID, rect_eleBufID);
+
+  // Depth-only sphere (globe highlight)
+  makeDepthShaderVAO(&do_sphere_vaoID, &depthShader,
+    sphere_posBufID, sphere_eleBufID);
+
+  // TODO: Use texture shader for screen
+  // Screen rectangle
+  makeRectShaderVAO(&rect_vaoID, &rectShader, rect_posBufID,
+    rect_texCoordBufID, rect_eleBufID);
+
+  // Skybox VAO (sky)
+  makeSkyboxShaderVAO(&skybox_vaoID, &sbShader, skybox_posBufID);
+
+  // One color bunny (red bunny)
+  makeOneColorShaderVAO(&oc_bunny_vaoID, &ocShader,
+    bunny_posBufID, bunny_eleBufID);
+
+  // One color sphere (light source)
+  makeOneColorShaderVAO(&ls_vaoID, &ocShader,
+    sphere_posBufID, sphere_eleBufID);
+
+  // One material phong bunny (copper bunny)
+  makeOneMaterialPhongShaderVAO(&omp_bunny_vaoID, &ompShader,
+    bunny_posBufID, bunny_norBufID, bunny_eleBufID);
+
+  // Cubemap phong cube (wooden cube)
+  makePhongCubeShaderVAO(&woodcube_vaoID, &pcShader,
+    phongbox_posBufID, phongbox_norBufID);
+
+  // Cubemap phong cube (wooden cube)
   makeOneFacePhongCubeShaderVAO(&facecube_vaoID, &ofpcShader,
     phongbox_posBufID, phongbox_norBufID);
 }
