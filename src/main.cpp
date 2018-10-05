@@ -53,27 +53,8 @@ glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
 // Sideways direction
 glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 
-// Light object
-struct Light firstLight = {
-  glm::vec3(-8.f, 0.f, -2.f), // position
-  glm::vec3(.2f, .2f, .2f), // ambient
-  glm::vec3(.5f, .5f, .5f), // diffuse
-  glm::vec3(1.f, 1.f, 1.f) // specular
-};
-
-struct Light secondLight = {
-  glm::vec3(-14.f, 0.f, 2.f), // position
-  glm::vec3(.2f, .2f, .2f), // ambient
-  glm::vec3(.5f, .5f, .5f), // diffuse
-  glm::vec3(1.f, 1.f, 1.f) // specular
-};
-
-struct Light thirdLight = {
-  glm::vec3(-8.f, 2.f, 0.f), // position
-  glm::vec3(.2f, .2f, .2f), // ambient
-  glm::vec3(.5f, .5f, .5f), // diffuse
-  glm::vec3(1.f, 1.f, 1.f) // specular
-};
+// Light objects
+struct Light lights[3];
 
 // Input
 char keys[6] = {0, 0, 0, 0, 0, 0};
@@ -533,6 +514,26 @@ static void init() {
   makePhongShaderVAO(&phongglobe_vaoID, &phongShader,
     sphere_posBufID, sphere_norBufID, sphere_texCoordBufID,
     sphere_eleBufID);
+
+  // -------- Initialize Lights --------
+  lights[0] = {
+    glm::vec3(-8.f, 0.f, -2.f), // position
+    glm::vec3(.2f, .2f, .2f), // ambient
+    glm::vec3(.5f, .5f, .5f), // diffuse
+    glm::vec3(1.f, 1.f, 1.f) // specular
+  };
+  lights[1] = {
+    glm::vec3(-14.f, 0.f, 2.f), // position
+    glm::vec3(.2f, .2f, .2f), // ambient
+    glm::vec3(.5f, .5f, .5f), // diffuse
+    glm::vec3(1.f, 1.f, 1.f) // specular
+  };
+  lights[2] = {
+    glm::vec3(-8.f, 2.f, 0.f), // position
+    glm::vec3(.2f, .2f, .2f), // ambient
+    glm::vec3(.5f, .5f, .5f), // diffuse
+    glm::vec3(1.f, 1.f, 1.f) // specular
+  };
 }
 
 static void handleInput(int width, int height) {
@@ -672,7 +673,7 @@ static void render() {
 
   // Object position is (-8, 0, -2)
   matModel = glm::translate(glm::mat4(1.f),
-    firstLight.position) * matModel;
+    lights[0].position) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -686,7 +687,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(firstLight.specular));
+    glm::value_ptr(lights[0].specular));
 
   // Bind vertex array object
   glBindVertexArray(ls_vaoID);
@@ -741,7 +742,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(firstLight.specular));
+    glm::value_ptr(lights[0].specular));
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
@@ -793,7 +794,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(firstLight.specular));
+    glm::value_ptr(lights[0].specular));
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
@@ -857,16 +858,16 @@ static void render() {
   glUniform3fv(ompShader.ompLights[0].position, 1,
     glm::value_ptr(
       glm::vec3(
-        matView * glm::vec4(firstLight.position, 1.f)
+        matView * glm::vec4(lights[0].position, 1.f)
       )
     )
   );
   glUniform3fv(ompShader.ompLights[0].ambient, 1,
-    glm::value_ptr(firstLight.ambient));
+    glm::value_ptr(lights[0].ambient));
   glUniform3fv(ompShader.ompLights[0].diffuse, 1,
-    glm::value_ptr(firstLight.diffuse));
+    glm::value_ptr(lights[0].diffuse));
   glUniform3fv(ompShader.ompLights[0].specular, 1,
-    glm::value_ptr(firstLight.specular));
+    glm::value_ptr(lights[0].specular));
   // Attenuation
   // Range of 50, from:
   // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
@@ -926,16 +927,16 @@ static void render() {
   glUniform3fv(pcShader.lightPosition, 1,
     glm::value_ptr(
       glm::vec3(
-        matView * glm::vec4(firstLight.position, 1.f)
+        matView * glm::vec4(lights[0].position, 1.f)
       )
     )
   );
   glUniform3fv(pcShader.lightAmbient, 1,
-    glm::value_ptr(firstLight.ambient));
+    glm::value_ptr(lights[0].ambient));
   glUniform3fv(pcShader.lightDiffuse, 1,
-    glm::value_ptr(firstLight.diffuse));
+    glm::value_ptr(lights[0].diffuse));
   glUniform3fv(pcShader.lightSpecular, 1,
-    glm::value_ptr(firstLight.specular));
+    glm::value_ptr(lights[0].specular));
   // Shininess is 64.0, a MAGIC NUMBER
   glUniform1f(pcShader.materialShininess, 64.f);
   // Attenuation
@@ -1014,16 +1015,16 @@ static void render() {
   glUniform3fv(ofpcShader.lightPosition, 1,
     glm::value_ptr(
       glm::vec3(
-        matView * glm::vec4(firstLight.position, 1.f)
+        matView * glm::vec4(lights[0].position, 1.f)
       )
     )
   );
   glUniform3fv(ofpcShader.lightAmbient, 1,
-    glm::value_ptr(firstLight.ambient));
+    glm::value_ptr(lights[0].ambient));
   glUniform3fv(ofpcShader.lightDiffuse, 1,
-    glm::value_ptr(firstLight.diffuse));
+    glm::value_ptr(lights[0].diffuse));
   glUniform3fv(ofpcShader.lightSpecular, 1,
-    glm::value_ptr(firstLight.specular));
+    glm::value_ptr(lights[0].specular));
   // Shininess is 64.0, a MAGIC NUMBER
   glUniform1f(ofpcShader.materialShininess, 64.f);
   // Attenuation
@@ -1108,16 +1109,16 @@ static void render() {
   glUniform3fv(phongShader.lightPosition, 1,
     glm::value_ptr(
       glm::vec3(
-        matView * glm::vec4(firstLight.position, 1.f)
+        matView * glm::vec4(lights[0].position, 1.f)
       )
     )
   );
   glUniform3fv(phongShader.lightAmbient, 1,
-    glm::value_ptr(firstLight.ambient));
+    glm::value_ptr(lights[0].ambient));
   glUniform3fv(phongShader.lightDiffuse, 1,
-    glm::value_ptr(firstLight.diffuse));
+    glm::value_ptr(lights[0].diffuse));
   glUniform3fv(phongShader.lightSpecular, 1,
-    glm::value_ptr(firstLight.specular));
+    glm::value_ptr(lights[0].specular));
   // Attenuation
   glUniform1f(phongShader.lightConstant, 1.f);
   glUniform1f(phongShader.lightLinear, .045f);
