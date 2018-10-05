@@ -38,6 +38,10 @@ struct Light {
   glm::vec3 ambient;
   glm::vec3 diffuse;
   glm::vec3 specular;
+  // Attenuation
+  float constant;
+  float linear;
+  float quadratic;
 };
 
 int ssaaLevel = 2;
@@ -518,21 +522,30 @@ static void init() {
   // -------- Initialize Lights --------
   lights[0] = {
     glm::vec3(-8.f, 0.f, -2.f), // position
-    glm::vec3(.2f, .2f, .2f), // ambient
-    glm::vec3(.5f, .5f, .5f), // diffuse
-    glm::vec3(1.f, 1.f, 1.f) // specular
+    glm::vec3(.0f, .2f, .2f), // ambient
+    glm::vec3(.0f, .5f, .5f), // diffuse
+    glm::vec3(0.f, 1.f, 1.f), // specular
+    1.f, // constant
+    .045f, // linear
+    .0075f // quadratic
   };
   lights[1] = {
     glm::vec3(-14.f, 0.f, 2.f), // position
-    glm::vec3(.2f, .2f, .2f), // ambient
-    glm::vec3(.5f, .5f, .5f), // diffuse
-    glm::vec3(1.f, 1.f, 1.f) // specular
+    glm::vec3(.2f, .0f, .2f), // ambient
+    glm::vec3(.5f, .0f, .5f), // diffuse
+    glm::vec3(1.f, 0.f, 1.f), // specular
+    1.f, // constant
+    .045f, // linear
+    .0075f // quadratic
   };
   lights[2] = {
     glm::vec3(-8.f, 2.f, 0.f), // position
-    glm::vec3(.2f, .2f, .2f), // ambient
-    glm::vec3(.5f, .5f, .5f), // diffuse
-    glm::vec3(1.f, 1.f, 1.f) // specular
+    glm::vec3(.2f, .2f, .0f), // ambient
+    glm::vec3(.5f, .5f, .0f), // diffuse
+    glm::vec3(1.f, 1.f, 0.f), // specular
+    1.f, // constant
+    .045f, // linear
+    .0075f // quadratic
   };
 }
 
@@ -731,7 +744,7 @@ static void render() {
 
   // Object position is (-8, 0, -2)
   matModel = glm::translate(glm::mat4(1.f),
-    secondLight.position) * matModel;
+    lights[1].position) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -742,7 +755,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(lights[0].specular));
+    glm::value_ptr(lights[1].specular));
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
@@ -783,7 +796,7 @@ static void render() {
 
   // Object position is (-8, 2, -2)
   matModel = glm::translate(glm::mat4(1.f),
-    thirdLight.position) * matModel;
+    lights[2].position) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -794,7 +807,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(lights[0].specular));
+    glm::value_ptr(lights[2].specular));
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
@@ -855,25 +868,28 @@ static void render() {
     glm::value_ptr(copper.specular));
   glUniform1f(ompShader.materialShininess,
     copper.shininess);
-  glUniform3fv(ompShader.ompLights[0].position, 1,
+  
+  for(int i = 0; i < 3; i++) {
+  glUniform3fv(ompShader.ompLights[i].position, 1,
     glm::value_ptr(
       glm::vec3(
-        matView * glm::vec4(lights[0].position, 1.f)
+        matView * glm::vec4(lights[i].position, 1.f)
       )
     )
   );
-  glUniform3fv(ompShader.ompLights[0].ambient, 1,
-    glm::value_ptr(lights[0].ambient));
-  glUniform3fv(ompShader.ompLights[0].diffuse, 1,
-    glm::value_ptr(lights[0].diffuse));
-  glUniform3fv(ompShader.ompLights[0].specular, 1,
-    glm::value_ptr(lights[0].specular));
+  glUniform3fv(ompShader.ompLights[i].ambient, 1,
+    glm::value_ptr(lights[i].ambient));
+  glUniform3fv(ompShader.ompLights[i].diffuse, 1,
+    glm::value_ptr(lights[i].diffuse));
+  glUniform3fv(ompShader.ompLights[i].specular, 1,
+    glm::value_ptr(lights[i].specular));
   // Attenuation
   // Range of 50, from:
   // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
-  glUniform1f(ompShader.ompLights[0].constant, 1.f);
-  glUniform1f(ompShader.ompLights[0].linear, .045f);
-  glUniform1f(ompShader.ompLights[0].quadratic, .0075f);
+  glUniform1f(ompShader.ompLights[i].constant, lights[i].constant);
+  glUniform1f(ompShader.ompLights[i].linear, lights[i].linear);
+  glUniform1f(ompShader.ompLights[i].quadratic, lights[i].quadratic);
+  }
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,

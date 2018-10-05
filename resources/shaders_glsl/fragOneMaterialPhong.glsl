@@ -59,7 +59,7 @@ void main() {
   vec3 norm = normalize(frag_nor);
   vec3 viewDir = normalize(-frag_pos); // Vector from fragment to camera
   // Add all point light contributions
-  for(int i = 0; i < 1; i++) {
+  for(int i = 0; i < 3; i++) {
     total_light = total_light +
       calcPointLight(pointLights[i], norm, viewDir);
   }
