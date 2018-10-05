@@ -7,7 +7,7 @@ struct Material {
   float shininess;
 };
 
-struct Light {
+struct PointLight {
   vec3 position; // Given in view space
   vec3 ambient;
   vec3 diffuse;
@@ -18,31 +18,34 @@ struct Light {
   float quadratic;
 };
 
+#define NUM_POINT_LIGHTS 3
+
 in vec3 frag_nor;
 in vec3 frag_pos;
 
 out vec4 out_color;
 
 uniform Material material;
-uniform Light light;
+uniform PointLight pointLights[NUM_POINT_LIGHTS];
 
 void main() {
   // Calculate attenuation
-  float distance = length(light.position - frag_pos);
-  float attenuation = 1.0 / (light.constant + light.linear * distance + 
-    light.quadratic * (distance * distance)); 
+  float distance = length(pointLights[0].position - frag_pos);
+  float attenuation = 1.0 / (pointLights[0].constant + 
+    pointLights[0].linear * distance + 
+    pointLights[0].quadratic * (distance * distance)); 
   // Ambient
-  vec3 ambient = light.ambient * material.ambient;
+  vec3 ambient = pointLights[0].ambient * material.ambient;
   // Diffuse
   vec3 norm = normalize(frag_nor);
-  vec3 lightDir = normalize(light.position - frag_pos);
+  vec3 lightDir = normalize(pointLights[0].position - frag_pos);
   float diff = max(dot(norm, lightDir), 0.0);
-  vec3 diffuse = light.diffuse * (diff * material.diffuse);
+  vec3 diffuse = pointLights[0].diffuse * (diff * material.diffuse);
   // Specular
   vec3 viewDir = normalize(-frag_pos); // Vector from fragment to camera
   vec3 reflectDir = reflect(-lightDir, norm);
   float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-  vec3 specular = light.specular * (spec * material.specular);  
+  vec3 specular = pointLights[0].specular * (spec * material.specular);  
   // Apply attenuation
   ambient = attenuation * ambient;
   diffuse = attenuation * diffuse;

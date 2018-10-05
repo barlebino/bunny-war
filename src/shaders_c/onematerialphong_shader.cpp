@@ -1,10 +1,45 @@
+// TESTING
+#include <stdio.h>
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <string>
+
 #include "onematerialphong_shader.hpp"
+
+// Put light locations at index lightNum into struct
+void getOneMaterialPhongPointLightLocations(GLint pid,
+  struct OneMaterialPhongPointLight *ompLight, int lightNum) {
+  std::string varname;
+  
+  varname = "pointLights[" + std::to_string(lightNum) + "].position";
+  ompLight->position = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + std::to_string(lightNum) + "].ambient";
+  ompLight->ambient = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + std::to_string(lightNum) + "].diffuse";
+  ompLight->diffuse = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + std::to_string(lightNum) + "].specular";
+  ompLight->specular = glGetUniformLocation(pid,
+    varname.c_str());
+  // Attenuation
+  varname = "pointLights[" + std::to_string(lightNum) + "].constant";
+  ompLight->constant = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + std::to_string(lightNum) + "].linear";
+  ompLight->linear = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + std::to_string(lightNum) + "].quadratic";
+  ompLight->quadratic = glGetUniformLocation(pid,
+    varname.c_str());
+}
 
 // Put attrib and uniform locations into struct
 // Assumes ompShader->pid is initialized
+// TODO: ompShader->pid to a local variable
 void getOneMaterialPhongShaderLocations(
   struct OneMaterialPhongShader *ompShader) {
   // Attribs
@@ -39,6 +74,12 @@ void getOneMaterialPhongShaderLocations(
     "light.linear");
   ompShader->lightQuadratic = glGetUniformLocation(ompShader->pid,
     "light.quadratic");
+  
+  // Get all point light uniforms
+  for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
+    getOneMaterialPhongPointLightLocations(ompShader->pid,
+      &(ompShader->ompLights[i]), i);
+  }
 }
 
 // Create VAO then put ID into vaoID
