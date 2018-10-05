@@ -522,27 +522,27 @@ static void init() {
   // -------- Initialize Lights --------
   lights[0] = {
     glm::vec3(-8.f, 0.f, -2.f), // position
-    glm::vec3(.0f, .2f, .2f), // ambient
-    glm::vec3(.0f, .5f, .5f), // diffuse
-    glm::vec3(0.f, 1.f, 1.f), // specular
+    glm::vec3(.2f, 0.f, 0.f), // ambient
+    glm::vec3(.5f, 0.f, 0.f), // diffuse
+    glm::vec3(1.f, 0.f, 0.f), // specular
     1.f, // constant
     .045f, // linear
     .0075f // quadratic
   };
   lights[1] = {
     glm::vec3(-14.f, 0.f, 2.f), // position
-    glm::vec3(.2f, .0f, .2f), // ambient
-    glm::vec3(.5f, .0f, .5f), // diffuse
-    glm::vec3(1.f, 0.f, 1.f), // specular
+    glm::vec3(0.f, .2f, 0.f), // ambient
+    glm::vec3(0.f, .5f, 0.f), // diffuse
+    glm::vec3(0.f, 1.f, 0.f), // specular
     1.f, // constant
     .045f, // linear
     .0075f // quadratic
   };
   lights[2] = {
     glm::vec3(-8.f, 2.f, 0.f), // position
-    glm::vec3(.2f, .2f, .0f), // ambient
-    glm::vec3(.5f, .5f, .0f), // diffuse
-    glm::vec3(1.f, 1.f, 0.f), // specular
+    glm::vec3(.2f, .2f, .2f), // ambient
+    glm::vec3(.5f, .5f, .5f), // diffuse
+    glm::vec3(1.f, 1.f, 1.f), // specular
     1.f, // constant
     .045f, // linear
     .0075f // quadratic

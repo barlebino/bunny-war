@@ -1,6 +1,3 @@
-// TESTING
-#include <stdio.h>
-
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -59,21 +56,6 @@ void getOneMaterialPhongShaderLocations(
     "material.specular");
   ompShader->materialShininess = glGetUniformLocation(ompShader->pid,
     "material.shininess");
-  ompShader->lightPosition = glGetUniformLocation(ompShader->pid,
-    "light.position");
-  ompShader->lightAmbient = glGetUniformLocation(ompShader->pid,
-    "light.ambient");
-  ompShader->lightDiffuse = glGetUniformLocation(ompShader->pid,
-    "light.diffuse");
-  ompShader->lightSpecular = glGetUniformLocation(ompShader->pid,
-    "light.specular");
-  // Attenuation
-  ompShader->lightConstant = glGetUniformLocation(ompShader->pid,
-    "light.constant");
-  ompShader->lightLinear = glGetUniformLocation(ompShader->pid,
-    "light.linear");
-  ompShader->lightQuadratic = glGetUniformLocation(ompShader->pid,
-    "light.quadratic");
   
   // Get all point light uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {

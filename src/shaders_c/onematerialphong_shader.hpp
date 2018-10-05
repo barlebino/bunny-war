@@ -31,14 +31,6 @@ struct OneMaterialPhongShader {
   GLint materialDiffuse;
   GLint materialSpecular;
   GLint materialShininess;
-  GLint lightPosition;
-  GLint lightAmbient;
-  GLint lightDiffuse;
-  GLint lightSpecular;
-  // Attentuation
-  GLint lightConstant;
-  GLint lightLinear;
-  GLint lightQuadratic;
   // ALL OF THE LIGHTS
   struct OneMaterialPhongPointLight ompLights[NUM_POINT_LIGHTS];
 };
