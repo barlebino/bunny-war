@@ -1,5 +1,5 @@
-// TODO: rect_shader -> texture_shader
 // TODO: Change to bind program -> bind vao -> make mat -> fill mat
+// TODO: does sphere have normal data?
 
 #include <iostream>
 
@@ -30,6 +30,7 @@
 #include "shaders_c/texture_shader.hpp"
 #include "shaders_c/phongcube_shader.hpp"
 #include "shaders_c/onefacephongcube_shader.hpp"
+#include "shaders_c/phong_shader.hpp"
 
 // Light struct
 struct Light {
@@ -67,7 +68,6 @@ char keys[6] = {0, 0, 0, 0, 0, 0};
 unsigned to_vaoID;
 unsigned do_vaoID;
 unsigned do_sphere_vaoID;
-unsigned rect_vaoID;
 unsigned grass_vaoID;
 unsigned skybox_vaoID;
 unsigned oc_bunny_vaoID;
@@ -75,6 +75,7 @@ unsigned ls_vaoID;
 unsigned omp_bunny_vaoID;
 unsigned woodcube_vaoID;
 unsigned facecube_vaoID;
+unsigned phongglobe_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
@@ -120,6 +121,7 @@ struct DepthShader depthShader;
 struct TextureShader textureShader;
 struct PhongCubeShader pcShader;
 struct OneFacePhongCubeShader ofpcShader;
+struct PhongShader phongShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -487,6 +489,14 @@ static void init() {
   // Put locations of attribs and uniforms into ofpcShader
   getOneFacePhongCubeShaderLocations(&ofpcShader);
 
+  // ------ Phong shader, diffuse only ------
+  phongShader.pid = initShader(
+    "../resources/shaders_glsl/vertPhong.glsl",
+    "../resources/shaders_glsl/fragPhong.glsl");
+
+  // Put locations of attribs and uniforms into phongShader
+  getPhongShaderLocations(&phongShader);
+
   // -------- Initialize VAOS --------
   
   // Texture-only sphere (globe)
@@ -523,6 +533,11 @@ static void init() {
   // Cubemap phong cube (wooden cube)
   makeOneFacePhongCubeShaderVAO(&facecube_vaoID, &ofpcShader,
     phongbox_posBufID, phongbox_norBufID);
+
+  // Textured phong sphere (phong globe)
+  makePhongShaderVAO(&phongglobe_vaoID, &phongShader,
+    sphere_posBufID, sphere_norBufID, sphere_texCoordBufID,
+    sphere_eleBufID);
 }
 
 static void handleInput(int width, int height) {
@@ -1175,6 +1190,78 @@ static void render() {
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the phong globe
+  
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Bind shader program
+  glUseProgram(phongShader.pid);
+
+  // Bind the VAO
+  glBindVertexArray(phongglobe_vaoID);
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matModel;
+  
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+
+  // Object position is -8, 0, 4
+  matModel = glm::translate(glm::mat4(1.f),
+    glm::vec3(-8.f, 0.f, 4)) * matModel;
+
+  // Modify object relative to the eye
+  matModelview = matView * matModel;
+
+  // Fill uniforms
+  glUniformMatrix4fv(phongShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(phongShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  // Bind diffuse map
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, world_texBufID);
+  glUniform1i(phongShader.materialDiffuse, 0);
+  // Fill more uniforms
+  glUniform3fv(phongShader.lightPosition, 1,
+    glm::value_ptr(
+      glm::vec3(
+        matView * glm::vec4(tutorialLight.position, 1.f)
+      )
+    )
+  );
+  glUniform3fv(phongShader.lightAmbient, 1,
+    glm::value_ptr(tutorialLight.ambient));
+  glUniform3fv(phongShader.lightDiffuse, 1,
+    glm::value_ptr(tutorialLight.diffuse));
+  glUniform3fv(phongShader.lightSpecular, 1,
+    glm::value_ptr(tutorialLight.specular));
+  // Attenuation
+  glUniform1f(phongShader.lightConstant, 1.f);
+  glUniform1f(phongShader.lightLinear, .045f);
+  glUniform1f(phongShader.lightQuadratic, .0075f);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
