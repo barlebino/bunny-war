@@ -61,6 +61,13 @@ struct Light tutorialLight = {
   glm::vec3(1.f, 1.f, 1.f) // specular
 };
 
+struct Light secondLight = {
+  glm::vec3(-14.f, 0.f, 2.f), // position
+  glm::vec3(.2f, .2f, .2f), // ambient
+  glm::vec3(.5f, .5f, .5f), // diffuse
+  glm::vec3(1.f, 1.f, 1.f) // specular
+};
+
 // Input
 char keys[6] = {0, 0, 0, 0, 0, 0};
 
@@ -676,6 +683,58 @@ static void render() {
 
   // Bind vertex array object
   glBindVertexArray(ls_vaoID);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the second light source
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Bind shader program
+  glUseProgram(ocShader.pid);
+
+  // Bind vertex array object
+  glBindVertexArray(ls_vaoID);
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    glm::vec3(.5f, .5f, .5f)) * 
+    matModel;
+  
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+
+  // Object position is (-8, 0, -2)
+  matModel = glm::translate(glm::mat4(1.f),
+    secondLight.position) * matModel;
+
+  // Move object relative to the eye
+  matModelview = matView * matModel;
+
+  // Fill in uniforms
+  glUniformMatrix4fv(ocShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  glUniform3fv(ocShader.in_color, 1,
+    glm::value_ptr(tutorialLight.specular));
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
