@@ -1,7 +1,44 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <string>
+
 #include "phong_shader.hpp"
+
+// Put light locations at index lightNum
+// Assumes phongShader->pid is initialized
+void getPhongPointLightLocations(
+  struct PhongShader *phongShader, int lightNum) {
+  GLint pid;
+  std::string varname;
+  struct PhongPointLight *ppLight;
+
+  pid = phongShader->pid;
+  ppLight = &(phongShader->pointLights[lightNum]);
+
+  varname = "pointLights[" + std::to_string(lightNum) + "].position";
+  ppLight->position = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + std::to_string(lightNum) + "].ambient";
+  ppLight->ambient = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + std::to_string(lightNum) + "].diffuse";
+  ppLight->diffuse = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + std::to_string(lightNum) + "].specular";
+  ppLight->specular = glGetUniformLocation(pid,
+    varname.c_str());
+  // Attenuation
+  varname = "pointLights[" + std::to_string(lightNum) + "].constant";
+  ppLight->constant = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + std::to_string(lightNum) + "].linear";
+  ppLight->linear = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + std::to_string(lightNum) + "].quadratic";
+  ppLight->quadratic = glGetUniformLocation(pid,
+    varname.c_str());
+}
 
 // Put attrib and uniform locations into struct
 // Assumes phongShader->pid is initialized
@@ -32,6 +69,11 @@ void getPhongShaderLocations(struct PhongShader *phongShader) {
     "light.linear");
   phongShader->lightQuadratic = glGetUniformLocation(phongShader->pid,
     "light.quadratic");
+
+  // Get all point light Uniforms
+  for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
+    getPhongPointLightLocations(phongShader, i);
+  }
 }
 
 // Create VAO then put ID into vaoID

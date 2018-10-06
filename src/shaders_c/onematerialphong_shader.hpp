@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+// TODO: Define this somewhere else
 #define NUM_POINT_LIGHTS 3
 
 struct OneMaterialPhongPointLight {

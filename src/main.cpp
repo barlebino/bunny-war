@@ -868,7 +868,8 @@ static void render() {
     glm::value_ptr(copper.specular));
   glUniform1f(ompShader.materialShininess,
     copper.shininess);
-  
+  // For each light, input into shader
+  // TODO: If same shader, no need to call uniform repeatedly
   for(int i = 0; i < 3; i++) {
     glUniform3fv(ompShader.ompLights[i].position, 1,
       glm::value_ptr(
@@ -1121,24 +1122,27 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, world_texBufID);
   glUniform1i(phongShader.materialDiffuse, 0);
-  // Fill more uniforms
-  glUniform3fv(phongShader.lightPosition, 1,
-    glm::value_ptr(
-      glm::vec3(
-        matView * glm::vec4(lights[0].position, 1.f)
+  // For each light, input into shader
+  // TODO: If same shader, no need to call uniform repeatedly
+  for(int i = 0; i < 3; i++) {
+    glUniform3fv(phongShader.pointLights[i].position, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matView * glm::vec4(lights[i].position, 1.f)
+        )
       )
-    )
-  );
-  glUniform3fv(phongShader.lightAmbient, 1,
-    glm::value_ptr(lights[0].ambient));
-  glUniform3fv(phongShader.lightDiffuse, 1,
-    glm::value_ptr(lights[0].diffuse));
-  glUniform3fv(phongShader.lightSpecular, 1,
-    glm::value_ptr(lights[0].specular));
-  // Attenuation
-  glUniform1f(phongShader.lightConstant, 1.f);
-  glUniform1f(phongShader.lightLinear, .045f);
-  glUniform1f(phongShader.lightQuadratic, .0075f);
+    );
+    glUniform3fv(phongShader.pointLights[i].ambient, 1,
+      glm::value_ptr(lights[i].ambient));
+    glUniform3fv(phongShader.pointLights[i].diffuse, 1,
+      glm::value_ptr(lights[i].diffuse));
+    glUniform3fv(phongShader.pointLights[i].specular, 1,
+      glm::value_ptr(lights[i].specular));
+    // Attenuation
+    glUniform1f(phongShader.pointLights[i].constant, lights[i].constant);
+    glUniform1f(phongShader.pointLights[i].linear, lights[i].linear);
+    glUniform1f(phongShader.pointLights[i].quadratic, lights[i].quadratic);
+  }
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
