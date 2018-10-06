@@ -4,6 +4,20 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#define NUM_POINT_LIGHTS 3
+
+// TODO: Point light same for all shaders?
+struct PhongPointLight {
+  GLint lightPosition;
+  GLint lightAmbient;
+  GLint lightDiffuse;
+  GLint lightSpecular;
+  // Attenuation
+  GLint lightConstant;
+  GLint lightLinear;
+  GLint lightQuadratic;
+};
+
 // One color shader
 struct PhongShader {
   GLuint pid;
@@ -22,6 +36,8 @@ struct PhongShader {
   GLint lightConstant;
   GLint lightLinear;
   GLint lightQuadratic;
+  // ALL OF THE LIGHTS
+  struct PhongPointLight pointLights[NUM_POINT_LIGHTS];
 };
 
 // Put attrib and uniform locations into struct

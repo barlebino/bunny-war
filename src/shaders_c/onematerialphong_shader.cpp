@@ -6,9 +6,15 @@
 #include "onematerialphong_shader.hpp"
 
 // Put light locations at index lightNum into struct
-void getOneMaterialPhongPointLightLocations(GLint pid,
-  struct OneMaterialPhongPointLight *ompLight, int lightNum) {
+// Assumes ompShader->pid is initialized
+void getOneMaterialPhongPointLightLocations(
+  struct OneMaterialPhongShader *ompShader, int lightNum) {
+  GLint pid;
   std::string varname;
+  struct OneMaterialPhongPointLight *ompLight;
+
+  pid = ompShader->pid;
+  ompLight = &(ompShader->ompLights[lightNum]);
   
   varname = "pointLights[" + std::to_string(lightNum) + "].position";
   ompLight->position = glGetUniformLocation(pid,
@@ -59,8 +65,7 @@ void getOneMaterialPhongShaderLocations(
   
   // Get all point light uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
-    getOneMaterialPhongPointLightLocations(ompShader->pid,
-      &(ompShader->ompLights[i]), i);
+    getOneMaterialPhongPointLightLocations(ompShader, i);
   }
 }
 

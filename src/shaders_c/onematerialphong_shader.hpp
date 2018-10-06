@@ -32,12 +32,14 @@ struct OneMaterialPhongShader {
   GLint materialSpecular;
   GLint materialShininess;
   // ALL OF THE LIGHTS
+  // TODO: change ompLights to pointLights
   struct OneMaterialPhongPointLight ompLights[NUM_POINT_LIGHTS];
 };
 
-// Put light locations at index lightNum into struct
-void getOneMaterialPhongPointLightLocations(GLint pid,
-  struct OneMaterialPhongPointLight *ompLight, int lightNum);
+// Put light locations at index lightNum into ompLight struct at lightNum
+// Assumes ompShader->pid is initialized
+void getOneMaterialPhongPointLightLocations(
+  struct OneMaterialPhongShader *ompShader, int lightNum);
 
 // Put attrib and uniform locations into struct
 void getOneMaterialPhongShaderLocations(

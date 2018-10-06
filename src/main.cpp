@@ -522,9 +522,9 @@ static void init() {
   // -------- Initialize Lights --------
   lights[0] = {
     glm::vec3(-8.f, 0.f, -2.f), // position
-    glm::vec3(.2f, 0.f, 0.f), // ambient
-    glm::vec3(.5f, 0.f, 0.f), // diffuse
-    glm::vec3(1.f, 0.f, 0.f), // specular
+    glm::vec3(.2f, .2f, .2f), // ambient
+    glm::vec3(.5f, .5f, .5f), // diffuse
+    glm::vec3(1.f, 1.f, 1.f), // specular
     1.f, // constant
     .045f, // linear
     .0075f // quadratic
@@ -540,9 +540,9 @@ static void init() {
   };
   lights[2] = {
     glm::vec3(-8.f, 2.f, 0.f), // position
-    glm::vec3(.2f, .2f, .2f), // ambient
-    glm::vec3(.5f, .5f, .5f), // diffuse
-    glm::vec3(1.f, 1.f, 1.f), // specular
+    glm::vec3(.2f, 0.f, 0.f), // ambient
+    glm::vec3(.5f, 0.f, 0.f), // diffuse
+    glm::vec3(1.f, 0.f, 0.f), // specular
     1.f, // constant
     .045f, // linear
     .0075f // quadratic
@@ -870,25 +870,25 @@ static void render() {
     copper.shininess);
   
   for(int i = 0; i < 3; i++) {
-  glUniform3fv(ompShader.ompLights[i].position, 1,
-    glm::value_ptr(
-      glm::vec3(
-        matView * glm::vec4(lights[i].position, 1.f)
+    glUniform3fv(ompShader.ompLights[i].position, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matView * glm::vec4(lights[i].position, 1.f)
+        )
       )
-    )
-  );
-  glUniform3fv(ompShader.ompLights[i].ambient, 1,
-    glm::value_ptr(lights[i].ambient));
-  glUniform3fv(ompShader.ompLights[i].diffuse, 1,
-    glm::value_ptr(lights[i].diffuse));
-  glUniform3fv(ompShader.ompLights[i].specular, 1,
-    glm::value_ptr(lights[i].specular));
-  // Attenuation
-  // Range of 50, from:
-  // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
-  glUniform1f(ompShader.ompLights[i].constant, lights[i].constant);
-  glUniform1f(ompShader.ompLights[i].linear, lights[i].linear);
-  glUniform1f(ompShader.ompLights[i].quadratic, lights[i].quadratic);
+    );
+    glUniform3fv(ompShader.ompLights[i].ambient, 1,
+      glm::value_ptr(lights[i].ambient));
+    glUniform3fv(ompShader.ompLights[i].diffuse, 1,
+      glm::value_ptr(lights[i].diffuse));
+    glUniform3fv(ompShader.ompLights[i].specular, 1,
+      glm::value_ptr(lights[i].specular));
+    // Attenuation
+    // Range of 50, from:
+    // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
+    glUniform1f(ompShader.ompLights[i].constant, lights[i].constant);
+    glUniform1f(ompShader.ompLights[i].linear, lights[i].linear);
+    glUniform1f(ompShader.ompLights[i].quadratic, lights[i].quadratic);
   }
 
   // Draw one object
