@@ -43,7 +43,7 @@ vec3 calcPointLight(PointLight pointLight, vec3 norm, vec3 viewDir) {
   // Specular
   vec3 reflectDir = reflect(-lightDir, norm);
   float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-  vec3 specular = pointLight.specular * (spec * material.specular);  
+  vec3 specular = pointLight.specular * (spec * material.specular);
   // Apply attenuation
   ambient = attenuation * ambient;
   diffuse = attenuation * diffuse;
@@ -59,7 +59,8 @@ void main() {
   vec3 norm = normalize(frag_nor);
   vec3 viewDir = normalize(-frag_pos); // Vector from fragment to camera
   // Add all point light contributions
-  for(int i = 0; i < 3; i++) {
+  // TODO: change all "i < 3" to "i < NUM_POINT_LIGHTS" in shaders
+  for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
     total_light = total_light +
       calcPointLight(pointLights[i], norm, viewDir);
   }

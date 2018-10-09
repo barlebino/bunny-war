@@ -10,12 +10,13 @@
 void getOneMaterialPhongPointLightLocations(
   struct OneMaterialPhongShader *ompShader, int lightNum) {
   GLint pid;
-  std::string varname;
+  std::string varname, lightNumString;
   struct OneMaterialPhongPointLight *ompLight;
 
   pid = ompShader->pid;
   ompLight = &(ompShader->ompLights[lightNum]);
-  
+
+  // TODO: remove repetitive std::to_string calls
   varname = "pointLights[" + std::to_string(lightNum) + "].position";
   ompLight->position = glGetUniformLocation(pid,
     varname.c_str());

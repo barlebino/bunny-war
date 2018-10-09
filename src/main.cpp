@@ -939,29 +939,32 @@ static void render() {
     glm::value_ptr(matModelview));
   glUniformMatrix4fv(pcShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
-  // Fill in fragment shader uniforms
-  // Give light position in view space
-  glUniform3fv(pcShader.lightPosition, 1,
-    glm::value_ptr(
-      glm::vec3(
-        matView * glm::vec4(lights[0].position, 1.f)
-      )
-    )
-  );
-  glUniform3fv(pcShader.lightAmbient, 1,
-    glm::value_ptr(lights[0].ambient));
-  glUniform3fv(pcShader.lightDiffuse, 1,
-    glm::value_ptr(lights[0].diffuse));
-  glUniform3fv(pcShader.lightSpecular, 1,
-    glm::value_ptr(lights[0].specular));
   // Shininess is 64.0, a MAGIC NUMBER
   glUniform1f(pcShader.materialShininess, 64.f);
-  // Attenuation
-  // Range of 50, from:
-  // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
-  glUniform1f(pcShader.lightConstant, 1.f);
-  glUniform1f(pcShader.lightLinear, .045f);
-  glUniform1f(pcShader.lightQuadratic, .0075f);
+  // For each light, input into shader
+  // TODO: Number of lights is 3
+  for(int i = 0; i < 3; i++) {
+    // Give light position in view space
+    glUniform3fv(pcShader.pointLights[i].position, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matView * glm::vec4(lights[i].position, 1.f)
+        )
+      )
+    );
+    glUniform3fv(pcShader.pointLights[i].ambient, 1,
+      glm::value_ptr(lights[i].ambient));
+    glUniform3fv(pcShader.pointLights[i].diffuse, 1,
+      glm::value_ptr(lights[i].diffuse));
+    glUniform3fv(pcShader.pointLights[i].specular, 1,
+      glm::value_ptr(lights[i].specular));
+    // Attenuation
+    // Range of 50, from:
+    // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
+    glUniform1f(pcShader.pointLights[i].constant, lights[i].constant);
+    glUniform1f(pcShader.pointLights[i].linear, lights[i].linear);
+    glUniform1f(pcShader.pointLights[i].quadratic, lights[i].quadratic);
+  }
 
   // Bind vertex array object
   glBindVertexArray(woodcube_vaoID);
