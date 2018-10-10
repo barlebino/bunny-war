@@ -4,6 +4,20 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+// TODO: Define this somewhere else
+#define NUM_POINT_LIGHTS 3
+
+struct PhongCubeLight {
+  GLint position;
+  GLint ambient;
+  GLint diffuse;
+  GLint specular;
+  // Attenuation
+  GLint constant;
+  GLint linear;
+  GLint quadratic;
+};
+
 struct PhongCubeShader {
   GLuint pid;
   // Attribs
@@ -17,15 +31,14 @@ struct PhongCubeShader {
   GLint materialDiffuse; // samplerCube
   GLint materialSpecular; // samplerCube
   GLint materialShininess;
-  GLint lightPosition;
-  GLint lightAmbient;
-  GLint lightDiffuse;
-  GLint lightSpecular;
-  // Attenuation
-  GLint lightConstant;
-  GLint lightLinear;
-  GLint lightQuadratic;
+  // ALL OF THE LIGHTS
+  struct PhongCubeLight pointLights[NUM_POINT_LIGHTS];
 };
+
+// Put light locations at index lightNum into point light at lightNum
+// Assumes pcShader->pid is initialized
+void getPhongCubeLightLocations(
+  struct PhongCubeShader *pcShader, int lightNum);
 
 // Put attrib and uniform locations into struct
 void getPhongCubeShaderLocations(struct PhongCubeShader *);

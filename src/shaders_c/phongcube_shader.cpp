@@ -1,7 +1,45 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <string>
+
 #include "phongcube_shader.hpp"
+
+// Put light locations at index lightNum into point light at lightNum
+// Assumes pcShader->pid is initialized
+void getPhongCubeLightLocations(
+  struct PhongCubeShader *pcShader, int lightNum) {
+  GLint pid;
+  std::string varname, lightNumString;
+  struct PhongCubeLight *pcLight;
+
+  pid = pcShader->pid;
+  pcLight = &(pcShader->pointLights[lightNum]);
+  lightNumString = std::to_string(lightNum);
+
+  varname = "pointLights[" + lightNumString + "].position";
+  pcLight->position = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + lightNumString + "].ambient";
+  pcLight->ambient = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + lightNumString + "].diffuse";
+  pcLight->diffuse = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + lightNumString + "].specular";
+  pcLight->specular = glGetUniformLocation(pid,
+    varname.c_str());
+  // Attenuation
+  varname = "pointLights[" + lightNumString + "].constant";
+  pcLight->constant = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + lightNumString + "].linear";
+  pcLight->linear = glGetUniformLocation(pid,
+    varname.c_str());
+  varname = "pointLights[" + lightNumString + "].quadratic";
+  pcLight->quadratic = glGetUniformLocation(pid,
+    varname.c_str());
+}
 
 // Put attrib and uniform locations into struct
 // Assumes pcShader->pid is initialized
@@ -21,21 +59,11 @@ void getPhongCubeShaderLocations(struct PhongCubeShader *pcShader) {
     "material.specular");
   pcShader->materialShininess = glGetUniformLocation(pcShader->pid,
     "material.shininess");
-  pcShader->lightPosition = glGetUniformLocation(pcShader->pid,
-    "light.position");
-  pcShader->lightAmbient = glGetUniformLocation(pcShader->pid,
-    "light.ambient");
-  pcShader->lightDiffuse = glGetUniformLocation(pcShader->pid,
-    "light.diffuse");
-  pcShader->lightSpecular = glGetUniformLocation(pcShader->pid,
-    "light.specular");
-  // Attenuation
-  pcShader->lightConstant = glGetUniformLocation(pcShader->pid,
-    "light.constant");
-  pcShader->lightLinear = glGetUniformLocation(pcShader->pid,
-    "light.linear");
-  pcShader->lightQuadratic = glGetUniformLocation(pcShader->pid,
-    "light.quadratic");
+  
+  // Get all point light uniforms
+  for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
+    getPhongCubeLightLocations(pcShader, i);
+  }
 }
 
 // Create VAO then put ID into vaoID

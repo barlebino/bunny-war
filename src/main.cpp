@@ -1,3 +1,6 @@
+// TODO: Change to bind program -> bind vao -> make mat -> fill mat
+// TODO: does sphere have normal data?
+
 #include <iostream>
 
 #include <unistd.h>
@@ -27,6 +30,7 @@
 #include "shaders_c/texture_shader.hpp"
 #include "shaders_c/phongcube_shader.hpp"
 #include "shaders_c/onefacephongcube_shader.hpp"
+#include "shaders_c/phong_shader.hpp"
 
 // Light struct
 struct Light {
@@ -34,6 +38,10 @@ struct Light {
   glm::vec3 ambient;
   glm::vec3 diffuse;
   glm::vec3 specular;
+  // Attenuation
+  float constant;
+  float linear;
+  float quadratic;
 };
 
 int ssaaLevel = 2;
@@ -49,29 +57,20 @@ glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
 // Sideways direction
 glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 
-// Light object
-struct Light tutorialLight = {
-  glm::vec3(-8.f, 0.f, -2.f), // position
-  glm::vec3(.2f, .2f, .2f), // ambient
-  glm::vec3(.5f, .5f, .5f), // diffuse
-  glm::vec3(1.f, 1.f, 1.f) // specular
-};
+// Light objects
+struct Light lights[3];
 
 // Input
 char keys[6] = {0, 0, 0, 0, 0, 0};
 
 // VAO IDs
-unsigned to_vaoID;
-unsigned do_vaoID;
-unsigned do_sphere_vaoID;
 unsigned rect_vaoID;
-unsigned grass_vaoID;
 unsigned skybox_vaoID;
-unsigned oc_bunny_vaoID;
 unsigned ls_vaoID;
 unsigned omp_bunny_vaoID;
 unsigned woodcube_vaoID;
 unsigned facecube_vaoID;
+unsigned phongglobe_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
@@ -90,34 +89,27 @@ int bunny_eleBufSize;
 unsigned rect_posBufID;
 unsigned rect_eleBufID;
 unsigned rect_texCoordBufID;
-unsigned rect_texBufID;
 int rect_eleBufSize;
 
-// World image (uses sphere)
-unsigned world_texBufID;
-
-// Grass data (uses rectangle)
-unsigned grass_texBufID;
+// Phong box data
+unsigned convexbox_posBufID;
+unsigned convexbox_norBufID;
+int convexbox_bufSize;
 
 // Skybox data
 unsigned skybox_posBufID;
 int skybox_posBufSize;
-
-// Phong box data
-unsigned phongbox_posBufID;
-unsigned phongbox_norBufID;
-int phongbox_bufSize;
 
 // Shader programs
 // TODO: All shaders inherit from "shader"
 struct OneMaterialPhongShader ompShader;
 struct OneColorShader ocShader;
 struct SkyboxShader sbShader;
-struct RectShader rectShader;
 struct DepthShader depthShader;
 struct TextureShader textureShader;
 struct PhongCubeShader pcShader;
 struct OneFacePhongCubeShader ofpcShader;
+struct PhongShader phongShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -128,6 +120,10 @@ unsigned int fbo;
 unsigned int fbo_color_texture;
 unsigned int fbo_depth_stencil_texture;
 
+// World texture
+unsigned world_texBufID;
+// Grass texture
+unsigned grass_texBufID;
 // Cubemaps
 unsigned int skybox_texBufID;
 unsigned int woodcube_diffuseMapID;
@@ -369,8 +365,8 @@ static void init() {
 
   // Phong box mesh
   getPhongBoxMesh();
-  sendPhongBoxMesh(&phongbox_posBufID, &phongbox_norBufID,
-    &phongbox_bufSize);
+  sendPhongBoxMesh(&convexbox_posBufID, &convexbox_norBufID,
+    &convexbox_bufSize);
 
   // -------- Load textures onto the GPU --------
 
@@ -445,14 +441,6 @@ static void init() {
   // Put locations of attribs and uniforms into depthShader
   getDepthShaderLocations(&depthShader);
 
-  // ------ Rectangle shader program ------
-  rectShader.pid = initShader(
-    "../resources/shaders_glsl/vertRectangle.glsl",
-    "../resources/shaders_glsl/fragRectangle.glsl");
-
-  // Put locations of attribs and uniforms into rectShader
-  getRectShaderLocations(&rectShader);
-
   // ------ Cubemap shader program ------
   sbShader.pid = initShader(
     "../resources/shaders_glsl/vertSkybox.glsl",
@@ -493,31 +481,22 @@ static void init() {
   // Put locations of attribs and uniforms into ofpcShader
   getOneFacePhongCubeShaderLocations(&ofpcShader);
 
+  // ------ Phong shader, diffuse only ------
+  phongShader.pid = initShader(
+    "../resources/shaders_glsl/vertPhong.glsl",
+    "../resources/shaders_glsl/fragPhong.glsl");
+
+  // Put locations of attribs and uniforms into phongShader
+  getPhongShaderLocations(&phongShader);
+
   // -------- Initialize VAOS --------
   
-  // Texture-only sphere (globe)
-  makeTextureShaderVAO(&to_vaoID, &textureShader,
-    sphere_posBufID, sphere_texCoordBufID, sphere_eleBufID);
-  
-  // Texture-only rectangle (grass)
-  makeTextureShaderVAO(&grass_vaoID, &textureShader,
+  // Texture-only rectangle (screen)
+  makeTextureShaderVAO(&rect_vaoID, &textureShader,
     rect_posBufID, rect_texCoordBufID, rect_eleBufID);
-
-  // Depth-only sphere (globe highlight)
-  makeDepthShaderVAO(&do_sphere_vaoID, &depthShader,
-    sphere_posBufID, sphere_eleBufID);
-
-  // TODO: Use texture shader for screen
-  // Screen rectangle
-  makeRectShaderVAO(&rect_vaoID, &rectShader, rect_posBufID,
-    rect_texCoordBufID, rect_eleBufID);
 
   // Skybox VAO (sky)
   makeSkyboxShaderVAO(&skybox_vaoID, &sbShader, skybox_posBufID);
-
-  // One color bunny (red bunny)
-  makeOneColorShaderVAO(&oc_bunny_vaoID, &ocShader,
-    bunny_posBufID, bunny_eleBufID);
 
   // One color sphere (light source)
   makeOneColorShaderVAO(&ls_vaoID, &ocShader,
@@ -529,11 +508,45 @@ static void init() {
 
   // Cubemap phong cube (wooden cube)
   makePhongCubeShaderVAO(&woodcube_vaoID, &pcShader,
-    phongbox_posBufID, phongbox_norBufID);
+    convexbox_posBufID, convexbox_norBufID);
 
   // Cubemap phong cube (wooden cube)
   makeOneFacePhongCubeShaderVAO(&facecube_vaoID, &ofpcShader,
-    phongbox_posBufID, phongbox_norBufID);
+    convexbox_posBufID, convexbox_norBufID);
+
+  // Textured phong sphere (phong globe)
+  makePhongShaderVAO(&phongglobe_vaoID, &phongShader,
+    sphere_posBufID, sphere_norBufID, sphere_texCoordBufID,
+    sphere_eleBufID);
+
+  // -------- Initialize Lights --------
+  lights[0] = {
+    glm::vec3(-8.f, 0.f, -2.f), // position
+    glm::vec3(.2f, .2f, .2f), // ambient
+    glm::vec3(.5f, .5f, .5f), // diffuse
+    glm::vec3(1.f, 1.f, 1.f), // specular
+    1.f, // constant
+    .045f, // linear
+    .0075f // quadratic
+  };
+  lights[1] = {
+    glm::vec3(-14.f, 0.f, 2.f), // position
+    glm::vec3(0.f, .2f, 0.f), // ambient
+    glm::vec3(0.f, .5f, 0.f), // diffuse
+    glm::vec3(0.f, 1.f, 0.f), // specular
+    1.f, // constant
+    .045f, // linear
+    .0075f // quadratic
+  };
+  lights[2] = {
+    glm::vec3(-8.f, 2.f, 0.f), // position
+    glm::vec3(.2f, 0.f, 0.f), // ambient
+    glm::vec3(.5f, 0.f, 0.f), // diffuse
+    glm::vec3(1.f, 0.f, 0.f), // specular
+    1.f, // constant
+    .045f, // linear
+    .0075f // quadratic
+  };
 }
 
 static void handleInput(int width, int height) {
@@ -649,243 +662,8 @@ static void render() {
     sideways) * matView;
   matView = glm::rotate(glm::mat4(1.f), -camRotation.y,
     glm::vec3(0.f, 1.f, 0.f)) * matView;
-  
-  // Draw the globe
 
-  // Stencil for outline
-  // GL_ALWAYS = Never discard the fragment, GL_REPLACE means 1 is
-  // put into stencil buffer
-  glStencilFunc(GL_ALWAYS, 1, 0xFF);
-  // Value you put into stencil buffer is ANDed with 0xFF
-  glStencilMask(0xFF);
-  
-  // Model matrix
-  matModel = glm::mat4(1.f);
-
-  // Move object relative to the world
-  matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
-    matModel;
-  
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matModel;
-  
-  // Object position is (0, 0, -2)
-  matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(0.f, 0.f, -2.f)) * matModel;
-
-  // Move object relative to the eye
-  matModelview = matView * matModel;
-
-  // Bind shader program
-  glUseProgram(textureShader.pid);
-
-  // Fill in matrices
-  glUniformMatrix4fv(textureShader.modelview, 1, GL_FALSE,
-    glm::value_ptr(matModelview));
-  glUniformMatrix4fv(textureShader.projection, 1, GL_FALSE,
-    glm::value_ptr(matProjection));
-
-  // Bind vertex array object
-  glBindVertexArray(to_vaoID);
-
-  // Bind texture to texture unit 0
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, world_texBufID);
-  // 0 because texture unit GL_TEXTURE0
-  glUniform1i(textureShader.texLoc, 0);
-
-  // Draw one object
-  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
-    (const void *) 0);
-
-  // Unbind texture
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Unbind shader program
-  glUseProgram(0);
-
-  // Draw the sphere outline
-
-  // Stencil for outline
-  // GL_NOTEQUAL = Don't discard the fragment, if stencil
-  // is not equal to 1
-  // Determines if fragment should pass stencil test
-  glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-  // Value you put into stencil buffer is ANDed with 0x00
-  glStencilMask(0x00);
-
-  // Placement matrix
-  matModel = glm::mat4(1.f);
-
-  // Put object into world
-  matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.25f, 1.25f, 1.25f)) * 
-    matModel;
-  
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matModel;
-  
-  // Object position is (0, 0, -2)
-  matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(0.f, 0.f, -2.f)) * matModel;
-  
-  // Modify object relative to the eye
-  matModelview = matView * matModel;
-
-  // Bind shader program
-  glUseProgram(depthShader.pid);
-
-  // Fill in matrices
-  glUniformMatrix4fv(depthShader.modelview, 1, GL_FALSE,
-    glm::value_ptr(matModelview));
-  glUniformMatrix4fv(depthShader.projection, 1, GL_FALSE,
-    glm::value_ptr(matProjection));
-
-  // Bind vertex array object
-  glBindVertexArray(do_sphere_vaoID);
-
-  // Draw one object
-  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
-    (const void *) 0);
-  // REMINDER: Changed element buffer size
-
-  // Unbind texture
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Unbind shader program
-  glUseProgram(0);
-
-  // Draw the grass
-  
-  // Do nothing to the stencil buffer ever
-  glStencilFunc(GL_ALWAYS, 1, 0xFF);
-  glStencilMask(0x00);
-
-  // Placement matrix
-  matModel = glm::mat4(1.f);
-
-  // Put object into world
-  matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
-    matModel;
-  
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matModel;
-
-  // Object position is (4, 0, -2)
-  matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(4.f, 0.f, -2.f)) * matModel;
-
-  // Modify object relative to the eye
-  matModelview = matView * matModel;
-
-  // Bind shader program
-  glUseProgram(textureShader.pid);
-
-  // Fill in matrices
-  glUniformMatrix4fv(textureShader.modelview, 1, GL_FALSE,
-    glm::value_ptr(matModelview));
-  glUniformMatrix4fv(textureShader.projection, 1, GL_FALSE,
-    glm::value_ptr(matProjection));
-
-  // Bind vertex array object
-  glBindVertexArray(grass_vaoID);
-
-  // Bind texture to texture unit 0
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, grass_texBufID);
-  // 0 because texture unit GL_TEXTURE0
-  glUniform1i(textureShader.texLoc, 0);
-
-  // Draw one object
-  glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
-    (const void *) 0);
-
-  // Unbind texture
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Unbind shader program
-  glUseProgram(0);
-
-  // Draw the one color bunny
-
-  // Do nothing to the stencil buffer ever
-  glStencilFunc(GL_ALWAYS, 1, 0xFF);
-  glStencilMask(0x00);
-
-  // Placement matrix
-  matModel = glm::mat4(1.f);
-  
-  // Put object into world
-  matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
-    matModel;
-  
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
-    glm::vec3(0.f, 0.f, 1.f)) * matModel;
-
-  // Object position is (-4, 0, -2)
-  matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(-4.f, 0.f, -2.f)) * matModel;
-
-  // Modify object relative to the eye
-  matModelview = matView * matModel;
-
-  // Bind shader program
-  glUseProgram(ocShader.pid);
-
-  // Fill in matrices
-  glUniformMatrix4fv(ocShader.modelview, 1, GL_FALSE,
-    glm::value_ptr(matModelview));
-  glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
-    glm::value_ptr(matProjection));
-  // Bunny is red (1.0, 0.0, 0.0)
-  glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(glm::vec3(1.0, 0.0, 0.0)));
-
-  // Bind vertex array object
-  glBindVertexArray(oc_bunny_vaoID);
-
-  // Draw one object
-  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
-    (const void *) 0);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Unbind shader program
-  glUseProgram(0);
-
-  // Draw the light source
+  // Draw the first light source
 
   // Do nothing to the stencil buffer ever
   glStencilFunc(GL_ALWAYS, 1, 0xFF);
@@ -908,7 +686,7 @@ static void render() {
 
   // Object position is (-8, 0, -2)
   matModel = glm::translate(glm::mat4(1.f),
-    tutorialLight.position) * matModel;
+    lights[0].position) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -922,10 +700,114 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(tutorialLight.specular));
+    glm::value_ptr(lights[0].specular));
 
   // Bind vertex array object
   glBindVertexArray(ls_vaoID);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the second light source
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Bind shader program
+  glUseProgram(ocShader.pid);
+
+  // Bind vertex array object
+  glBindVertexArray(ls_vaoID);
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    glm::vec3(.5f, .5f, .5f)) * 
+    matModel;
+  
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+
+  // Object position is (-8, 0, -2)
+  matModel = glm::translate(glm::mat4(1.f),
+    lights[1].position) * matModel;
+
+  // Move object relative to the eye
+  matModelview = matView * matModel;
+
+  // Fill in uniforms
+  glUniformMatrix4fv(ocShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  glUniform3fv(ocShader.in_color, 1,
+    glm::value_ptr(lights[1].specular));
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the third light source
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Bind shader program
+  glUseProgram(ocShader.pid);
+
+  // Bind vertex array object
+  glBindVertexArray(ls_vaoID);
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    glm::vec3(.5f, .5f, .5f)) * 
+    matModel;
+  
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+
+  // Object position is (-8, 2, -2)
+  matModel = glm::translate(glm::mat4(1.f),
+    lights[2].position) * matModel;
+
+  // Move object relative to the eye
+  matModelview = matView * matModel;
+
+  // Fill in uniforms
+  glUniformMatrix4fv(ocShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  glUniform3fv(ocShader.in_color, 1,
+    glm::value_ptr(lights[2].specular));
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
@@ -986,25 +868,29 @@ static void render() {
     glm::value_ptr(copper.specular));
   glUniform1f(ompShader.materialShininess,
     copper.shininess);
-  glUniform3fv(ompShader.lightPosition, 1,
-    glm::value_ptr(
-      glm::vec3(
-        matView * glm::vec4(tutorialLight.position, 1.f)
+  // For each light, input into shader
+  // TODO: If same shader, no need to call uniform repeatedly
+  for(int i = 0; i < 3; i++) {
+    glUniform3fv(ompShader.ompLights[i].position, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matView * glm::vec4(lights[i].position, 1.f)
+        )
       )
-    )
-  );
-  glUniform3fv(ompShader.lightAmbient, 1,
-    glm::value_ptr(tutorialLight.ambient));
-  glUniform3fv(ompShader.lightDiffuse, 1,
-    glm::value_ptr(tutorialLight.diffuse));
-  glUniform3fv(ompShader.lightSpecular, 1,
-    glm::value_ptr(tutorialLight.specular));
-  // Attenuation
-  // Range of 50, from:
-  // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
-  glUniform1f(ompShader.lightConstant, 1.f);
-  glUniform1f(ompShader.lightLinear, .045f);
-  glUniform1f(ompShader.lightQuadratic, .0075f);
+    );
+    glUniform3fv(ompShader.ompLights[i].ambient, 1,
+      glm::value_ptr(lights[i].ambient));
+    glUniform3fv(ompShader.ompLights[i].diffuse, 1,
+      glm::value_ptr(lights[i].diffuse));
+    glUniform3fv(ompShader.ompLights[i].specular, 1,
+      glm::value_ptr(lights[i].specular));
+    // Attenuation
+    // Range of 50, from:
+    // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
+    glUniform1f(ompShader.ompLights[i].constant, lights[i].constant);
+    glUniform1f(ompShader.ompLights[i].linear, lights[i].linear);
+    glUniform1f(ompShader.ompLights[i].quadratic, lights[i].quadratic);
+  }
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
@@ -1053,29 +939,32 @@ static void render() {
     glm::value_ptr(matModelview));
   glUniformMatrix4fv(pcShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
-  // Fill in fragment shader uniforms
-  // Give light position in view space
-  glUniform3fv(pcShader.lightPosition, 1,
-    glm::value_ptr(
-      glm::vec3(
-        matView * glm::vec4(tutorialLight.position, 1.f)
-      )
-    )
-  );
-  glUniform3fv(pcShader.lightAmbient, 1,
-    glm::value_ptr(tutorialLight.ambient));
-  glUniform3fv(pcShader.lightDiffuse, 1,
-    glm::value_ptr(tutorialLight.diffuse));
-  glUniform3fv(pcShader.lightSpecular, 1,
-    glm::value_ptr(tutorialLight.specular));
   // Shininess is 64.0, a MAGIC NUMBER
   glUniform1f(pcShader.materialShininess, 64.f);
-  // Attenuation
-  // Range of 50, from:
-  // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
-  glUniform1f(pcShader.lightConstant, 1.f);
-  glUniform1f(pcShader.lightLinear, .045f);
-  glUniform1f(pcShader.lightQuadratic, .0075f);
+  // For each light, input into shader
+  // TODO: Number of lights is 3
+  for(int i = 0; i < 3; i++) {
+    // Give light position in view space
+    glUniform3fv(pcShader.pointLights[i].position, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matView * glm::vec4(lights[i].position, 1.f)
+        )
+      )
+    );
+    glUniform3fv(pcShader.pointLights[i].ambient, 1,
+      glm::value_ptr(lights[i].ambient));
+    glUniform3fv(pcShader.pointLights[i].diffuse, 1,
+      glm::value_ptr(lights[i].diffuse));
+    glUniform3fv(pcShader.pointLights[i].specular, 1,
+      glm::value_ptr(lights[i].specular));
+    // Attenuation
+    // Range of 50, from:
+    // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
+    glUniform1f(pcShader.pointLights[i].constant, lights[i].constant);
+    glUniform1f(pcShader.pointLights[i].linear, lights[i].linear);
+    glUniform1f(pcShader.pointLights[i].quadratic, lights[i].quadratic);
+  }
 
   // Bind vertex array object
   glBindVertexArray(woodcube_vaoID);
@@ -1092,7 +981,7 @@ static void render() {
 
   // Draw the cube
   // Divide by 3 because per vertex
-  glDrawArrays(GL_TRIANGLES, 0, phongbox_bufSize / 3);
+  glDrawArrays(GL_TRIANGLES, 0, convexbox_bufSize / 3);
 
   // Unbind maps
   glActiveTexture(GL_TEXTURE0);
@@ -1142,30 +1031,34 @@ static void render() {
     glm::value_ptr(matModelview));
   glUniformMatrix4fv(ofpcShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
-  // Give light position in view space
-  glUniform3fv(ofpcShader.lightPosition, 1,
-    glm::value_ptr(
-      glm::vec3(
-        matView * glm::vec4(tutorialLight.position, 1.f)
+  // For each light, input into shader
+  // TODO: Number of lights is 3
+  for(int i = 0; i < 3; i++) {
+    // Give light position in view space
+    glUniform3fv(ofpcShader.pointLights[i].position, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matView * glm::vec4(lights[i].position, 1.f)
+        )
       )
-    )
-  );
-  glUniform3fv(ofpcShader.lightAmbient, 1,
-    glm::value_ptr(tutorialLight.ambient));
-  glUniform3fv(ofpcShader.lightDiffuse, 1,
-    glm::value_ptr(tutorialLight.diffuse));
-  glUniform3fv(ofpcShader.lightSpecular, 1,
-    glm::value_ptr(tutorialLight.specular));
-  // Shininess is 64.0, a MAGIC NUMBER
-  glUniform1f(ofpcShader.materialShininess, 64.f);
-  // Attenuation
-  glUniform1f(ofpcShader.lightConstant, 1.f);
-  glUniform1f(ofpcShader.lightLinear, .045f);
-  glUniform1f(ofpcShader.lightQuadratic, .0075f);
+    );
+    glUniform3fv(ofpcShader.pointLights[i].ambient, 1,
+      glm::value_ptr(lights[i].ambient));
+    glUniform3fv(ofpcShader.pointLights[i].diffuse, 1,
+      glm::value_ptr(lights[i].diffuse));
+    glUniform3fv(ofpcShader.pointLights[i].specular, 1,
+      glm::value_ptr(lights[i].specular));
+    // Attenuation
+    glUniform1f(ofpcShader.pointLights[i].constant, lights[i].constant);
+    glUniform1f(ofpcShader.pointLights[i].linear, lights[i].linear);
+    glUniform1f(ofpcShader.pointLights[i].quadratic, lights[i].quadratic);
+  }
 
   // Bind vertex array object
   glBindVertexArray(facecube_vaoID);
 
+  // Shininess is 64.0, a MAGIC NUMBER
+  glUniform1f(ofpcShader.materialShininess, 64.f);
   // Bind the maps
   // Bind diffuse map
   glActiveTexture(GL_TEXTURE0);
@@ -1179,13 +1072,92 @@ static void render() {
   glUniform1i(ofpcShader.materialSpecular, 1);
 
   // Draw one object
-  glDrawArrays(GL_TRIANGLES, 0, phongbox_bufSize / 3);
+  glDrawArrays(GL_TRIANGLES, 0, convexbox_bufSize / 3);
 
   // Unbind maps
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+
+  // Draw the phong globe
+  
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Bind shader program
+  glUseProgram(phongShader.pid);
+
+  // Bind the VAO
+  glBindVertexArray(phongglobe_vaoID);
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    glm::vec3(1.f, 1.f, 1.f)) * 
+    matModel;
+  
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+
+  // Object position is -8, 0, 4
+  matModel = glm::translate(glm::mat4(1.f),
+    glm::vec3(-8.f, 0.f, 4)) * matModel;
+
+  // Modify object relative to the eye
+  matModelview = matView * matModel;
+
+  // Fill uniforms
+  glUniformMatrix4fv(phongShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(phongShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  // Bind diffuse map
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, world_texBufID);
+  glUniform1i(phongShader.materialDiffuse, 0);
+  // For each light, input into shader
+  // TODO: If same shader, no need to call uniform repeatedly
+  for(int i = 0; i < 3; i++) {
+    glUniform3fv(phongShader.pointLights[i].position, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matView * glm::vec4(lights[i].position, 1.f)
+        )
+      )
+    );
+    glUniform3fv(phongShader.pointLights[i].ambient, 1,
+      glm::value_ptr(lights[i].ambient));
+    glUniform3fv(phongShader.pointLights[i].diffuse, 1,
+      glm::value_ptr(lights[i].diffuse));
+    glUniform3fv(phongShader.pointLights[i].specular, 1,
+      glm::value_ptr(lights[i].specular));
+    // Attenuation
+    glUniform1f(phongShader.pointLights[i].constant, lights[i].constant);
+    glUniform1f(phongShader.pointLights[i].linear, lights[i].linear);
+    glUniform1f(phongShader.pointLights[i].quadratic, lights[i].quadratic);
+  }
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
@@ -1270,18 +1242,25 @@ static void render() {
   glStencilMask(0x00);
 
   // Bind shader program
-  glUseProgram(rectShader.pid);
+  glUseProgram(textureShader.pid);
 
   // Bind vertex array object
   glBindVertexArray(rect_vaoID);
 
-  // Bind texture to texture unit 0
+  // Calculate placement matrix (do nothing)
+  matModel = glm::mat4(1.f);
+
+  // Fill in shader uniforms
+  glUniformMatrix4fv(textureShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModel));
+  glUniformMatrix4fv(textureShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matModel));
+  // Bind texture
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
-  // 0 because texture unit GL_TEXTURE0
-  glUniform1i(rectShader.texLoc, 0);
+  glUniform1i(textureShader.texLoc, 0);
 
-  // Draw one object
+  // Draw screen
   glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
 
@@ -1289,13 +1268,13 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, 0);
 
-  // Unbind vertex array object
+  // Unbind VAO
   glBindVertexArray(0);
 
   // Unbind shader program
   glUseProgram(0);
 
-  // Re-Enable
+  // Re-enable
   glStencilMask(0xFF);
   glEnable(GL_DEPTH_TEST);
 }

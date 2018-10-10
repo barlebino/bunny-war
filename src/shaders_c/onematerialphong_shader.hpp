@@ -4,6 +4,20 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+// TODO: Define this somewhere else
+#define NUM_POINT_LIGHTS 3
+
+struct OneMaterialPhongPointLight {
+  GLint position;
+  GLint ambient;
+  GLint diffuse;
+  GLint specular;
+  // Attentuation
+  GLint constant;
+  GLint linear;
+  GLint quadratic;
+};
+
 struct OneMaterialPhongShader {
   GLint pid;
   // Attribs
@@ -18,15 +32,15 @@ struct OneMaterialPhongShader {
   GLint materialDiffuse;
   GLint materialSpecular;
   GLint materialShininess;
-  GLint lightPosition;
-  GLint lightAmbient;
-  GLint lightDiffuse;
-  GLint lightSpecular;
-  // Attentuation
-  GLint lightConstant;
-  GLint lightLinear;
-  GLint lightQuadratic;
+  // ALL OF THE LIGHTS
+  // TODO: change ompLights to pointLights
+  struct OneMaterialPhongPointLight ompLights[NUM_POINT_LIGHTS];
 };
+
+// Put light locations at index lightNum into ompLight struct at lightNum
+// Assumes ompShader->pid is initialized
+void getOneMaterialPhongPointLightLocations(
+  struct OneMaterialPhongShader *ompShader, int lightNum);
 
 // Put attrib and uniform locations into struct
 void getOneMaterialPhongShaderLocations(
