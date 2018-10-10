@@ -12,7 +12,7 @@ struct PhongCubeLight {
   GLint ambient;
   GLint diffuse;
   GLint specular;
-  // Attentuation
+  // Attenuation
   GLint constant;
   GLint linear;
   GLint quadratic;

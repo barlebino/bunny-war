@@ -1031,30 +1031,34 @@ static void render() {
     glm::value_ptr(matModelview));
   glUniformMatrix4fv(ofpcShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
-  // Give light position in view space
-  glUniform3fv(ofpcShader.lightPosition, 1,
-    glm::value_ptr(
-      glm::vec3(
-        matView * glm::vec4(lights[0].position, 1.f)
+  // For each light, input into shader
+  // TODO: Number of lights is 3
+  for(int i = 0; i < 3; i++) {
+    // Give light position in view space
+    glUniform3fv(ofpcShader.pointLights[i].position, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matView * glm::vec4(lights[i].position, 1.f)
+        )
       )
-    )
-  );
-  glUniform3fv(ofpcShader.lightAmbient, 1,
-    glm::value_ptr(lights[0].ambient));
-  glUniform3fv(ofpcShader.lightDiffuse, 1,
-    glm::value_ptr(lights[0].diffuse));
-  glUniform3fv(ofpcShader.lightSpecular, 1,
-    glm::value_ptr(lights[0].specular));
-  // Shininess is 64.0, a MAGIC NUMBER
-  glUniform1f(ofpcShader.materialShininess, 64.f);
-  // Attenuation
-  glUniform1f(ofpcShader.lightConstant, 1.f);
-  glUniform1f(ofpcShader.lightLinear, .045f);
-  glUniform1f(ofpcShader.lightQuadratic, .0075f);
+    );
+    glUniform3fv(ofpcShader.pointLights[i].ambient, 1,
+      glm::value_ptr(lights[i].ambient));
+    glUniform3fv(ofpcShader.pointLights[i].diffuse, 1,
+      glm::value_ptr(lights[i].diffuse));
+    glUniform3fv(ofpcShader.pointLights[i].specular, 1,
+      glm::value_ptr(lights[i].specular));
+    // Attenuation
+    glUniform1f(ofpcShader.pointLights[i].constant, lights[i].constant);
+    glUniform1f(ofpcShader.pointLights[i].linear, lights[i].linear);
+    glUniform1f(ofpcShader.pointLights[i].quadratic, lights[i].quadratic);
+  }
 
   // Bind vertex array object
   glBindVertexArray(facecube_vaoID);
 
+  // Shininess is 64.0, a MAGIC NUMBER
+  glUniform1f(ofpcShader.materialShininess, 64.f);
   // Bind the maps
   // Bind diffuse map
   glActiveTexture(GL_TEXTURE0);

@@ -26,7 +26,6 @@ in vec3 tex_coord; // samplerCube query
 out vec4 out_color;
 
 uniform Material material;
-//uniform PointLight light;
 uniform PointLight pointLights[NUM_POINT_LIGHTS];
 
 vec3 calcPointLight(PointLight pointLight, vec3 norm, vec3 viewDir) {
