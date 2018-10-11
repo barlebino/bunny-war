@@ -133,6 +133,10 @@ unsigned int facecube_specularMapID;
 
 bool cameraFreeze = false;
 
+// TESTING
+GLint blinnID;
+bool isBlinn;
+
 // For debugging
 void printMatrix(glm::mat4 mat) {
   int i, j;
@@ -155,6 +159,12 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action,
   } else if(key == GLFW_KEY_P) { // toggle whether or not camera stays in place
     if(action == GLFW_RELEASE) {
       cameraFreeze = !cameraFreeze;
+      // TESTING
+      isBlinn = !isBlinn;
+      if(isBlinn)
+        printf("is blinn\n");
+      else
+        printf("is not blinn\n");
     }
   } else if(key == GLFW_KEY_W) {
     if(action == GLFW_PRESS) {
@@ -547,6 +557,9 @@ static void init() {
     .045f, // linear
     .0075f // quadratic
   };
+  // TESTING
+  isBlinn = false;
+  blinnID = glGetUniformLocation(ompShader.pid, "isBlinn");
 }
 
 static void handleInput(int width, int height) {
@@ -852,6 +865,9 @@ static void render() {
 
   // Bind vertex array object
   glBindVertexArray(omp_bunny_vaoID);
+
+  // TESTING
+  glUniform1i(blinnID, isBlinn);
 
   // Fill in matrices
   // Fill in vertex shader uniforms

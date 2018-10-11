@@ -27,6 +27,8 @@ out vec4 out_color;
 
 uniform Material material;
 uniform PointLight pointLights[NUM_POINT_LIGHTS];
+// TESTING
+uniform bool isBlinn;
 
 vec3 calcPointLight(PointLight pointLight, vec3 norm, vec3 viewDir) {
   // Calculate attenuation
@@ -42,7 +44,14 @@ vec3 calcPointLight(PointLight pointLight, vec3 norm, vec3 viewDir) {
   vec3 diffuse = pointLight.diffuse * (diff * material.diffuse);
   // Specular
   vec3 reflectDir = reflect(-lightDir, norm);
-  float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+  float spec;
+  // TESTING
+  if(isBlinn) {
+    vec3 halfwayDir = normalize(viewDir + lightDir);
+    spec = pow(max(dot(halfwayDir, norm), 0.0), material.shininess);
+  } else {
+    spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+  }
   vec3 specular = pointLight.specular * (spec * material.specular);
   // Apply attenuation
   ambient = attenuation * ambient;
