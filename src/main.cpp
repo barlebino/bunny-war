@@ -1320,7 +1320,7 @@ int main(int argc, char **argv) {
   glfwSetKeyCallback(window, key_callback);
   glfwSetFramebufferSizeCallback(window, resize_callback);
 
-  // TESTING
+  // Face culling
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
