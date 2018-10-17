@@ -50,7 +50,8 @@ vec3 calcPointLight(PointLight pointLight, vec3 norm, vec3 viewDir) {
     vec3 halfwayDir = normalize(viewDir + lightDir);
     spec = pow(max(dot(halfwayDir, norm), 0.0), material.shininess);
   } else {
-    spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+    //spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+    spec = pow(dot(viewDir, reflectDir) * 0.5 + 0.5, material.shininess);
   }
   vec3 specular = pointLight.specular * (spec * material.specular);
   // Apply attenuation
