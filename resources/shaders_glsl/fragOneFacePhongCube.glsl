@@ -58,8 +58,9 @@ vec3 calcPointLight(PointLight pointLight, vec3 norm, vec3 viewDir) {
   vec3 diffuse = pointLight.diffuse *
     (diff * texture(material.diffuse, texCoord2D).rgb);
   // Specular
-  vec3 reflectDir = reflect(-lightDir, norm);
-  float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+  vec3 reflectDir = reflect(-lightDir, norm); // Normalize?
+  vec3 halfwayDir = normalize(viewDir + lightDir);
+  float spec = pow(max(dot(halfwayDir, norm), 0.0), material.shininess);
   vec3 specular = pointLight.specular *
     (spec * texture(material.specular, texCoord2D).rgb);
   // Apply attenuation
