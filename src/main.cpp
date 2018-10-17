@@ -371,15 +371,15 @@ static void init() {
   // -------- Load textures onto the GPU --------
 
   // ------ Load world texture ------
-  defaultImageLoad("../resources/world.bmp", &world_texBufID); 
+  gammaImageLoad("../resources/world.bmp", &world_texBufID);
 
   // ------ Load grass texture ------
-  defaultImageLoad("../resources/grass.png", &grass_texBufID);
+  gammaImageLoad("../resources/grass.png", &grass_texBufID);
 
   // -------- Load face cubemaps --------
 
   // ------ Load diffuse container texture ------
-  defaultImageLoad("../resources/woodcube/diffuse_container.png",
+  gammaImageLoad("../resources/woodcube/diffuse_container.png",
     &facecube_diffuseMapID);
 
   // ------ Load specular container texture ------
@@ -398,7 +398,7 @@ static void init() {
     "../resources/skybox/front.jpg",
     "../resources/skybox/back.jpg"
   };
-  defaultCubemapLoad(faces, &skybox_texBufID);
+  gammaCubemapLoad(faces, &skybox_texBufID);
 
   // ---- Load wood cube diffuse ----
   faces = {
@@ -409,7 +409,7 @@ static void init() {
     "../resources/woodcube/diffuse_container.png",
     "../resources/woodcube/diffuse_container.png"
   };
-  defaultCubemapLoad(faces, &woodcube_diffuseMapID);
+  gammaCubemapLoad(faces, &woodcube_diffuseMapID);
 
   // ---- Load wood cube specular ----
   faces = {
@@ -526,8 +526,8 @@ static void init() {
     glm::vec3(.5f, .5f, .5f), // diffuse
     glm::vec3(1.f, 1.f, 1.f), // specular
     1.f, // constant
-    .045f, // linear
-    .0075f // quadratic
+    .22f, // linear
+    .20f // quadratic
   };
   lights[1] = {
     glm::vec3(-14.f, 0.f, 2.f), // position
@@ -535,8 +535,8 @@ static void init() {
     glm::vec3(0.f, .5f, 0.f), // diffuse
     glm::vec3(0.f, 1.f, 0.f), // specular
     1.f, // constant
-    .045f, // linear
-    .0075f // quadratic
+    .22f, // linear
+    .20f // quadratic
   };
   lights[2] = {
     glm::vec3(-8.f, 2.f, 0.f), // position
@@ -544,8 +544,8 @@ static void init() {
     glm::vec3(.5f, 0.f, 0.f), // diffuse
     glm::vec3(1.f, 0.f, 0.f), // specular
     1.f, // constant
-    .045f, // linear
-    .0075f // quadratic
+    .22f, // linear
+    .20f // quadratic
   };
 }
 
@@ -1228,6 +1228,9 @@ static void render() {
 
   // Paste from side framebuffer to default framebuffer
 
+  // Enable gamma correction
+  glEnable(GL_FRAMEBUFFER_SRGB);
+
   // Bind normal framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glViewport(0, 0, width, height);
@@ -1277,6 +1280,9 @@ static void render() {
   // Re-enable
   glStencilMask(0xFF);
   glEnable(GL_DEPTH_TEST);
+
+  // Disable gamma correction
+  glDisable(GL_FRAMEBUFFER_SRGB);
 }
 
 int main(int argc, char **argv) {
