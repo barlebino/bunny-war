@@ -5,7 +5,7 @@
 
 // Only ambient and diffuse will be affected by gamma correction
 
-Material emerald = {
+Material emerald = { // TODO: Does compiler calculate these?
   glm::pow(
     glm::vec3(0.0215f, 0.1745f, 0.0215f),
     glm::vec3(2.2f, 2.2f, 2.2f)
