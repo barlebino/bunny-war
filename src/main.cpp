@@ -1,5 +1,6 @@
 // TODO: Change to bind program -> bind vao -> make mat -> fill mat
 // TODO: does sphere have normal data?
+// TODO: Placement structs for non-lights
 
 #include <iostream>
 
@@ -32,9 +33,17 @@
 #include "shaders_c/onefacephongcube_shader.hpp"
 #include "shaders_c/phong_shader.hpp"
 
+// Placement struct
+// Contains scale, rotation, and translate matrices
+struct Placement {
+  glm::vec3 scale;
+  glm::vec3 rotate; // TODO: Change? Quaternions?
+  glm::vec3 translate;
+};
+
 // Light struct
 struct Light {
-  glm::vec3 position;
+  struct Placement placement;
   glm::vec3 ambient;
   glm::vec3 diffuse;
   glm::vec3 specular;
@@ -119,6 +128,12 @@ int g_height = 960;
 unsigned int fbo;
 unsigned int fbo_color_texture;
 unsigned int fbo_depth_stencil_texture;
+
+// Framebuffer with depth only for shadow mapping
+unsigned int shadow_fbo;
+unsigned int shadow_depth_texture;
+int shadow_width = 1280;
+int shadow_height = 960;
 
 // World texture
 unsigned world_texBufID;
@@ -314,6 +329,7 @@ static void init() {
   // Unbind texture
   glBindTexture(GL_TEXTURE_2D, 0);
 
+  // TODO: Remove depth and stencil textures
   // Depth and stencil texture for fbo
   glGenTextures(1, &fbo_depth_stencil_texture);
   glBindTexture(GL_TEXTURE_2D, fbo_depth_stencil_texture);
@@ -337,6 +353,29 @@ static void init() {
 
   // Unbind
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  // Create framebuffer with depth only for shadows
+  glGenFramebuffers(1, &shadow_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
+
+  // Create depth texture
+  glGenTextures(1, &shadow_depth_texture);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
+    shadow_width, shadow_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);  
+
+  // Attach depth texture to framebuffer
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 
+    shadow_depth_texture, 0);
+  glDrawBuffer(GL_NONE); // Will not render color data
+  glReadBuffer(GL_NONE);
+  
+  // Unbind FBO
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);  
 
   // -------- Initialize all of the meshes --------
 
@@ -520,8 +559,16 @@ static void init() {
     sphere_eleBufID);
 
   // -------- Initialize Lights --------
+  Placement tempPlacement;
+  
+  // ------ Light 0 ------
+  tempPlacement = {
+    glm::vec3(.5f, .5f, .5f), // scale
+    glm::vec3(0.f, 0.f, 0.f), // rotate
+    glm::vec3(-8.f, 0.f, -2.f) // translate
+  };
   lights[0] = {
-    glm::vec3(-8.f, 0.f, -2.f), // position
+    tempPlacement,
     glm::vec3(.2f, .2f, .2f), // ambient
     glm::vec3(.5f, .5f, .5f), // diffuse
     glm::vec3(1.f, 1.f, 1.f), // specular
@@ -529,8 +576,14 @@ static void init() {
     .22f, // linear
     .20f // quadratic
   };
+  // ------ Light 1 ------
+  tempPlacement = {
+    glm::vec3(.5f, .5f, .5f), // scale
+    glm::vec3(0.f, 0.f, 0.f), // rotate
+    glm::vec3(-14.f, 0.f, 2.f) // translate
+  };
   lights[1] = {
-    glm::vec3(-14.f, 0.f, 2.f), // position
+    tempPlacement,
     glm::vec3(0.f, .2f, 0.f), // ambient
     glm::vec3(0.f, .5f, 0.f), // diffuse
     glm::vec3(0.f, 1.f, 0.f), // specular
@@ -538,8 +591,14 @@ static void init() {
     .22f, // linear
     .20f // quadratic
   };
+  // ------ Light 2 ------
+  tempPlacement = {
+    glm::vec3(.5f, .5f, .5f), // scale
+    glm::vec3(0.f, 0.f, 0.f), // rotate
+    glm::vec3(-8.f, 2.f, 0.f) // translate
+  };
   lights[2] = {
-    glm::vec3(-8.f, 2.f, 0.f), // position
+    tempPlacement,
     glm::vec3(.2f, 0.f, 0.f), // ambient
     glm::vec3(.5f, 0.f, 0.f), // diffuse
     glm::vec3(1.f, 0.f, 0.f), // specular
@@ -620,6 +679,22 @@ static void handleInput(int width, int height) {
   }
 }
 
+// Render to the depth buffer of the shadow fbo
+static void lightRender() {
+  glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
+  // Tells what dimensions to render to
+  glViewport(0, 0, shadow_width, shadow_height);
+
+  // Buffer stuff (???)
+  glEnable(GL_DEPTH_TEST);
+
+  // Clear framebuffer
+  glClear(GL_DEPTH_BUFFER_BIT);
+
+  // Bind to default framebuffer
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 static void render() {
   int width, height;
   float aspect;
@@ -633,12 +708,16 @@ static void render() {
   // Get current frame buffer size ???
   glfwGetFramebufferSize(window, &width, &height);
 
+  // TODO: Draw scene from directional light POV
+  lightRender();
+
+  // Draw the scene from camera POV
   // Change framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   // Tells to what dimensions it renders to
   glViewport(0, 0, width * ssaaLevel, height * ssaaLevel);
   
-  // Buffer stuff
+  // Buffer stuff (???)
   glEnable(GL_DEPTH_TEST);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
@@ -671,22 +750,23 @@ static void render() {
 
   // Placement matrix
   matModel = glm::mat4(1.f);
-
+  
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(.5f, .5f, .5f)) * 
-    matModel;
+    lights[0].placement.scale) * matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    lights[0].placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    lights[0].placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    lights[0].placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
-  // Object position is (-8, 0, -2)
   matModel = glm::translate(glm::mat4(1.f),
-    lights[0].position) * matModel;
+    lights[0].placement.translate) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -732,19 +812,20 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(.5f, .5f, .5f)) * 
-    matModel;
+    lights[1].placement.scale) * matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    lights[1].placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    lights[1].placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    lights[1].placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
-  // Object position is (-8, 0, -2)
   matModel = glm::translate(glm::mat4(1.f),
-    lights[1].position) * matModel;
+    lights[1].placement.translate) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -784,19 +865,20 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(.5f, .5f, .5f)) * 
-    matModel;
+    lights[2].placement.scale) * matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    lights[2].placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    lights[2].placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    lights[2].placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
-  // Object position is (-8, 2, -2)
   matModel = glm::translate(glm::mat4(1.f),
-    lights[2].position) * matModel;
+    lights[2].placement.translate) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -874,7 +956,7 @@ static void render() {
     glUniform3fv(ompShader.ompLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].position, 1.f)
+          matView * glm::vec4(lights[i].placement.translate, 1.f)
         )
       )
     );
@@ -948,7 +1030,7 @@ static void render() {
     glUniform3fv(pcShader.pointLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].position, 1.f)
+          matView * glm::vec4(lights[i].placement.translate, 1.f)
         )
       )
     );
@@ -1038,7 +1120,7 @@ static void render() {
     glUniform3fv(ofpcShader.pointLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].position, 1.f)
+          matView * glm::vec4(lights[i].placement.translate, 1.f)
         )
       )
     );
@@ -1135,7 +1217,7 @@ static void render() {
     glUniform3fv(phongShader.pointLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].position, 1.f)
+          matView * glm::vec4(lights[i].placement.translate, 1.f)
         )
       )
     );
@@ -1261,6 +1343,7 @@ static void render() {
   // Bind texture
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
+  //glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
   glUniform1i(textureShader.texLoc, 0);
 
   // Draw screen
