@@ -42,7 +42,7 @@ struct Placement {
 };
 
 // Light struct
-struct Light {
+struct PointLight {
   struct Placement placement;
   glm::vec3 ambient;
   glm::vec3 diffuse;
@@ -70,7 +70,7 @@ glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 char keys[6] = {0, 0, 0, 0, 0, 0};
 
 // Light objects
-struct Light lights[3];
+struct PointLight point_lights[3];
 
 // VAO IDs
 unsigned rect_vaoID;
@@ -590,11 +590,11 @@ static void init() {
     glm::vec3(0.f, 0.f, 0.f), // rotate
     glm::vec3(-8.f, 0.f, -2.f) // translate
   };
-  lights[0] = {
+  point_lights[0] = {
     tempPlacement,
-    glm::vec3(.2f, .2f, .2f), // ambient
-    glm::vec3(.5f, .5f, .5f), // diffuse
-    glm::vec3(1.f, 1.f, 1.f), // specular
+    glm::vec3(0.f, 0.f, .2f), // ambient
+    glm::vec3(0.f, 0.f, .5f), // diffuse
+    glm::vec3(0.f, 0.f, 1.f), // specular
     1.f, // constant
     .22f, // linear
     .20f // quadratic
@@ -605,7 +605,7 @@ static void init() {
     glm::vec3(0.f, 0.f, 0.f), // rotate
     glm::vec3(-14.f, 0.f, 2.f) // translate
   };
-  lights[1] = {
+  point_lights[1] = {
     tempPlacement,
     glm::vec3(0.f, .2f, 0.f), // ambient
     glm::vec3(0.f, .5f, 0.f), // diffuse
@@ -620,7 +620,7 @@ static void init() {
     glm::vec3(0.f, 0.f, 0.f), // rotate
     glm::vec3(-8.f, 2.f, 0.f) // translate
   };
-  lights[2] = {
+  point_lights[2] = {
     tempPlacement,
     glm::vec3(.2f, 0.f, 0.f), // ambient
     glm::vec3(.5f, 0.f, 0.f), // diffuse
@@ -776,20 +776,20 @@ static void render() {
   
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    lights[0].placement.scale) * matModel;
+    point_lights[0].placement.scale) * matModel;
   
   matModel = glm::rotate(glm::mat4(1.f),
-    lights[0].placement.rotate.x,
+    point_lights[0].placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
   matModel = glm::rotate(glm::mat4(1.f),
-    lights[0].placement.rotate.y,
+    point_lights[0].placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
   matModel = glm::rotate(glm::mat4(1.f),
-    lights[0].placement.rotate.z,
+    point_lights[0].placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   matModel = glm::translate(glm::mat4(1.f),
-    lights[0].placement.translate) * matModel;
+    point_lights[0].placement.translate) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -803,7 +803,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(lights[0].specular));
+    glm::value_ptr(point_lights[0].specular));
 
   // Bind vertex array object
   glBindVertexArray(ls_vaoID);
@@ -835,20 +835,20 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    lights[1].placement.scale) * matModel;
+    point_lights[1].placement.scale) * matModel;
   
   matModel = glm::rotate(glm::mat4(1.f),
-    lights[1].placement.rotate.x,
+    point_lights[1].placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
   matModel = glm::rotate(glm::mat4(1.f),
-    lights[1].placement.rotate.y,
+    point_lights[1].placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
   matModel = glm::rotate(glm::mat4(1.f),
-    lights[1].placement.rotate.z,
+    point_lights[1].placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   matModel = glm::translate(glm::mat4(1.f),
-    lights[1].placement.translate) * matModel;
+    point_lights[1].placement.translate) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -859,7 +859,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(lights[1].specular));
+    glm::value_ptr(point_lights[1].specular));
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
@@ -888,20 +888,20 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    lights[2].placement.scale) * matModel;
+    point_lights[2].placement.scale) * matModel;
   
   matModel = glm::rotate(glm::mat4(1.f),
-    lights[2].placement.rotate.x,
+    point_lights[2].placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
   matModel = glm::rotate(glm::mat4(1.f),
-    lights[2].placement.rotate.y,
+    point_lights[2].placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
   matModel = glm::rotate(glm::mat4(1.f),
-    lights[2].placement.rotate.z,
+    point_lights[2].placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   matModel = glm::translate(glm::mat4(1.f),
-    lights[2].placement.translate) * matModel;
+    point_lights[2].placement.translate) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -912,7 +912,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(lights[2].specular));
+    glm::value_ptr(point_lights[2].specular));
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
@@ -978,26 +978,27 @@ static void render() {
     copper.shininess);
   // For each light, input into shader
   // TODO: If same shader, no need to call uniform repeatedly
+  // TODO: ompLights into point lights
   for(int i = 0; i < 3; i++) {
     glUniform3fv(ompShader.ompLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].placement.translate, 1.f)
+          matView * glm::vec4(point_lights[i].placement.translate, 1.f)
         )
       )
     );
     glUniform3fv(ompShader.ompLights[i].ambient, 1,
-      glm::value_ptr(lights[i].ambient));
+      glm::value_ptr(point_lights[i].ambient));
     glUniform3fv(ompShader.ompLights[i].diffuse, 1,
-      glm::value_ptr(lights[i].diffuse));
+      glm::value_ptr(point_lights[i].diffuse));
     glUniform3fv(ompShader.ompLights[i].specular, 1,
-      glm::value_ptr(lights[i].specular));
+      glm::value_ptr(point_lights[i].specular));
     // Attenuation
     // Range of 50, from:
     // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
-    glUniform1f(ompShader.ompLights[i].constant, lights[i].constant);
-    glUniform1f(ompShader.ompLights[i].linear, lights[i].linear);
-    glUniform1f(ompShader.ompLights[i].quadratic, lights[i].quadratic);
+    glUniform1f(ompShader.ompLights[i].constant, point_lights[i].constant);
+    glUniform1f(ompShader.ompLights[i].linear, point_lights[i].linear);
+    glUniform1f(ompShader.ompLights[i].quadratic, point_lights[i].quadratic);
   }
 
   // Draw one object
@@ -1059,22 +1060,22 @@ static void render() {
     glUniform3fv(pcShader.pointLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].placement.translate, 1.f)
+          matView * glm::vec4(point_lights[i].placement.translate, 1.f)
         )
       )
     );
     glUniform3fv(pcShader.pointLights[i].ambient, 1,
-      glm::value_ptr(lights[i].ambient));
+      glm::value_ptr(point_lights[i].ambient));
     glUniform3fv(pcShader.pointLights[i].diffuse, 1,
-      glm::value_ptr(lights[i].diffuse));
+      glm::value_ptr(point_lights[i].diffuse));
     glUniform3fv(pcShader.pointLights[i].specular, 1,
-      glm::value_ptr(lights[i].specular));
+      glm::value_ptr(point_lights[i].specular));
     // Attenuation
     // Range of 50, from:
     // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
-    glUniform1f(pcShader.pointLights[i].constant, lights[i].constant);
-    glUniform1f(pcShader.pointLights[i].linear, lights[i].linear);
-    glUniform1f(pcShader.pointLights[i].quadratic, lights[i].quadratic);
+    glUniform1f(pcShader.pointLights[i].constant, point_lights[i].constant);
+    glUniform1f(pcShader.pointLights[i].linear, point_lights[i].linear);
+    glUniform1f(pcShader.pointLights[i].quadratic, point_lights[i].quadratic);
   }
 
   // Bind vertex array object
@@ -1152,20 +1153,20 @@ static void render() {
     glUniform3fv(ofpcShader.pointLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].placement.translate, 1.f)
+          matView * glm::vec4(point_lights[i].placement.translate, 1.f)
         )
       )
     );
     glUniform3fv(ofpcShader.pointLights[i].ambient, 1,
-      glm::value_ptr(lights[i].ambient));
+      glm::value_ptr(point_lights[i].ambient));
     glUniform3fv(ofpcShader.pointLights[i].diffuse, 1,
-      glm::value_ptr(lights[i].diffuse));
+      glm::value_ptr(point_lights[i].diffuse));
     glUniform3fv(ofpcShader.pointLights[i].specular, 1,
-      glm::value_ptr(lights[i].specular));
+      glm::value_ptr(point_lights[i].specular));
     // Attenuation
-    glUniform1f(ofpcShader.pointLights[i].constant, lights[i].constant);
-    glUniform1f(ofpcShader.pointLights[i].linear, lights[i].linear);
-    glUniform1f(ofpcShader.pointLights[i].quadratic, lights[i].quadratic);
+    glUniform1f(ofpcShader.pointLights[i].constant, point_lights[i].constant);
+    glUniform1f(ofpcShader.pointLights[i].linear, point_lights[i].linear);
+    glUniform1f(ofpcShader.pointLights[i].quadratic, point_lights[i].quadratic);
   }
 
   // Bind vertex array object
@@ -1252,20 +1253,23 @@ static void render() {
     glUniform3fv(phongShader.pointLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].placement.translate, 1.f)
+          matView * glm::vec4(point_lights[i].placement.translate, 1.f)
         )
       )
     );
     glUniform3fv(phongShader.pointLights[i].ambient, 1,
-      glm::value_ptr(lights[i].ambient));
+      glm::value_ptr(point_lights[i].ambient));
     glUniform3fv(phongShader.pointLights[i].diffuse, 1,
-      glm::value_ptr(lights[i].diffuse));
+      glm::value_ptr(point_lights[i].diffuse));
     glUniform3fv(phongShader.pointLights[i].specular, 1,
-      glm::value_ptr(lights[i].specular));
+      glm::value_ptr(point_lights[i].specular));
     // Attenuation
-    glUniform1f(phongShader.pointLights[i].constant, lights[i].constant);
-    glUniform1f(phongShader.pointLights[i].linear, lights[i].linear);
-    glUniform1f(phongShader.pointLights[i].quadratic, lights[i].quadratic);
+    glUniform1f(phongShader.pointLights[i].constant,
+      point_lights[i].constant);
+    glUniform1f(phongShader.pointLights[i].linear,
+      point_lights[i].linear);
+    glUniform1f(phongShader.pointLights[i].quadratic,
+      point_lights[i].quadratic);
   }
 
   // Draw one object
