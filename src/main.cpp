@@ -41,7 +41,7 @@ struct Placement {
   glm::vec3 translate;
 };
 
-// Light struct
+// Light types
 struct PointLight {
   struct Placement placement;
   glm::vec3 ambient;
@@ -51,6 +51,12 @@ struct PointLight {
   float constant;
   float linear;
   float quadratic;
+};
+struct DirectionalLight {
+  glm::vec3 direction;
+  glm::vec3 ambient;
+  glm::vec3 diffuse;
+  glm::vec3 specular;
 };
 
 int ssaaLevel = 2;
@@ -71,6 +77,7 @@ char keys[6] = {0, 0, 0, 0, 0, 0};
 
 // Light objects
 struct PointLight point_lights[3];
+struct DirectionalLight directional_lights[1];
 
 // VAO IDs
 unsigned rect_vaoID;
@@ -584,7 +591,7 @@ static void init() {
   // -------- Initialize Lights --------
   Placement tempPlacement;
   
-  // ------ Light 0 ------
+  // ------ Point Light 0 ------
   tempPlacement = {
     glm::vec3(.5f, .5f, .5f), // scale
     glm::vec3(0.f, 0.f, 0.f), // rotate
@@ -599,7 +606,7 @@ static void init() {
     .22f, // linear
     .20f // quadratic
   };
-  // ------ Light 1 ------
+  // ------ Point Light 1 ------
   tempPlacement = {
     glm::vec3(.5f, .5f, .5f), // scale
     glm::vec3(0.f, 0.f, 0.f), // rotate
@@ -614,7 +621,7 @@ static void init() {
     .22f, // linear
     .20f // quadratic
   };
-  // ------ Light 2 ------
+  // ------ Point Light 2 ------
   tempPlacement = {
     glm::vec3(.5f, .5f, .5f), // scale
     glm::vec3(0.f, 0.f, 0.f), // rotate
@@ -628,6 +635,13 @@ static void init() {
     1.f, // constant
     .22f, // linear
     .20f // quadratic
+  };
+  // ------ Directional Light 0 ------
+  directional_lights[0] = {
+    glm::vec3(1.f, -1.f, -1.f), // direction
+    glm::vec3(.2f, 0.f, 0.f), // ambient
+    glm::vec3(.5f, 0.f, 0.f), // diffuse
+    glm::vec3(1.f, 0.f, 0.f), // specular
   };
 }
 
@@ -980,25 +994,25 @@ static void render() {
   // TODO: If same shader, no need to call uniform repeatedly
   // TODO: ompLights into point lights
   for(int i = 0; i < 3; i++) {
-    glUniform3fv(ompShader.ompLights[i].position, 1,
+    glUniform3fv(ompShader.pointLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
           matView * glm::vec4(point_lights[i].placement.translate, 1.f)
         )
       )
     );
-    glUniform3fv(ompShader.ompLights[i].ambient, 1,
+    glUniform3fv(ompShader.pointLights[i].ambient, 1,
       glm::value_ptr(point_lights[i].ambient));
-    glUniform3fv(ompShader.ompLights[i].diffuse, 1,
+    glUniform3fv(ompShader.pointLights[i].diffuse, 1,
       glm::value_ptr(point_lights[i].diffuse));
-    glUniform3fv(ompShader.ompLights[i].specular, 1,
+    glUniform3fv(ompShader.pointLights[i].specular, 1,
       glm::value_ptr(point_lights[i].specular));
     // Attenuation
     // Range of 50, from:
     // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
-    glUniform1f(ompShader.ompLights[i].constant, point_lights[i].constant);
-    glUniform1f(ompShader.ompLights[i].linear, point_lights[i].linear);
-    glUniform1f(ompShader.ompLights[i].quadratic, point_lights[i].quadratic);
+    glUniform1f(ompShader.pointLights[i].constant, point_lights[i].constant);
+    glUniform1f(ompShader.pointLights[i].linear, point_lights[i].linear);
+    glUniform1f(ompShader.pointLights[i].quadratic, point_lights[i].quadratic);
   }
 
   // Draw one object

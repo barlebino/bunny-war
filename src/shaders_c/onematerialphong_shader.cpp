@@ -14,7 +14,7 @@ void getOneMaterialPhongPointLightLocations(
   struct OneMaterialPhongPointLight *ompLight;
 
   pid = ompShader->pid;
-  ompLight = &(ompShader->ompLights[lightNum]);
+  ompLight = &(ompShader->pointLights[lightNum]);
 
   // TODO: remove repetitive std::to_string calls
   varname = "pointLights[" + std::to_string(lightNum) + "].position";

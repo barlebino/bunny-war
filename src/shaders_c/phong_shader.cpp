@@ -55,20 +55,6 @@ void getPhongShaderLocations(struct PhongShader *phongShader) {
     "projection");
   phongShader->materialDiffuse = glGetUniformLocation(phongShader->pid,
     "material.diffuse");
-  phongShader->lightPosition = glGetUniformLocation(phongShader->pid,
-    "light.position");
-  phongShader->lightAmbient = glGetUniformLocation(phongShader->pid,
-    "light.ambient");
-  phongShader->lightDiffuse = glGetUniformLocation(phongShader->pid,
-    "light.diffuse");
-  phongShader->lightSpecular = glGetUniformLocation(phongShader->pid,
-    "light.specular");
-  phongShader->lightConstant = glGetUniformLocation(phongShader->pid,
-    "light.constant");
-  phongShader->lightLinear = glGetUniformLocation(phongShader->pid,
-    "light.linear");
-  phongShader->lightQuadratic = glGetUniformLocation(phongShader->pid,
-    "light.quadratic");
 
   // Get all point light Uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {

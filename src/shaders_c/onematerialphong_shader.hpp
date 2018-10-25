@@ -34,7 +34,7 @@ struct OneMaterialPhongShader {
   GLint materialShininess;
   // ALL OF THE LIGHTS
   // TODO: change ompLights to pointLights
-  struct OneMaterialPhongPointLight ompLights[NUM_POINT_LIGHTS];
+  struct OneMaterialPhongPointLight pointLights[NUM_POINT_LIGHTS];
 };
 
 // Put light locations at index lightNum into ompLight struct at lightNum

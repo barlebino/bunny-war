@@ -30,13 +30,6 @@ struct PhongShader {
   GLint modelview;
   GLint projection;
   GLint materialDiffuse;
-  GLint lightPosition;
-  GLint lightAmbient;
-  GLint lightDiffuse;
-  GLint lightSpecular;
-  GLint lightConstant;
-  GLint lightLinear;
-  GLint lightQuadratic;
   // ALL OF THE LIGHTS
   struct PhongPointLight pointLights[NUM_POINT_LIGHTS];
 };
