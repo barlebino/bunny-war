@@ -66,11 +66,11 @@ glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
 // Sideways direction
 glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 
-// Light objects
-struct Light lights[3];
-
 // Input
 char keys[6] = {0, 0, 0, 0, 0, 0};
+
+// Light objects
+struct Light lights[3];
 
 // VAO IDs
 unsigned rect_vaoID;
@@ -146,7 +146,30 @@ unsigned int woodcube_specularMapID;
 unsigned int facecube_diffuseMapID;
 unsigned int facecube_specularMapID;
 
+// Debug
 bool cameraFreeze = false;
+
+// Object placements
+struct Placement phong_bunny_placement = {
+  glm::vec3(1.f, 1.f, 1.f), // scale
+  glm::vec3(0.f, 0.f, 0.f), // rotate
+  glm::vec3(-12.f, 0.f, -2.f) // translate
+};
+struct Placement wood_cube_placement = {
+  glm::vec3(1.f, 1.f, 1.f), // scale
+  glm::vec3(0.f, 0.f, 0.f), // rotate
+  glm::vec3(-12.f, 0.f, -4.f) // translate
+};
+struct Placement face_cube_placement = {
+  glm::vec3(1.f, 1.f, 1.f), // scale
+  glm::vec3(0.f, 0.f, 0.f), // rotate
+  glm::vec3(-12.f, 0.f, 4.f) // translate
+};
+struct Placement phong_globe_placement = {
+  glm::vec3(1.f, 1.f, 1.f), // scale
+  glm::vec3(0.f, 0.f, 0.f), // rotate
+  glm::vec3(-8.f, 0.f, 4.f) // translate
+};
 
 // For debugging
 void printMatrix(glm::mat4 mat) {
@@ -912,19 +935,22 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
+    phong_bunny_placement.scale) * 
     matModel;
 
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is (-12, 0, -2)
   matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(-12.f, 0.f, -2.f)) * matModel;
+    phong_bunny_placement.translate) * matModel;
 
   // Set modelview matrix
   matModelview = matView * matModel;
@@ -995,19 +1021,22 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
+    wood_cube_placement.scale) * 
     matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    wood_cube_placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    wood_cube_placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    wood_cube_placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is -12, 0, -4
   matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(-12.f, 0.f, -4.f)) * matModel;
+    wood_cube_placement.translate) * matModel;
 
   // Modify object relative to the eye
   matModelview = matView * matModel;
@@ -1088,19 +1117,22 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
+    face_cube_placement.scale) * 
     matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    face_cube_placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    face_cube_placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    face_cube_placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is -12, 0, -4
   matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(-12.f, 0.f, 4.f)) * matModel;
+    face_cube_placement.translate) * matModel;
 
   // Modify object relative to the eye
   matModelview = matView * matModel;
@@ -1185,19 +1217,22 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
+    phong_globe_placement.scale) * 
     matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_globe_placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_globe_placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_globe_placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is -8, 0, 4
   matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(-8.f, 0.f, 4)) * matModel;
+    phong_globe_placement.translate) * matModel;
 
   // Modify object relative to the eye
   matModelview = matView * matModel;
