@@ -1,5 +1,6 @@
 #version 330 core
 
+// TODO: If no specular, set to 0
 struct Material {
   sampler2D diffuse;
 };

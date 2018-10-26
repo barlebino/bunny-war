@@ -1097,7 +1097,7 @@ static void render() {
     glm::value_ptr(matProjection));
   // Shininess is 64.0, a MAGIC NUMBER
   glUniform1f(pcShader.materialShininess, 64.f);
-  // For each light, input into shader
+  // For each point light, input into shader
   // TODO: Number of lights is 3
   for(int i = 0; i < 3; i++) {
     // Give light position in view space
@@ -1120,6 +1120,24 @@ static void render() {
     glUniform1f(pcShader.pointLights[i].constant, point_lights[i].constant);
     glUniform1f(pcShader.pointLights[i].linear, point_lights[i].linear);
     glUniform1f(pcShader.pointLights[i].quadratic, point_lights[i].quadratic);
+  }
+  // For each directional light, input into shader
+  // TODO: 1 is a magic number
+  for(int i = 0; i < 1; i++) {
+    // Give direction of directional light in view space
+    glUniform3fv(pcShader.directionalLights[i].direction, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matRotation * glm::vec4(directional_lights[i].direction, 1.f)
+        )
+      )
+    );
+    glUniform3fv(pcShader.directionalLights[i].ambient, 1,
+      glm::value_ptr(directional_lights[i].ambient));
+    glUniform3fv(pcShader.directionalLights[i].diffuse, 1,
+      glm::value_ptr(directional_lights[i].diffuse));
+    glUniform3fv(pcShader.directionalLights[i].specular, 1,
+      glm::value_ptr(directional_lights[i].specular));
   }
 
   // Bind vertex array object
@@ -1291,7 +1309,7 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, world_texBufID);
   glUniform1i(phongShader.materialDiffuse, 0);
-  // For each light, input into shader
+  // For each point light, input into shader
   // TODO: If same shader, no need to call uniform repeatedly
   for(int i = 0; i < 3; i++) {
     glUniform3fv(phongShader.pointLights[i].position, 1,

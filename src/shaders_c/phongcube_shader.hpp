@@ -6,6 +6,7 @@
 
 // TODO: Define this somewhere else
 #define NUM_POINT_LIGHTS 3
+#define NUM_DIRECTIONAL_LIGHTS 1
 
 struct PhongCubeLight {
   GLint position;
@@ -16,6 +17,13 @@ struct PhongCubeLight {
   GLint constant;
   GLint linear;
   GLint quadratic;
+};
+
+struct PhongCubeDirectionalLight {
+  GLint direction;
+  GLint ambient;
+  GLint diffuse;
+  GLint specular;
 };
 
 struct PhongCubeShader {
@@ -33,10 +41,18 @@ struct PhongCubeShader {
   GLint materialShininess;
   // ALL OF THE LIGHTS
   struct PhongCubeLight pointLights[NUM_POINT_LIGHTS];
+  struct PhongCubeDirectionalLight
+    directionalLights[NUM_DIRECTIONAL_LIGHTS];
 };
+
+// Put light locations at index lightNum into direction light struct
+// Assumes pcShader->pid is initialized
+void getPhongCubeDirectionalLightLocations(
+  struct PhongCubeShader *pcShader, int lightNum);
 
 // Put light locations at index lightNum into point light at lightNum
 // Assumes pcShader->pid is initialized
+// TODO: Change to PhongCubePointLightLocations
 void getPhongCubeLightLocations(
   struct PhongCubeShader *pcShader, int lightNum);
 
