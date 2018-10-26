@@ -86,11 +86,11 @@ void main() {
   vec3 norm = normalize(frag_nor);
   vec3 viewDir = normalize(-frag_pos); // Vector from fragment to camera
   // Add all point light contributions
-  // TODO: change all "i < 3" to "i < NUM_POINT_LIGHTS" in shaders
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
     total_light = total_light +
       calcPointLight(pointLights[i], norm, viewDir);
   }
+  // Add all directional light contributions
   for(int i = 0; i < NUM_DIRECTIONAL_LIGHTS; i++) {
     total_light = total_light +
       calcDirectionalLight(directionalLights[i], norm, viewDir);

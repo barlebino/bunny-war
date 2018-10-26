@@ -639,9 +639,9 @@ static void init() {
   // ------ Directional Light 0 ------
   directional_lights[0] = {
     glm::vec3(1.f, -1.f, -1.f), // direction
-    glm::vec3(.05f, .05f, .05f), // ambient
-    glm::vec3(.125f, .125f, .125f), // diffuse
-    glm::vec3(.25f, .25f, .25f) // specular
+    glm::vec3(.1f, .1f, .1f), // ambient
+    glm::vec3(.25f, .25f, .25f), // diffuse
+    glm::vec3(.5f, .5f, .5f) // specular
   };
 }
 
@@ -780,6 +780,14 @@ static void render() {
     sideways) * matView;
   matView = glm::rotate(glm::mat4(1.f), -camRotation.y,
     glm::vec3(0.f, 1.f, 0.f)) * matView;
+
+  // Rotation matrix
+  // TODO: Repetitive matrix
+  matRotation = glm::mat4(1.f);
+  matRotation = glm::rotate(glm::mat4(1.f), -camRotation.x,
+    sideways) * matRotation;
+  matRotation = glm::rotate(glm::mat4(1.f), -camRotation.y,
+    glm::vec3(0.f, 1.f, 0.f)) * matRotation;
 
   // Draw the first light source
 
@@ -1020,11 +1028,6 @@ static void render() {
   }
   // For each directional light, input into shader
   // TODO: 1 is a magic number
-  matRotation = glm::mat4(1.f);
-  matRotation = glm::rotate(glm::mat4(1.f), -camRotation.x,
-    sideways) * matRotation;
-  matRotation = glm::rotate(glm::mat4(1.f), -camRotation.y,
-    glm::vec3(0.f, 1.f, 0.f)) * matRotation;
   for(int i = 0; i < 1; i++) {
     // Give direction of directional light in view space
     glUniform3fv(ompShader.directionalLights[i].direction, 1,
@@ -1311,6 +1314,24 @@ static void render() {
       point_lights[i].linear);
     glUniform1f(phongShader.pointLights[i].quadratic,
       point_lights[i].quadratic);
+  }
+  // For each directional light, input into shader
+  // TODO: 1 is a magic number
+  for(int i = 0; i < 1; i++) {
+    // Give direction of directional light in view space
+    glUniform3fv(phongShader.directionalLights[i].direction, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matRotation * glm::vec4(directional_lights[i].direction, 1.f)
+        )
+      )
+    );
+    glUniform3fv(phongShader.directionalLights[i].ambient, 1,
+      glm::value_ptr(directional_lights[i].ambient));
+    glUniform3fv(phongShader.directionalLights[i].diffuse, 1,
+      glm::value_ptr(directional_lights[i].diffuse));
+    glUniform3fv(phongShader.directionalLights[i].specular, 1,
+      glm::value_ptr(directional_lights[i].specular));
   }
 
   // Draw one object

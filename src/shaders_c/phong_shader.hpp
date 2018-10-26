@@ -6,6 +6,7 @@
 
 // TODO: Define this somewhere else
 #define NUM_POINT_LIGHTS 3
+#define NUM_DIRECTIONAL_LIGHTS 1
 
 // TODO: Point light same for all shaders?
 struct PhongPointLight {
@@ -17,6 +18,13 @@ struct PhongPointLight {
   GLint constant;
   GLint linear;
   GLint quadratic;
+};
+
+struct PhongDirectionalLight {
+  GLint direction;
+  GLint ambient;
+  GLint diffuse;
+  GLint specular;
 };
 
 // One color shader
@@ -32,7 +40,14 @@ struct PhongShader {
   GLint materialDiffuse;
   // ALL OF THE LIGHTS
   struct PhongPointLight pointLights[NUM_POINT_LIGHTS];
+  struct PhongDirectionalLight
+    directionalLights[NUM_DIRECTIONAL_LIGHTS];
 };
+
+// Put light locations at index lightNum into direction light struct
+// Assumes phongShader->pid is initialized
+void getPhongDirectionalLightLocations(
+  struct PhongShader *phongShader, int lightNum);
 
 // Put light locations at index lightNum
 // Assumes phongShader->pid is initialized
