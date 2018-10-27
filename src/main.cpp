@@ -1230,6 +1230,24 @@ static void render() {
     glUniform1f(ofpcShader.pointLights[i].linear, point_lights[i].linear);
     glUniform1f(ofpcShader.pointLights[i].quadratic, point_lights[i].quadratic);
   }
+  // For each directional light, input into shader
+  // TODO: 1 is a magic number
+  for(int i = 0; i < 1; i++) {
+    // Give direction of directional light in view space
+    glUniform3fv(ofpcShader.directionalLights[i].direction, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matRotation * glm::vec4(directional_lights[i].direction, 1.f)
+        )
+      )
+    );
+    glUniform3fv(ofpcShader.directionalLights[i].ambient, 1,
+      glm::value_ptr(directional_lights[i].ambient));
+    glUniform3fv(ofpcShader.directionalLights[i].diffuse, 1,
+      glm::value_ptr(directional_lights[i].diffuse));
+    glUniform3fv(ofpcShader.directionalLights[i].specular, 1,
+      glm::value_ptr(directional_lights[i].specular));
+  }
 
   // Bind vertex array object
   glBindVertexArray(facecube_vaoID);

@@ -6,7 +6,9 @@
 
 // TODO: Define this somewhere else
 #define NUM_POINT_LIGHTS 3
+#define NUM_DIRECTIONAL_LIGHTS 1
 
+// TODO: Change to "DirectionalLight"
 struct OneFacePhongCubeLight {
   GLint position;
   GLint ambient;
@@ -16,6 +18,13 @@ struct OneFacePhongCubeLight {
   GLint constant;
   GLint linear;
   GLint quadratic;
+};
+
+struct OneFacePhongCubeDirectionalLight {
+  GLint direction;
+  GLint ambient;
+  GLint diffuse;
+  GLint specular;
 };
 
 // One face phong cube
@@ -34,7 +43,14 @@ struct OneFacePhongCubeShader {
   GLint materialShininess;
   // ALL OF THE LIGHTS
   struct OneFacePhongCubeLight pointLights[NUM_POINT_LIGHTS];
+  struct OneFacePhongCubeDirectionalLight
+    directionalLights[NUM_DIRECTIONAL_LIGHTS];
 };
+
+// Put light locations at index lightNum into direction light struct
+// Assumes ofpcShader->pid is initialized
+void getOneFacePhongCubeDirectionalLightLocations(
+  struct OneFacePhongCubeShader *ofpcShader, int lightNum);
 
 // Put light locations at index lightNum into point light at lightNum
 // Assumes ofpcShader->pid is initialized

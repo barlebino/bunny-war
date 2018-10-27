@@ -5,6 +5,30 @@
 
 #include "onefacephongcube_shader.hpp"
 
+// Put light locations at index lightNum into direction light struct
+// Assumes ofpcShader->pid is initialized
+void getOneFacePhongCubeDirectionalLightLocations(
+  struct OneFacePhongCubeShader *ofpcShader, int lightNum) {
+  GLint pid;
+  std::string varname, lightNumString;
+  struct OneFacePhongCubeDirectionalLight *ofpcdLight;
+
+  pid = ofpcShader->pid;
+  ofpcdLight = &(ofpcShader->directionalLights[lightNum]);
+  lightNumString = std::to_string(lightNum);
+
+  varname = "directionalLights[" + lightNumString + "].direction";
+  ofpcdLight->direction = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].ambient";
+  ofpcdLight->ambient = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].diffuse";
+  ofpcdLight->diffuse = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].specular";
+  ofpcdLight->specular = glGetUniformLocation(pid, varname.c_str());
+}
+
+// Put light locations at index lightNum into point light at lightNum
+// Assumes ofpcShader->pid is initialized
 void getOneFacePhongCubeLightLocations(
   struct OneFacePhongCubeShader *ofpcShader, int lightNum) {
   GLint pid;
@@ -53,6 +77,10 @@ void getOneFacePhongCubeShaderLocations(
   // Get all point light uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
     getOneFacePhongCubeLightLocations(ofpcShader, i);
+  }
+  // Get all directional light uniforms
+  for(int i = 0; i < NUM_DIRECTIONAL_LIGHTS; i++) {
+    getOneFacePhongCubeDirectionalLightLocations(ofpcShader, i);
   }
 }
 

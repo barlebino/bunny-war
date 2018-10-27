@@ -17,7 +17,15 @@ struct PointLight {
   float quadratic;
 };
 
+struct DirectionalLight {
+  vec3 direction;
+  vec3 ambient;
+  vec3 diffuse;
+  vec3 specular;
+};
+
 #define NUM_POINT_LIGHTS 3
+#define NUM_DIRECTIONAL_LIGHTS 1
 
 in vec3 frag_nor;
 in vec3 frag_pos;
@@ -27,6 +35,7 @@ out vec4 out_color;
 
 uniform Material material;
 uniform PointLight pointLights[NUM_POINT_LIGHTS];
+uniform DirectionalLight directionalLights[NUM_DIRECTIONAL_LIGHTS];
 
 vec2 convertTexCoord(vec3 texCoord) {
   vec3 absCoord = vec3(abs(texCoord.x), abs(texCoord.y), abs(texCoord.z));
@@ -41,6 +50,28 @@ vec2 convertTexCoord(vec3 texCoord) {
   }
 }
 
+vec3 calcDirectionalLight(DirectionalLight directionalLight,
+  vec3 norm, vec3 viewDir) {
+  // Convert texture coordinates
+  vec2 texCoord2D = (convertTexCoord(tex_coord) + vec2(1.0, 1.0)) / 2.0;
+  vec3 diffuseMapColor = texture(material.diffuse, texCoord2D).rgb;
+  // Ambient
+  vec3 ambient = directionalLight.ambient * diffuseMapColor;
+  // Diffuse
+  vec3 lightDir = normalize(-directionalLight.direction);
+  float diff = max(dot(norm, lightDir), 0.0);
+  vec3 diffuse = directionalLight.diffuse * (diff * diffuseMapColor);
+  // Specular
+  vec3 reflectDir = reflect(-lightDir, norm);
+  vec3 halfwayDir = normalize(viewDir + lightDir);
+  float spec = pow(max(dot(halfwayDir, norm), 0.0), material.shininess);
+  vec3 specular = directionalLight.specular *
+    (spec * texture(material.specular, texCoord2D).rgb);
+  // Final
+  return ambient + diffuse + specular;
+}
+
+// TODO: Repetitive call to texture(material.diffuse, texCoord2D).rgb
 vec3 calcPointLight(PointLight pointLight, vec3 norm, vec3 viewDir) {
   // Calculate attenuation
   float distance = length(pointLight.position - frag_pos);
@@ -81,6 +112,11 @@ void main() {
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
     total_light = total_light +
       calcPointLight(pointLights[i], norm, viewDir);
+  }
+  // Add all directional light contributions
+  for(int i = 0; i < NUM_DIRECTIONAL_LIGHTS; i++) {
+    total_light = total_light +
+      calcDirectionalLight(directionalLights[i], norm, viewDir);
   }
   out_color = vec4(total_light, 1.0);
 }
