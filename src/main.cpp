@@ -762,9 +762,7 @@ static void handleInput(int width, int height) {
   }
 }
 
-// Render a single bunny to the default framebuffer
 static void lightRender() {
-  // TODO: Convert to render actual scene
   int width, height;
   glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
   glfwGetFramebufferSize(window, &width, &height);
@@ -772,22 +770,105 @@ static void lightRender() {
   glEnable(GL_DEPTH_TEST);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-  /*float aspect = width / (float) height;
-  glm::mat4 proj = glm::perspective(70.f, aspect, .1f, 100.f);*/
-  float near_plane = 1.0f, far_plane = 7.5f;
+  
+  // Set permanent matrices
+  float near_plane = 1.0f, far_plane = 20.f;
   glm::mat4 proj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 
     near_plane, far_plane);
-  glm::mat4 view = glm::mat4(1.f);
-  glm::mat4 model = glm::translate(glm::mat4(1.f),
-    glm::vec3(0.f, 0.f, -2.f));
-  glm::mat4 modelviewproj = proj * view * model;
+  glm::mat4 view = glm::translate(glm::mat4(1.f),
+    glm::vec3(10.f, 0.f, -8.f)); // "Location" of directional light
+  // Location of light is (-10, 0, 8)
+  // TODO: change location of direction light based on lookAt
+
+  // Temp matrices
+  glm::mat4 model;
+  glm::mat4 modelviewproj;
+
+  // Render with shadowDepth shader
   glUseProgram(sdShader.pid);
+
+  // TODO: Use rotation and scale in model matrix
+  // TODO: Element size / buffer size is per model, not per VAO
+
+  // Render bunny (bunnies?)
+  glBindVertexArray(bunnyDepthModel.vaoID);
+  // Get first (only?) bunny
+  model = glm::translate(glm::mat4(1.f),
+    phong_bunny_placement.translate);
+  modelviewproj = proj * view * model;
   glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
     glm::value_ptr(modelviewproj));
-  glBindVertexArray(bunnyDepthModel.vaoID);
+  // Draw, indexed
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
+  // Unbind, done rendering depth bunnies
   glBindVertexArray(0);
+
+  // Render spheres
+  glBindVertexArray(sphereDepthModel.vaoID);
+  // Get globe
+  model = glm::translate(glm::mat4(1.f),
+    phong_globe_placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, indexed
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Get point light 0
+  model = glm::translate(glm::mat4(1.f),
+    point_lights[0].placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, indexed
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Get point light 1
+  model = glm::translate(glm::mat4(1.f),
+    point_lights[1].placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, indexed
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Get point light 2
+  model = glm::translate(glm::mat4(1.f),
+    point_lights[2].placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, indexed
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Unbind, done rendering spheres
+  glBindVertexArray(0);
+
+  // Render cubes
+  glBindVertexArray(cubeDepthModel.vaoID);
+  // Get wood cube
+  model = glm::translate(glm::mat4(1.f),
+    wood_cube_placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, not indexed
+  // Divide by 3 because per vertex
+  glDrawArrays(GL_TRIANGLES, 0, convexbox_bufSize / 3);
+  // Get face cube
+  model = glm::translate(glm::mat4(1.f),
+    face_cube_placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, not indexed
+  // Divide by 3 because per vertex
+  glDrawArrays(GL_TRIANGLES, 0, convexbox_bufSize / 3);
+  // Unbind, done rendering cubes
+  glBindVertexArray(0);
+
+  // Unbind, done rendering depth objects
   glUseProgram(0);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -808,7 +889,7 @@ static void render() {
   // Get current frame buffer size ???
   glfwGetFramebufferSize(window, &width, &height);
 
-  // TODO: Draw scene from directional light POV
+  // Draw scene from directional light POV
   lightRender();
 
   // Draw the scene from camera POV
@@ -1542,8 +1623,8 @@ static void render() {
   // Bind texture
   glActiveTexture(GL_TEXTURE0);
   //glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
-  //glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
-  glBindTexture(GL_TEXTURE_2D, shadow_color_texture);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  //glBindTexture(GL_TEXTURE_2D, shadow_color_texture);
   glUniform1i(textureShader.texLoc, 0);
 
   // Draw screen
