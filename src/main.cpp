@@ -32,6 +32,7 @@
 #include "shaders_c/phongcube_shader.hpp"
 #include "shaders_c/onefacephongcube_shader.hpp"
 #include "shaders_c/phong_shader.hpp"
+#include "shaders_c/shadowdepth_shader.hpp"
 
 // Placement struct
 // Contains scale, rotation, and translate matrices
@@ -58,6 +59,17 @@ struct DirectionalLight {
   glm::vec3 diffuse;
   glm::vec3 specular;
 };
+
+// Model for depth shading
+struct DepthModel {
+  unsigned vaoID;
+  bool indexed;
+};
+
+// VAOs for shadow mapping
+struct DepthModel sphereDepthModel;
+struct DepthModel bunnyDepthModel;
+struct DepthModel cubeDepthModel;
 
 int ssaaLevel = 2;
 
@@ -126,6 +138,7 @@ struct TextureShader textureShader;
 struct PhongCubeShader pcShader;
 struct OneFacePhongCubeShader ofpcShader;
 struct PhongShader phongShader;
+struct ShadowDepthShader sdShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -138,6 +151,7 @@ unsigned int fbo_depth_stencil_texture;
 
 // Framebuffer with depth only for shadow mapping
 unsigned int shadow_fbo;
+unsigned int shadow_color_texture; // TESTING
 unsigned int shadow_depth_texture;
 int shadow_width = 1280;
 int shadow_height = 960;
@@ -384,11 +398,22 @@ static void init() {
   // Unbind
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+  // TODO: Convert to only depth attachment
+  // TESTING COLOR ATTACHMENT
   // Create framebuffer with depth only for shadows
   glGenFramebuffers(1, &shadow_fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
-
-  // Create depth texture
+  // Color texture
+  glGenTextures(1, &shadow_color_texture);
+  glBindTexture(GL_TEXTURE_2D, shadow_color_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, shadow_width, shadow_height,
+    0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 
+    shadow_color_texture, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  // Depth texture
   glGenTextures(1, &shadow_depth_texture);
   glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
@@ -396,16 +421,12 @@ static void init() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);  
-
-  // Attach depth texture to framebuffer
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
     shadow_depth_texture, 0);
-  glDrawBuffer(GL_NONE); // Will not render color data
-  glReadBuffer(GL_NONE);
-  
-  // Unbind FBO
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+  glBindTexture(GL_TEXTURE_2D, 0);
+  // Unbind shadow framebuffer
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   // -------- Initialize all of the meshes --------
 
@@ -558,6 +579,14 @@ static void init() {
   // Put locations of attribs and uniforms into phongShader
   getPhongShaderLocations(&phongShader);
 
+  // ------ Shadow Depth Shader ------
+  sdShader.pid = initShader(
+    "../resources/shaders_glsl/vertShadowDepth.glsl",
+    "../resources/shaders_glsl/fragShadowDepth.glsl");
+
+  // Put locations of attribs and uniforms into sdShader
+  getShadowDepthShaderLocations(&sdShader);
+
   // -------- Initialize VAOS --------
   
   // Texture-only rectangle (screen)
@@ -587,6 +616,23 @@ static void init() {
   makePhongShaderVAO(&phongglobe_vaoID, &phongShader,
     sphere_posBufID, sphere_norBufID, sphere_texCoordBufID,
     sphere_eleBufID);
+
+  // ------ VAOs for shadow ------
+  
+  // Sphere shadow VAO
+  makeShadowDepthShaderVAO(&sphereDepthModel.vaoID, &sdShader,
+    sphere_posBufID, sphere_eleBufID);
+  sphereDepthModel.indexed = true;
+
+  // Bunny shadow VAO
+  makeShadowDepthShaderVAO(&bunnyDepthModel.vaoID, &sdShader,
+    bunny_posBufID, bunny_eleBufID);
+  bunnyDepthModel.indexed = true;
+
+  // Cube shadow VAO
+  makeShadowDepthShaderVAO(&cubeDepthModel.vaoID, &sdShader,
+    convexbox_posBufID, 0); // Not indexed
+  cubeDepthModel.indexed = false;
 
   // -------- Initialize Lights --------
   Placement tempPlacement;
@@ -638,7 +684,7 @@ static void init() {
   };
   // ------ Directional Light 0 ------
   directional_lights[0] = {
-    glm::vec3(1.f, -1.f, -1.f), // direction
+    glm::vec3(0.f, 0.f, -1.f), // direction
     glm::vec3(.1f, .1f, .1f), // ambient
     glm::vec3(.25f, .25f, .25f), // diffuse
     glm::vec3(.5f, .5f, .5f) // specular
@@ -716,19 +762,33 @@ static void handleInput(int width, int height) {
   }
 }
 
-// Render to the depth buffer of the shadow fbo
+// Render a single bunny to the default framebuffer
 static void lightRender() {
+  // TODO: Convert to render actual scene
+  int width, height;
   glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
-  // Tells what dimensions to render to
-  glViewport(0, 0, shadow_width, shadow_height);
-
-  // Buffer stuff (???)
+  glfwGetFramebufferSize(window, &width, &height);
+  glViewport(0, 0, width, height);
   glEnable(GL_DEPTH_TEST);
-
-  // Clear framebuffer
-  glClear(GL_DEPTH_BUFFER_BIT);
-
-  // Bind to default framebuffer
+  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  /*float aspect = width / (float) height;
+  glm::mat4 proj = glm::perspective(70.f, aspect, .1f, 100.f);*/
+  float near_plane = 1.0f, far_plane = 7.5f;
+  glm::mat4 proj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 
+    near_plane, far_plane);
+  glm::mat4 view = glm::mat4(1.f);
+  glm::mat4 model = glm::translate(glm::mat4(1.f),
+    glm::vec3(0.f, 0.f, -2.f));
+  glm::mat4 modelviewproj = proj * view * model;
+  glUseProgram(sdShader.pid);
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  glBindVertexArray(bunnyDepthModel.vaoID);
+  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  glBindVertexArray(0);
+  glUseProgram(0);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -744,6 +804,7 @@ static void render() {
   // Matrix for directional light
   glm::mat4 matRotation;
 
+  // TODO: Framebuffer size before binding framebuffer???
   // Get current frame buffer size ???
   glfwGetFramebufferSize(window, &width, &height);
 
@@ -776,6 +837,7 @@ static void render() {
   matView = glm::translate(glm::mat4(1.f), -camLocation) *
     matView;
 
+  // TODO: why skybox affected by glm::lookAt
   matView = glm::rotate(glm::mat4(1.f), -camRotation.x,
     sideways) * matView;
   matView = glm::rotate(glm::mat4(1.f), -camRotation.y,
@@ -972,7 +1034,7 @@ static void render() {
     phong_bunny_placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
-  // Object position is (-12, 0, -2)
+  // Object position is defined by placement struct
   matModel = glm::translate(glm::mat4(1.f),
     phong_bunny_placement.translate) * matModel;
 
@@ -1479,8 +1541,9 @@ static void render() {
     glm::value_ptr(matModel));
   // Bind texture
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
+  //glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   //glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  glBindTexture(GL_TEXTURE_2D, shadow_color_texture);
   glUniform1i(textureShader.texLoc, 0);
 
   // Draw screen
