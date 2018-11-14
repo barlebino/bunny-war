@@ -73,7 +73,14 @@ void getOneFacePhongCubeShaderLocations(
     "material.specular");
   ofpcShader->materialShininess = glGetUniformLocation(ofpcShader->pid,
     "material.shininess");
-  
+  // Shadow mapping uniforms
+  ofpcShader->shadowMap = glGetUniformLocation(ofpcShader->pid,
+    "shadowMap");
+  ofpcShader->lightspace = glGetUniformLocation(ofpcShader->pid,
+    "lightspace");
+  printf("ofpcShader->shadowMap: %d\n", ofpcShader->shadowMap);
+  printf("ofpcShader->lightspace: %d\n", ofpcShader->lightspace);
+
   // Get all point light uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
     getOneFacePhongCubeLightLocations(ofpcShader, i);

@@ -81,6 +81,11 @@ void getPhongCubeShaderLocations(struct PhongCubeShader *pcShader) {
     "material.specular");
   pcShader->materialShininess = glGetUniformLocation(pcShader->pid,
     "material.shininess");
+  // Shadow mapping uniforms
+  pcShader->shadowMap = glGetUniformLocation(pcShader->pid,
+    "shadowMap");
+  pcShader->lightspace = glGetUniformLocation(pcShader->pid,
+    "lightspace");
   
   // Get all point light uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {

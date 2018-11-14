@@ -85,6 +85,11 @@ void getOneMaterialPhongShaderLocations(
     "material.specular");
   ompShader->materialShininess = glGetUniformLocation(ompShader->pid,
     "material.shininess");
+  // Shadow mapping uniforms
+  ompShader->shadowMap = glGetUniformLocation(ompShader->pid,
+    "shadowMap");
+  ompShader->lightspace = glGetUniformLocation(ompShader->pid,
+    "lightspace");
   
   // Get all point light uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {

@@ -41,6 +41,9 @@ struct OneFacePhongCubeShader {
   GLint materialDiffuse; // sampler2D
   GLint materialSpecular; // sampler2D
   GLint materialShininess;
+  // Shadow mapping uniforms
+  GLint shadowMap;
+  GLint lightspace;
   // ALL OF THE LIGHTS
   struct OneFacePhongCubeLight pointLights[NUM_POINT_LIGHTS];
   struct OneFacePhongCubeDirectionalLight

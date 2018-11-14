@@ -40,6 +40,9 @@ struct OneMaterialPhongShader {
   GLint materialDiffuse;
   GLint materialSpecular;
   GLint materialShininess;
+  // Shadow mapping uniforms
+  GLint shadowMap;
+  GLint lightspace;
   // ALL OF THE LIGHTS
   // TODO: change ompLights to pointLights
   struct OneMaterialPhongPointLight pointLights[NUM_POINT_LIGHTS];

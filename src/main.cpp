@@ -684,7 +684,7 @@ static void init() {
   };
   // ------ Directional Light 0 ------
   directional_lights[0] = {
-    glm::vec3(0.f, 0.f, -1.f), // direction
+    glm::vec3(-1.f, 0.f, -1.f), // direction
     glm::vec3(.1f, .1f, .1f), // ambient
     glm::vec3(.25f, .25f, .25f), // diffuse
     glm::vec3(.5f, .5f, .5f) // specular
@@ -762,6 +762,7 @@ static void handleInput(int width, int height) {
   }
 }
 
+// TODO: For only one directional light
 static void lightRender() {
   int width, height;
   glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
@@ -772,13 +773,17 @@ static void lightRender() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   
   // Set permanent matrices
+  // TODO: Calculated in render AND lightRender (repetitive!)
   float near_plane = 1.0f, far_plane = 20.f;
   glm::mat4 proj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 
     near_plane, far_plane);
-  glm::mat4 view = glm::translate(glm::mat4(1.f),
-    glm::vec3(10.f, 0.f, -8.f)); // "Location" of directional light
-  // Location of light is (-10, 0, 8)
   // TODO: change location of direction light based on lookAt
+  // TODO: Attach a placement struct to directional light?
+  glm::mat4 view = glm::lookAt(
+    glm::vec3(-4.f, 0.f, 6.f),
+    glm::vec3(-4.f, 0.f, 6.f) + directional_lights[0].direction,
+    glm::vec3(0.f, 1.f, 0.f)
+  );
 
   // Temp matrices
   glm::mat4 model;
@@ -884,6 +889,8 @@ static void render() {
   glm::mat4 matProjection;
   // Matrix for directional light
   glm::mat4 matRotation;
+  // Matrix for directional light space
+  glm::mat4 matLightspace;
 
   // TODO: Framebuffer size before binding framebuffer???
   // Get current frame buffer size ???
@@ -891,6 +898,19 @@ static void render() {
 
   // Draw scene from directional light POV
   lightRender();
+  // TODO: calculate light viewproj only once (repetitive!)
+  // TODO: dynamic adding of lights + shadows
+  // viewproj calculated in render and lightRender
+  float near_plane = 1.0f, far_plane = 20.f;
+  glm::mat4 lightProj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 
+    near_plane, far_plane);
+  // TODO: change location of direction light based on lookAt
+  // TODO: Attach a placement struct to directional light?
+  glm::mat4 lightView = glm::lookAt(
+    glm::vec3(-4.f, 0.f, 6.f),
+    glm::vec3(-4.f, 0.f, 6.f) + directional_lights[0].direction,
+    glm::vec3(0.f, 1.f, 0.f)
+  );
 
   // Draw the scene from camera POV
   // Change framebuffer
@@ -1091,6 +1111,8 @@ static void render() {
   // Unbind shader program
   glUseProgram(0);
 
+  // TODO: Change order of render (VAO, attach uniforms, shader binding...)
+
   // Draw the phong bunny
 
   // Do nothing to the stencil buffer ever
@@ -1119,6 +1141,8 @@ static void render() {
   matModel = glm::translate(glm::mat4(1.f),
     phong_bunny_placement.translate) * matModel;
 
+  // Directional light space matrix
+  matLightspace = lightProj * lightView * matModel;
   // Set modelview matrix
   matModelview = matView * matModel;
 
@@ -1143,6 +1167,9 @@ static void render() {
     glm::value_ptr(copper.specular));
   glUniform1f(ompShader.materialShininess,
     copper.shininess);
+  // Directional light shadow transform
+  glUniformMatrix4fv(ompShader.lightspace, 1, GL_FALSE,
+    glm::value_ptr(matLightspace));
   // For each point light, input into shader
   // TODO: If same shader, no need to call uniform repeatedly
   // TODO: 3 is a magic number
@@ -1188,6 +1215,12 @@ static void render() {
       glm::value_ptr(directional_lights[i].specular));
   }
 
+  // Bind the shadow depth map
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  // 0 because texture unit GL_TEXTURE0
+  glUniform1i(ompShader.shadowMap, 0);
+
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
@@ -1226,6 +1259,8 @@ static void render() {
   matModel = glm::translate(glm::mat4(1.f),
     wood_cube_placement.translate) * matModel;
 
+  // Directional light space matrix
+  matLightspace = lightProj * lightView * matModel;
   // Modify object relative to the eye
   matModelview = matView * matModel;
 
@@ -1240,6 +1275,9 @@ static void render() {
     glm::value_ptr(matProjection));
   // Shininess is 64.0, a MAGIC NUMBER
   glUniform1f(pcShader.materialShininess, 64.f);
+  // Directional light shadow transform
+  glUniformMatrix4fv(pcShader.lightspace, 1, GL_FALSE,
+    glm::value_ptr(matLightspace));
   // For each point light, input into shader
   // TODO: Number of lights is 3
   for(int i = 0; i < 3; i++) {
@@ -1295,6 +1333,11 @@ static void render() {
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, woodcube_specularMapID);
   glUniform1i(pcShader.materialSpecular, 1);
+  // TODO: 4 shadow maps in one shadow map?
+  // Shadow Map
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  glUniform1i(pcShader.shadowMap, 2);
 
   // Draw the cube
   // Divide by 3 because per vertex
@@ -1340,6 +1383,8 @@ static void render() {
   matModel = glm::translate(glm::mat4(1.f),
     face_cube_placement.translate) * matModel;
 
+  // Directional light space matrix
+  matLightspace = lightProj * lightView * matModel;
   // Modify object relative to the eye
   matModelview = matView * matModel;
 
@@ -1351,6 +1396,9 @@ static void render() {
     glm::value_ptr(matModelview));
   glUniformMatrix4fv(ofpcShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
+  // Directional light shadow transform
+  glUniformMatrix4fv(ofpcShader.lightspace, 1, GL_FALSE,
+    glm::value_ptr(matLightspace));
   // For each light, input into shader
   // TODO: Number of lights is 3
   for(int i = 0; i < 3; i++) {
@@ -1408,6 +1456,10 @@ static void render() {
   glBindTexture(GL_TEXTURE_2D, facecube_specularMapID);
   // 1 because texture unit GL_TEXTURE1
   glUniform1i(ofpcShader.materialSpecular, 1);
+  // Bind shadow depth map
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  glUniform1i(ofpcShader.shadowMap, 2);
 
   // Draw one object
   glDrawArrays(GL_TRIANGLES, 0, convexbox_bufSize / 3);
@@ -1622,9 +1674,7 @@ static void render() {
     glm::value_ptr(matModel));
   // Bind texture
   glActiveTexture(GL_TEXTURE0);
-  //glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
-  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
-  //glBindTexture(GL_TEXTURE_2D, shadow_color_texture);
+  glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   glUniform1i(textureShader.texLoc, 0);
 
   // Draw screen
@@ -1704,6 +1754,7 @@ int main(int argc, char **argv) {
 
   // Loop until the user closes the window
   while(!glfwWindowShouldClose(window)) {
+    // TODO: Add FPS counter
     // Render scene
     render();
     // Swap front and back buffers

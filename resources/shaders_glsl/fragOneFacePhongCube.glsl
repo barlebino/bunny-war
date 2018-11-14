@@ -7,7 +7,7 @@ struct Material {
 };
 
 struct PointLight {
-  vec3 position;
+  vec3 position; // View space
   vec3 ambient;
   vec3 diffuse;
   vec3 specular;
@@ -18,7 +18,7 @@ struct PointLight {
 };
 
 struct DirectionalLight {
-  vec3 direction;
+  vec3 direction; // View space
   vec3 ambient;
   vec3 diffuse;
   vec3 specular;
@@ -30,12 +30,16 @@ struct DirectionalLight {
 in vec3 frag_nor;
 in vec3 frag_pos;
 in vec3 tex_coord; // samplerCube query
+in vec3 frag_pos_light_space;
+// all points in frag_pos_light_space perfect [-1, 1] cube
+// assuming ortho. TODO: not sure about proj yet
 
 out vec4 out_color;
 
 uniform Material material;
 uniform PointLight pointLights[NUM_POINT_LIGHTS];
 uniform DirectionalLight directionalLights[NUM_DIRECTIONAL_LIGHTS];
+uniform sampler2D shadowMap;
 
 vec2 convertTexCoord(vec3 texCoord) {
   vec3 absCoord = vec3(abs(texCoord.x), abs(texCoord.y), abs(texCoord.z));
@@ -118,5 +122,14 @@ void main() {
     total_light = total_light +
       calcDirectionalLight(directionalLights[i], norm, viewDir);
   }
+  // Convert from [-1, 1] -> [0, 1]
+  vec3 projCoords = frag_pos_light_space * 0.5 + 0.5;
+  float closestDepth = texture(shadowMap, projCoords.xy).r;
+  float currentDepth = projCoords.z;
+  float bias = 0.005;
+  if(currentDepth > closestDepth + bias) {
+    total_light = total_light * 0.5;
+  }
+  // Turn final light into vec4
   out_color = vec4(total_light, 1.0);
 }

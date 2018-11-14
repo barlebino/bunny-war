@@ -39,6 +39,9 @@ struct PhongCubeShader {
   GLint materialDiffuse; // samplerCube
   GLint materialSpecular; // samplerCube
   GLint materialShininess;
+  // Shadow mapping uniforms
+  GLint shadowMap;
+  GLint lightspace;
   // ALL OF THE LIGHTS
   struct PhongCubeLight pointLights[NUM_POINT_LIGHTS];
   struct PhongCubeDirectionalLight
