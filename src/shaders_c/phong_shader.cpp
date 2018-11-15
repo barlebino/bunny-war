@@ -77,6 +77,11 @@ void getPhongShaderLocations(struct PhongShader *phongShader) {
     "projection");
   phongShader->materialDiffuse = glGetUniformLocation(phongShader->pid,
     "material.diffuse");
+  // Shadow mapping uniforms
+  phongShader->shadowMap = glGetUniformLocation(phongShader->pid,
+    "shadowMap");
+  phongShader->lightspace = glGetUniformLocation(phongShader->pid,
+    "lightspace");
 
   // Get all point light uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {

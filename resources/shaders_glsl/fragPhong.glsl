@@ -29,13 +29,28 @@ struct DirectionalLight {
 in vec3 frag_nor;
 in vec3 frag_pos;
 in vec2 frag_tex_coord;
+in vec3 frag_pos_light_space;
+// all points in frag_pos_light_space perfect [-1, 1] cube
+// assuming ortho. TODO: not sure about proj yet
 
 out vec4 out_color;
 
 uniform Material material;
-uniform PointLight light;
 uniform PointLight pointLights[NUM_POINT_LIGHTS];
 uniform DirectionalLight directionalLights[NUM_DIRECTIONAL_LIGHTS];
+uniform sampler2D shadowMap;
+
+float calcShadow(vec3 frag_pos_light_space) {
+  // TODO: perspective divide w/ vec4 frag_pos_light_space
+  vec3 projCoords = frag_pos_light_space * 0.5 + 0.5; // [-1, 1] -> [0, 1]
+  float closestDepth = texture(shadowMap, projCoords.xy).r;
+  float currentDepth = projCoords.z;
+  float bias = 0.005;
+  // 0 if behind closestDepth, 1 if is/in front of closestDepth
+  // currentDepth is behind closestDepth if currentDepth > closestDepth
+  float shadow = currentDepth > closestDepth + bias ? 0.0 : 1.0;
+  return shadow;
+}
 
 vec3 calcDirectionalLight(DirectionalLight directionalLight,
   vec3 norm) { // no need for viewDir
@@ -47,7 +62,8 @@ vec3 calcDirectionalLight(DirectionalLight directionalLight,
   float diff = max(dot(norm, lightDir), 0.0);
   vec3 diffuse = directionalLight.diffuse * (diff * diffuseMapColor);
   // Final
-  return ambient + diffuse;
+  // TODO: One frag_pos_light_space per directional light
+  return ambient + diffuse * calcShadow(frag_pos_light_space);
 }
 
 vec3 calcPointLight(PointLight pointLight, vec3 norm) { // no need for viewDir

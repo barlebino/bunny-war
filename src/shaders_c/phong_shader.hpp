@@ -38,6 +38,9 @@ struct PhongShader {
   GLint modelview;
   GLint projection;
   GLint materialDiffuse;
+  // Shadow mapping uniforms
+  GLint shadowMap;
+  GLint lightspace;
   // ALL OF THE LIGHTS
   struct PhongPointLight pointLights[NUM_POINT_LIGHTS];
   struct PhongDirectionalLight

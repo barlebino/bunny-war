@@ -41,6 +41,18 @@ uniform PointLight pointLights[NUM_POINT_LIGHTS];
 uniform DirectionalLight directionalLights[NUM_DIRECTIONAL_LIGHTS];
 uniform sampler2D shadowMap;
 
+float calcShadow(vec3 frag_pos_light_space) {
+  // TODO: perspective divide w/ vec4 frag_pos_light_space
+  vec3 projCoords = frag_pos_light_space * 0.5 + 0.5; // [-1, 1] -> [0, 1]
+  float closestDepth = texture(shadowMap, projCoords.xy).r;
+  float currentDepth = projCoords.z;
+  float bias = 0.005;
+  // 0 if behind closestDepth, 1 if is/in front of closestDepth
+  // currentDepth is behind closestDepth if currentDepth > closestDepth
+  float shadow = currentDepth > closestDepth + bias ? 0.0 : 1.0;
+  return shadow;
+}
+
 vec3 calcDirectionalLight(DirectionalLight directionalLight,
   vec3 norm, vec3 viewDir) {
   // Ambient
@@ -55,7 +67,8 @@ vec3 calcDirectionalLight(DirectionalLight directionalLight,
   float spec = pow(max(dot(halfwayDir, norm), 0.0), material.shininess);
   vec3 specular = directionalLight.specular * (spec * material.specular);
   // Final
-  return ambient + diffuse + specular;
+  // TODO: One frag_pos_light_space per directional light
+  return ambient + (diffuse + specular) * calcShadow(frag_pos_light_space);
 }
 
 vec3 calcPointLight(PointLight pointLight, vec3 norm, vec3 viewDir) {
@@ -98,15 +111,6 @@ void main() {
   for(int i = 0; i < NUM_DIRECTIONAL_LIGHTS; i++) {
     total_light = total_light +
       calcDirectionalLight(directionalLights[i], norm, viewDir);
-  }
-  // TESTING
-  vec3 projCoords = frag_pos_light_space * 0.5 + 0.5;
-  // [-1, 1] -> [0, 1]
-  float closestDepth = texture(shadowMap, projCoords.xy).r;
-  float currentDepth = projCoords.z;
-  float bias = 0.005;
-  if(currentDepth > closestDepth + bias) { // If not visible by light
-    total_light = total_light * 0.5;
   }
   // Turn final light into vec4
   out_color = vec4(total_light, 1.0);

@@ -78,8 +78,6 @@ void getOneFacePhongCubeShaderLocations(
     "shadowMap");
   ofpcShader->lightspace = glGetUniformLocation(ofpcShader->pid,
     "lightspace");
-  printf("ofpcShader->shadowMap: %d\n", ofpcShader->shadowMap);
-  printf("ofpcShader->lightspace: %d\n", ofpcShader->lightspace);
 
   // Get all point light uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {

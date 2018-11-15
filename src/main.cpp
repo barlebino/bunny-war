@@ -1510,6 +1510,8 @@ static void render() {
   matModel = glm::translate(glm::mat4(1.f),
     phong_globe_placement.translate) * matModel;
 
+  // Directional light space matrix
+  matLightspace = lightProj * lightView * matModel;
   // Modify object relative to the eye
   matModelview = matView * matModel;
 
@@ -1522,6 +1524,14 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, world_texBufID);
   glUniform1i(phongShader.materialDiffuse, 0);
+  // Bind shadow depth map
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  // 0 because texture unit GL_TEXTURE0
+  glUniform1i(phongShader.shadowMap, 1);
+  // Directional light shadow transform
+  glUniformMatrix4fv(phongShader.lightspace, 1, GL_FALSE,
+    glm::value_ptr(matLightspace));
   // For each point light, input into shader
   // TODO: If same shader, no need to call uniform repeatedly
   for(int i = 0; i < 3; i++) {
