@@ -189,7 +189,7 @@ struct Placement face_cube_placement = {
 struct Placement phong_globe_placement = {
   glm::vec3(1.f, 1.f, 1.f), // scale
   glm::vec3(0.f, 0.f, 0.f), // rotate
-  glm::vec3(-8.f, 0.f, 4.f) // translate
+  glm::vec3(-8.f, 0.f, 6.f) // translate
 };
 
 // For debugging
@@ -774,14 +774,14 @@ static void lightRender() {
   
   // Set permanent matrices
   // TODO: Calculated in render AND lightRender (repetitive!)
-  float near_plane = 1.0f, far_plane = 20.f;
+  float near_plane = 1.0f, far_plane = 25.f;
   glm::mat4 proj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 
     near_plane, far_plane);
   // TODO: change location of direction light based on lookAt
   // TODO: Attach a placement struct to directional light?
   glm::mat4 view = glm::lookAt(
-    glm::vec3(-4.f, 0.f, 6.f),
-    glm::vec3(-4.f, 0.f, 6.f) + directional_lights[0].direction,
+    glm::vec3(-4.f, 0.f, 8.f),
+    glm::vec3(-4.f, 0.f, 8.f) + directional_lights[0].direction,
     glm::vec3(0.f, 1.f, 0.f)
   );
 
@@ -798,8 +798,18 @@ static void lightRender() {
   // Render bunny (bunnies?)
   glBindVertexArray(bunnyDepthModel.vaoID);
   // Get first (only?) bunny
+  model = glm::mat4(1.f);
+  model = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.x,
+    glm::vec3(1.f, 0.f, 0.f)) * model;
+  model = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.y,
+    glm::vec3(0.f, 1.f, 0.f)) * model;
+  model = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.z,
+    glm::vec3(0.f, 0.f, 1.f)) * model;
   model = glm::translate(glm::mat4(1.f),
-    phong_bunny_placement.translate);
+    phong_bunny_placement.translate) * model;
   modelviewproj = proj * view * model;
   glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
     glm::value_ptr(modelviewproj));
@@ -882,6 +892,12 @@ static void render() {
   int width, height;
   float aspect;
 
+  // TODO: Update physics
+  phong_bunny_placement.rotate.y =
+    phong_bunny_placement.rotate.y + 0.01f;
+  if(phong_bunny_placement.rotate.y > 6.28f)
+    phong_bunny_placement.rotate.y = 0.f;
+
   // Create matrices
   glm::mat4 matModel;
   glm::mat4 matView;
@@ -901,14 +917,15 @@ static void render() {
   // TODO: calculate light viewproj only once (repetitive!)
   // TODO: dynamic adding of lights + shadows
   // viewproj calculated in render and lightRender
-  float near_plane = 1.0f, far_plane = 20.f;
+  // TODO: Calculated in render AND lightRender (repetitive!)
+  float near_plane = 1.0f, far_plane = 25.f;
   glm::mat4 lightProj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 
     near_plane, far_plane);
   // TODO: change location of direction light based on lookAt
   // TODO: Attach a placement struct to directional light?
   glm::mat4 lightView = glm::lookAt(
-    glm::vec3(-4.f, 0.f, 6.f),
-    glm::vec3(-4.f, 0.f, 6.f) + directional_lights[0].direction,
+    glm::vec3(-4.f, 0.f, 8.f),
+    glm::vec3(-4.f, 0.f, 8.f) + directional_lights[0].direction,
     glm::vec3(0.f, 1.f, 0.f)
   );
 
@@ -1225,6 +1242,10 @@ static void render() {
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
 
+  // Unbind texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
   // Unbind vertex array object
   glBindVertexArray(0);
 
@@ -1348,6 +1369,8 @@ static void render() {
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
@@ -1469,6 +1492,8 @@ static void render() {
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
@@ -1527,7 +1552,6 @@ static void render() {
   // Bind shadow depth map
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
-  // 0 because texture unit GL_TEXTURE0
   glUniform1i(phongShader.shadowMap, 1);
   // Directional light shadow transform
   glUniformMatrix4fv(phongShader.lightspace, 1, GL_FALSE,
@@ -1581,6 +1605,8 @@ static void render() {
 
   // Unbind texture
   glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, 0);
 
   // Unbind vertex array object
