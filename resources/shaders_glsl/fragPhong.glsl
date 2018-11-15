@@ -44,7 +44,6 @@ uniform sampler2D shadowMap;
 float calcShadow(vec3 frag_pos_light_space) {
   // TODO: perspective divide w/ vec4 frag_pos_light_space
   vec3 projCoords = frag_pos_light_space * 0.5 + 0.5; // [-1, 1] -> [0, 1]
-  float closestDepth = texture(shadowMap, projCoords.xy).r;
   float currentDepth = projCoords.z;
   float bias = max(
     0.05 * (
@@ -57,7 +56,18 @@ float calcShadow(vec3 frag_pos_light_space) {
   );
   // 0 if behind closestDepth, 1 if is/in front of closestDepth
   // currentDepth is behind closestDepth if currentDepth > closestDepth
-  float shadow = currentDepth > closestDepth + bias ? 0.0 : 1.0;
+  float shadow = 0.0;
+  vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+  // Average the 9 surrounding depth texels
+  for(int x = -1; x <= 1; ++x) {
+    for(int y = -1; y <= 1; ++y) {
+      float closestDepth = texture(shadowMap,
+        projCoords.xy + vec2(x, y) * texelSize).r;
+      shadow = shadow +
+        (currentDepth > closestDepth + bias ? 0.0 : 1.0);
+    }
+  }
+  shadow = shadow / 9.0;
   return shadow;
 }
 
