@@ -214,6 +214,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action,
   } else if(key == GLFW_KEY_P) { // toggle whether or not camera stays in place
     if(action == GLFW_RELEASE) {
       cameraFreeze = !cameraFreeze;
+      printf("rotate: %f\n", face_cube_placement.rotate.y);
     }
   } else if(key == GLFW_KEY_W) {
     if(action == GLFW_PRESS) {
@@ -872,8 +873,18 @@ static void lightRender() {
   // Divide by 3 because per vertex
   glDrawArrays(GL_TRIANGLES, 0, convexbox_bufSize / 3);
   // Get face cube
+  model = glm::mat4(1.f);
+  model = glm::rotate(glm::mat4(1.f),
+    face_cube_placement.rotate.x,
+    glm::vec3(1.f, 0.f, 0.f)) * model;
+  model = glm::rotate(glm::mat4(1.f),
+    face_cube_placement.rotate.y,
+    glm::vec3(0.f, 1.f, 0.f)) * model;
+  model = glm::rotate(glm::mat4(1.f),
+    face_cube_placement.rotate.z,
+    glm::vec3(0.f, 0.f, 1.f)) * model;
   model = glm::translate(glm::mat4(1.f),
-    face_cube_placement.translate);
+    face_cube_placement.translate) * model;
   modelviewproj = proj * view * model;
   glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
     glm::value_ptr(modelviewproj));
@@ -893,10 +904,16 @@ static void render() {
   float aspect;
 
   // TODO: Update physics
+  // Bunny update
   phong_bunny_placement.rotate.y =
-    phong_bunny_placement.rotate.y + 0.01f;
+    phong_bunny_placement.rotate.y + .01f;
   if(phong_bunny_placement.rotate.y > 6.28f)
     phong_bunny_placement.rotate.y = 0.f;
+  // Face cube update
+  face_cube_placement.rotate.y =
+    face_cube_placement.rotate.y + .01f;
+  if(face_cube_placement.rotate.y > 6.28f)
+    face_cube_placement.rotate.y = 0.f;
 
   // Create matrices
   glm::mat4 matModel;
