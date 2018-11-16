@@ -6,6 +6,7 @@
 
 // TODO: Define this somewhere else
 #define NUM_POINT_LIGHTS 3
+#define NUM_DIRECTIONAL_LIGHTS 1
 
 struct OneMaterialPhongPointLight {
   GLint position;
@@ -16,6 +17,13 @@ struct OneMaterialPhongPointLight {
   GLint constant;
   GLint linear;
   GLint quadratic;
+};
+
+struct OneMaterialPhongDirectionalLight {
+  GLint direction;
+  GLint ambient;
+  GLint diffuse;
+  GLint specular;
 };
 
 struct OneMaterialPhongShader {
@@ -32,12 +40,22 @@ struct OneMaterialPhongShader {
   GLint materialDiffuse;
   GLint materialSpecular;
   GLint materialShininess;
+  // Shadow mapping uniforms
+  GLint shadowMap;
+  GLint lightspace;
   // ALL OF THE LIGHTS
   // TODO: change ompLights to pointLights
-  struct OneMaterialPhongPointLight ompLights[NUM_POINT_LIGHTS];
+  struct OneMaterialPhongPointLight pointLights[NUM_POINT_LIGHTS];
+  struct OneMaterialPhongDirectionalLight
+    directionalLights[NUM_DIRECTIONAL_LIGHTS];
 };
 
-// Put light locations at index lightNum into ompLight struct at lightNum
+// Put light locations at index lightNum into direction light struct
+// Assumes ompShader->pid is initialized
+void getOneMaterialPhongDirectionalLightLocations(
+  struct OneMaterialPhongShader *ompShader, int lightNum);
+
+// Put light locations at index lightNum into pointLight struct at lightNum
 // Assumes ompShader->pid is initialized
 void getOneMaterialPhongPointLightLocations(
   struct OneMaterialPhongShader *ompShader, int lightNum);

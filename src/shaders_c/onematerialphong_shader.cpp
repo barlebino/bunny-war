@@ -5,6 +5,28 @@
 
 #include "onematerialphong_shader.hpp"
 
+// Put light locations at index lightNum into direction light struct
+// Assumes ompShader->pid is initialized
+void getOneMaterialPhongDirectionalLightLocations(
+  struct OneMaterialPhongShader *ompShader, int lightNum) {
+  GLint pid;
+  std::string varname, lightNumString;
+  struct OneMaterialPhongDirectionalLight *ompdLight;
+
+  pid = ompShader->pid;
+  ompdLight = &(ompShader->directionalLights[lightNum]);
+  lightNumString = std::to_string(lightNum);
+
+  varname = "directionalLights[" + lightNumString + "].direction";
+  ompdLight->direction = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].ambient";
+  ompdLight->ambient = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].diffuse";
+  ompdLight->diffuse = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].specular";
+  ompdLight->specular = glGetUniformLocation(pid, varname.c_str());
+}
+
 // Put light locations at index lightNum into struct
 // Assumes ompShader->pid is initialized
 void getOneMaterialPhongPointLightLocations(
@@ -14,7 +36,7 @@ void getOneMaterialPhongPointLightLocations(
   struct OneMaterialPhongPointLight *ompLight;
 
   pid = ompShader->pid;
-  ompLight = &(ompShader->ompLights[lightNum]);
+  ompLight = &(ompShader->pointLights[lightNum]);
 
   // TODO: remove repetitive std::to_string calls
   varname = "pointLights[" + std::to_string(lightNum) + "].position";
@@ -63,10 +85,19 @@ void getOneMaterialPhongShaderLocations(
     "material.specular");
   ompShader->materialShininess = glGetUniformLocation(ompShader->pid,
     "material.shininess");
+  // Shadow mapping uniforms
+  ompShader->shadowMap = glGetUniformLocation(ompShader->pid,
+    "shadowMap");
+  ompShader->lightspace = glGetUniformLocation(ompShader->pid,
+    "lightspace");
   
   // Get all point light uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
     getOneMaterialPhongPointLightLocations(ompShader, i);
+  }
+  // Get all directional light uniforms
+  for(int i = 0; i < NUM_DIRECTIONAL_LIGHTS; i++) {
+    getOneMaterialPhongDirectionalLightLocations(ompShader, i);
   }
 }
 

@@ -5,6 +5,28 @@
 
 #include "phongcube_shader.hpp"
 
+// Put light locations at index lightNum into direction light struct
+// Assumes pcShader->pid is initialized
+void getPhongCubeDirectionalLightLocations(
+  struct PhongCubeShader *pcShader, int lightNum) {
+  GLint pid;
+  std::string varname, lightNumString;
+  struct PhongCubeDirectionalLight *pcdLight;
+
+  pid = pcShader->pid;
+  pcdLight = &(pcShader->directionalLights[lightNum]);
+  lightNumString = std::to_string(lightNum);
+
+  varname = "directionalLights[" + lightNumString + "].direction";
+  pcdLight->direction = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].ambient";
+  pcdLight->ambient = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].diffuse";
+  pcdLight->diffuse = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].specular";
+  pcdLight->specular = glGetUniformLocation(pid, varname.c_str());
+}
+
 // Put light locations at index lightNum into point light at lightNum
 // Assumes pcShader->pid is initialized
 void getPhongCubeLightLocations(
@@ -59,10 +81,19 @@ void getPhongCubeShaderLocations(struct PhongCubeShader *pcShader) {
     "material.specular");
   pcShader->materialShininess = glGetUniformLocation(pcShader->pid,
     "material.shininess");
+  // Shadow mapping uniforms
+  pcShader->shadowMap = glGetUniformLocation(pcShader->pid,
+    "shadowMap");
+  pcShader->lightspace = glGetUniformLocation(pcShader->pid,
+    "lightspace");
   
   // Get all point light uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
     getPhongCubeLightLocations(pcShader, i);
+  }
+  // Get all directional light uniforms
+  for(int i = 0 ; i < NUM_DIRECTIONAL_LIGHTS; i++) {
+    getPhongCubeDirectionalLightLocations(pcShader, i);
   }
 }
 

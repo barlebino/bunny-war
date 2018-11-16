@@ -1,5 +1,6 @@
 // TODO: Change to bind program -> bind vao -> make mat -> fill mat
 // TODO: does sphere have normal data?
+// TODO: Placement structs for non-lights
 
 #include <iostream>
 
@@ -31,10 +32,19 @@
 #include "shaders_c/phongcube_shader.hpp"
 #include "shaders_c/onefacephongcube_shader.hpp"
 #include "shaders_c/phong_shader.hpp"
+#include "shaders_c/shadowdepth_shader.hpp"
 
-// Light struct
-struct Light {
-  glm::vec3 position;
+// Placement struct
+// Contains scale, rotation, and translate matrices
+struct Placement {
+  glm::vec3 scale;
+  glm::vec3 rotate; // TODO: Change? Quaternions?
+  glm::vec3 translate;
+};
+
+// Light types
+struct PointLight {
+  struct Placement placement;
   glm::vec3 ambient;
   glm::vec3 diffuse;
   glm::vec3 specular;
@@ -43,6 +53,23 @@ struct Light {
   float linear;
   float quadratic;
 };
+struct DirectionalLight {
+  glm::vec3 direction;
+  glm::vec3 ambient;
+  glm::vec3 diffuse;
+  glm::vec3 specular;
+};
+
+// Model for depth shading
+struct DepthModel {
+  unsigned vaoID;
+  bool indexed;
+};
+
+// VAOs for shadow mapping
+struct DepthModel sphereDepthModel;
+struct DepthModel bunnyDepthModel;
+struct DepthModel cubeDepthModel;
 
 int ssaaLevel = 2;
 
@@ -57,11 +84,12 @@ glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
 // Sideways direction
 glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
 
-// Light objects
-struct Light lights[3];
-
 // Input
 char keys[6] = {0, 0, 0, 0, 0, 0};
+
+// Light objects
+struct PointLight point_lights[3];
+struct DirectionalLight directional_lights[1];
 
 // VAO IDs
 unsigned rect_vaoID;
@@ -110,6 +138,7 @@ struct TextureShader textureShader;
 struct PhongCubeShader pcShader;
 struct OneFacePhongCubeShader ofpcShader;
 struct PhongShader phongShader;
+struct ShadowDepthShader sdShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -119,6 +148,13 @@ int g_height = 960;
 unsigned int fbo;
 unsigned int fbo_color_texture;
 unsigned int fbo_depth_stencil_texture;
+
+// Framebuffer with depth only for shadow mapping
+unsigned int shadow_fbo;
+unsigned int shadow_color_texture; // TESTING
+unsigned int shadow_depth_texture;
+int shadow_width = 1280;
+int shadow_height = 960;
 
 // World texture
 unsigned world_texBufID;
@@ -131,7 +167,30 @@ unsigned int woodcube_specularMapID;
 unsigned int facecube_diffuseMapID;
 unsigned int facecube_specularMapID;
 
+// Debug
 bool cameraFreeze = false;
+
+// Object placements
+struct Placement phong_bunny_placement = {
+  glm::vec3(1.f, 1.f, 1.f), // scale
+  glm::vec3(0.f, 0.f, 0.f), // rotate
+  glm::vec3(-12.f, 0.f, -2.f) // translate
+};
+struct Placement wood_cube_placement = {
+  glm::vec3(1.f, 1.f, 1.f), // scale
+  glm::vec3(0.f, 0.f, 0.f), // rotate
+  glm::vec3(-12.f, 0.f, -4.f) // translate
+};
+struct Placement face_cube_placement = {
+  glm::vec3(1.f, 1.f, 1.f), // scale
+  glm::vec3(0.f, 0.f, 0.f), // rotate
+  glm::vec3(-12.f, 0.f, 4.f) // translate
+};
+struct Placement phong_globe_placement = {
+  glm::vec3(1.f, 1.f, 1.f), // scale
+  glm::vec3(0.f, 0.f, 0.f), // rotate
+  glm::vec3(-8.f, 0.f, 6.f) // translate
+};
 
 // For debugging
 void printMatrix(glm::mat4 mat) {
@@ -314,6 +373,7 @@ static void init() {
   // Unbind texture
   glBindTexture(GL_TEXTURE_2D, 0);
 
+  // TODO: Remove depth and stencil textures
   // Depth and stencil texture for fbo
   glGenTextures(1, &fbo_depth_stencil_texture);
   glBindTexture(GL_TEXTURE_2D, fbo_depth_stencil_texture);
@@ -336,6 +396,36 @@ static void init() {
   }
 
   // Unbind
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  // TODO: Convert to only depth attachment
+  // TESTING COLOR ATTACHMENT
+  // Create framebuffer with depth only for shadows
+  glGenFramebuffers(1, &shadow_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
+  // Color texture
+  glGenTextures(1, &shadow_color_texture);
+  glBindTexture(GL_TEXTURE_2D, shadow_color_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, shadow_width, shadow_height,
+    0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 
+    shadow_color_texture, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  // Depth texture
+  glGenTextures(1, &shadow_depth_texture);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
+    shadow_width, shadow_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+    shadow_depth_texture, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  // Unbind shadow framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   // -------- Initialize all of the meshes --------
@@ -489,6 +579,14 @@ static void init() {
   // Put locations of attribs and uniforms into phongShader
   getPhongShaderLocations(&phongShader);
 
+  // ------ Shadow Depth Shader ------
+  sdShader.pid = initShader(
+    "../resources/shaders_glsl/vertShadowDepth.glsl",
+    "../resources/shaders_glsl/fragShadowDepth.glsl");
+
+  // Put locations of attribs and uniforms into sdShader
+  getShadowDepthShaderLocations(&sdShader);
+
   // -------- Initialize VAOS --------
   
   // Texture-only rectangle (screen)
@@ -519,18 +617,49 @@ static void init() {
     sphere_posBufID, sphere_norBufID, sphere_texCoordBufID,
     sphere_eleBufID);
 
+  // ------ VAOs for shadow ------
+  
+  // Sphere shadow VAO
+  makeShadowDepthShaderVAO(&sphereDepthModel.vaoID, &sdShader,
+    sphere_posBufID, sphere_eleBufID);
+  sphereDepthModel.indexed = true;
+
+  // Bunny shadow VAO
+  makeShadowDepthShaderVAO(&bunnyDepthModel.vaoID, &sdShader,
+    bunny_posBufID, bunny_eleBufID);
+  bunnyDepthModel.indexed = true;
+
+  // Cube shadow VAO
+  makeShadowDepthShaderVAO(&cubeDepthModel.vaoID, &sdShader,
+    convexbox_posBufID, 0); // Not indexed
+  cubeDepthModel.indexed = false;
+
   // -------- Initialize Lights --------
-  lights[0] = {
-    glm::vec3(-8.f, 0.f, -2.f), // position
-    glm::vec3(.2f, .2f, .2f), // ambient
-    glm::vec3(.5f, .5f, .5f), // diffuse
-    glm::vec3(1.f, 1.f, 1.f), // specular
+  Placement tempPlacement;
+  
+  // ------ Point Light 0 ------
+  tempPlacement = {
+    glm::vec3(.5f, .5f, .5f), // scale
+    glm::vec3(0.f, 0.f, 0.f), // rotate
+    glm::vec3(-8.f, 0.f, -2.f) // translate
+  };
+  point_lights[0] = {
+    tempPlacement,
+    glm::vec3(0.f, 0.f, .2f), // ambient
+    glm::vec3(0.f, 0.f, .5f), // diffuse
+    glm::vec3(0.f, 0.f, 1.f), // specular
     1.f, // constant
     .22f, // linear
     .20f // quadratic
   };
-  lights[1] = {
-    glm::vec3(-14.f, 0.f, 2.f), // position
+  // ------ Point Light 1 ------
+  tempPlacement = {
+    glm::vec3(.5f, .5f, .5f), // scale
+    glm::vec3(0.f, 0.f, 0.f), // rotate
+    glm::vec3(-14.f, 0.f, 2.f) // translate
+  };
+  point_lights[1] = {
+    tempPlacement,
     glm::vec3(0.f, .2f, 0.f), // ambient
     glm::vec3(0.f, .5f, 0.f), // diffuse
     glm::vec3(0.f, 1.f, 0.f), // specular
@@ -538,14 +667,27 @@ static void init() {
     .22f, // linear
     .20f // quadratic
   };
-  lights[2] = {
-    glm::vec3(-8.f, 2.f, 0.f), // position
+  // ------ Point Light 2 ------
+  tempPlacement = {
+    glm::vec3(.5f, .5f, .5f), // scale
+    glm::vec3(0.f, 0.f, 0.f), // rotate
+    glm::vec3(-8.f, 2.f, 0.f) // translate
+  };
+  point_lights[2] = {
+    tempPlacement,
     glm::vec3(.2f, 0.f, 0.f), // ambient
     glm::vec3(.5f, 0.f, 0.f), // diffuse
     glm::vec3(1.f, 0.f, 0.f), // specular
     1.f, // constant
     .22f, // linear
     .20f // quadratic
+  };
+  // ------ Directional Light 0 ------
+  directional_lights[0] = {
+    glm::vec3(-1.f, 0.f, -1.f), // direction
+    glm::vec3(.1f, .1f, .1f), // ambient
+    glm::vec3(.25f, .25f, .25f), // diffuse
+    glm::vec3(.5f, .5f, .5f) // specular
   };
 }
 
@@ -620,25 +762,180 @@ static void handleInput(int width, int height) {
   }
 }
 
+// TODO: For only one directional light
+static void lightRender() {
+  int width, height;
+  glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
+  glfwGetFramebufferSize(window, &width, &height);
+  glViewport(0, 0, width, height);
+  glEnable(GL_DEPTH_TEST);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  
+  // Set permanent matrices
+  // TODO: Calculated in render AND lightRender (repetitive!)
+  float near_plane = 1.0f, far_plane = 25.f;
+  glm::mat4 proj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 
+    near_plane, far_plane);
+  // TODO: change location of direction light based on lookAt
+  // TODO: Attach a placement struct to directional light?
+  glm::mat4 view = glm::lookAt(
+    glm::vec3(-4.f, 0.f, 8.f),
+    glm::vec3(-4.f, 0.f, 8.f) + directional_lights[0].direction,
+    glm::vec3(0.f, 1.f, 0.f)
+  );
+
+  // Temp matrices
+  glm::mat4 model;
+  glm::mat4 modelviewproj;
+
+  // Render with shadowDepth shader
+  glUseProgram(sdShader.pid);
+
+  // TODO: Use rotation and scale in model matrix
+  // TODO: Element size / buffer size is per model, not per VAO
+
+  // Render bunny (bunnies?)
+  glBindVertexArray(bunnyDepthModel.vaoID);
+  // Get first (only?) bunny
+  model = glm::mat4(1.f);
+  model = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.x,
+    glm::vec3(1.f, 0.f, 0.f)) * model;
+  model = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.y,
+    glm::vec3(0.f, 1.f, 0.f)) * model;
+  model = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.z,
+    glm::vec3(0.f, 0.f, 1.f)) * model;
+  model = glm::translate(glm::mat4(1.f),
+    phong_bunny_placement.translate) * model;
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, indexed
+  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Unbind, done rendering depth bunnies
+  glBindVertexArray(0);
+
+  // Render spheres
+  glBindVertexArray(sphereDepthModel.vaoID);
+  // Get globe
+  model = glm::translate(glm::mat4(1.f),
+    phong_globe_placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, indexed
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Get point light 0
+  model = glm::translate(glm::mat4(1.f),
+    point_lights[0].placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, indexed
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Get point light 1
+  model = glm::translate(glm::mat4(1.f),
+    point_lights[1].placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, indexed
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Get point light 2
+  model = glm::translate(glm::mat4(1.f),
+    point_lights[2].placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, indexed
+  glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Unbind, done rendering spheres
+  glBindVertexArray(0);
+
+  // Render cubes
+  glBindVertexArray(cubeDepthModel.vaoID);
+  // Get wood cube
+  model = glm::translate(glm::mat4(1.f),
+    wood_cube_placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, not indexed
+  // Divide by 3 because per vertex
+  glDrawArrays(GL_TRIANGLES, 0, convexbox_bufSize / 3);
+  // Get face cube
+  model = glm::translate(glm::mat4(1.f),
+    face_cube_placement.translate);
+  modelviewproj = proj * view * model;
+  glUniformMatrix4fv(sdShader.modelviewproj, 1, GL_FALSE,
+    glm::value_ptr(modelviewproj));
+  // Draw, not indexed
+  // Divide by 3 because per vertex
+  glDrawArrays(GL_TRIANGLES, 0, convexbox_bufSize / 3);
+  // Unbind, done rendering cubes
+  glBindVertexArray(0);
+
+  // Unbind, done rendering depth objects
+  glUseProgram(0);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 static void render() {
   int width, height;
   float aspect;
+
+  // TODO: Update physics
+  phong_bunny_placement.rotate.y =
+    phong_bunny_placement.rotate.y + 0.01f;
+  if(phong_bunny_placement.rotate.y > 6.28f)
+    phong_bunny_placement.rotate.y = 0.f;
 
   // Create matrices
   glm::mat4 matModel;
   glm::mat4 matView;
   glm::mat4 matModelview;
   glm::mat4 matProjection;
+  // Matrix for directional light
+  glm::mat4 matRotation;
+  // Matrix for directional light space
+  glm::mat4 matLightspace;
 
+  // TODO: Framebuffer size before binding framebuffer???
   // Get current frame buffer size ???
   glfwGetFramebufferSize(window, &width, &height);
 
+  // Draw scene from directional light POV
+  lightRender();
+  // TODO: calculate light viewproj only once (repetitive!)
+  // TODO: dynamic adding of lights + shadows
+  // viewproj calculated in render and lightRender
+  // TODO: Calculated in render AND lightRender (repetitive!)
+  float near_plane = 1.0f, far_plane = 25.f;
+  glm::mat4 lightProj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 
+    near_plane, far_plane);
+  // TODO: change location of direction light based on lookAt
+  // TODO: Attach a placement struct to directional light?
+  glm::mat4 lightView = glm::lookAt(
+    glm::vec3(-4.f, 0.f, 8.f),
+    glm::vec3(-4.f, 0.f, 8.f) + directional_lights[0].direction,
+    glm::vec3(0.f, 1.f, 0.f)
+  );
+
+  // Draw the scene from camera POV
   // Change framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   // Tells to what dimensions it renders to
   glViewport(0, 0, width * ssaaLevel, height * ssaaLevel);
   
-  // Buffer stuff
+  // Buffer stuff (???)
   glEnable(GL_DEPTH_TEST);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
@@ -658,10 +955,19 @@ static void render() {
   matView = glm::translate(glm::mat4(1.f), -camLocation) *
     matView;
 
+  // TODO: why skybox affected by glm::lookAt
   matView = glm::rotate(glm::mat4(1.f), -camRotation.x,
     sideways) * matView;
   matView = glm::rotate(glm::mat4(1.f), -camRotation.y,
     glm::vec3(0.f, 1.f, 0.f)) * matView;
+
+  // Rotation matrix
+  // TODO: Repetitive matrix
+  matRotation = glm::mat4(1.f);
+  matRotation = glm::rotate(glm::mat4(1.f), -camRotation.x,
+    sideways) * matRotation;
+  matRotation = glm::rotate(glm::mat4(1.f), -camRotation.y,
+    glm::vec3(0.f, 1.f, 0.f)) * matRotation;
 
   // Draw the first light source
 
@@ -671,22 +977,23 @@ static void render() {
 
   // Placement matrix
   matModel = glm::mat4(1.f);
-
+  
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(.5f, .5f, .5f)) * 
-    matModel;
+    point_lights[0].placement.scale) * matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    point_lights[0].placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    point_lights[0].placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    point_lights[0].placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
-  // Object position is (-8, 0, -2)
   matModel = glm::translate(glm::mat4(1.f),
-    lights[0].position) * matModel;
+    point_lights[0].placement.translate) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -700,7 +1007,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(lights[0].specular));
+    glm::value_ptr(point_lights[0].specular));
 
   // Bind vertex array object
   glBindVertexArray(ls_vaoID);
@@ -732,19 +1039,20 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(.5f, .5f, .5f)) * 
-    matModel;
+    point_lights[1].placement.scale) * matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    point_lights[1].placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    point_lights[1].placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    point_lights[1].placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
-  // Object position is (-8, 0, -2)
   matModel = glm::translate(glm::mat4(1.f),
-    lights[1].position) * matModel;
+    point_lights[1].placement.translate) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -755,7 +1063,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(lights[1].specular));
+    glm::value_ptr(point_lights[1].specular));
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
@@ -784,19 +1092,20 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(.5f, .5f, .5f)) * 
-    matModel;
+    point_lights[2].placement.scale) * matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    point_lights[2].placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    point_lights[2].placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    point_lights[2].placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
-  // Object position is (-8, 2, -2)
   matModel = glm::translate(glm::mat4(1.f),
-    lights[2].position) * matModel;
+    point_lights[2].placement.translate) * matModel;
 
   // Move object relative to the eye
   matModelview = matView * matModel;
@@ -807,7 +1116,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(lights[2].specular));
+    glm::value_ptr(point_lights[2].specular));
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, sphere_eleBufSize, GL_UNSIGNED_INT,
@@ -818,6 +1127,8 @@ static void render() {
 
   // Unbind shader program
   glUseProgram(0);
+
+  // TODO: Change order of render (VAO, attach uniforms, shader binding...)
 
   // Draw the phong bunny
 
@@ -830,20 +1141,25 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
+    phong_bunny_placement.scale) * 
     matModel;
 
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
-  // Object position is (-12, 0, -2)
+  // Object position is defined by placement struct
   matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(-12.f, 0.f, -2.f)) * matModel;
+    phong_bunny_placement.translate) * matModel;
 
+  // Directional light space matrix
+  matLightspace = lightProj * lightView * matModel;
   // Set modelview matrix
   matModelview = matView * matModel;
 
@@ -868,33 +1184,67 @@ static void render() {
     glm::value_ptr(copper.specular));
   glUniform1f(ompShader.materialShininess,
     copper.shininess);
-  // For each light, input into shader
+  // Directional light shadow transform
+  glUniformMatrix4fv(ompShader.lightspace, 1, GL_FALSE,
+    glm::value_ptr(matLightspace));
+  // For each point light, input into shader
   // TODO: If same shader, no need to call uniform repeatedly
+  // TODO: 3 is a magic number
   for(int i = 0; i < 3; i++) {
-    glUniform3fv(ompShader.ompLights[i].position, 1,
+    // Give position of light in view space
+    // View space transformation
+    glUniform3fv(ompShader.pointLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].position, 1.f)
+          matView * glm::vec4(point_lights[i].placement.translate, 1.f)
         )
       )
     );
-    glUniform3fv(ompShader.ompLights[i].ambient, 1,
-      glm::value_ptr(lights[i].ambient));
-    glUniform3fv(ompShader.ompLights[i].diffuse, 1,
-      glm::value_ptr(lights[i].diffuse));
-    glUniform3fv(ompShader.ompLights[i].specular, 1,
-      glm::value_ptr(lights[i].specular));
+    glUniform3fv(ompShader.pointLights[i].ambient, 1,
+      glm::value_ptr(point_lights[i].ambient));
+    glUniform3fv(ompShader.pointLights[i].diffuse, 1,
+      glm::value_ptr(point_lights[i].diffuse));
+    glUniform3fv(ompShader.pointLights[i].specular, 1,
+      glm::value_ptr(point_lights[i].specular));
     // Attenuation
     // Range of 50, from:
     // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
-    glUniform1f(ompShader.ompLights[i].constant, lights[i].constant);
-    glUniform1f(ompShader.ompLights[i].linear, lights[i].linear);
-    glUniform1f(ompShader.ompLights[i].quadratic, lights[i].quadratic);
+    glUniform1f(ompShader.pointLights[i].constant, point_lights[i].constant);
+    glUniform1f(ompShader.pointLights[i].linear, point_lights[i].linear);
+    glUniform1f(ompShader.pointLights[i].quadratic, point_lights[i].quadratic);
   }
+  // For each directional light, input into shader
+  // TODO: 1 is a magic number
+  for(int i = 0; i < 1; i++) {
+    // Give direction of directional light in view space
+    glUniform3fv(ompShader.directionalLights[i].direction, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matRotation * glm::vec4(directional_lights[i].direction, 1.f)
+        )
+      )
+    );
+    glUniform3fv(ompShader.directionalLights[i].ambient, 1,
+      glm::value_ptr(directional_lights[i].ambient));
+    glUniform3fv(ompShader.directionalLights[i].diffuse, 1,
+      glm::value_ptr(directional_lights[i].diffuse));
+    glUniform3fv(ompShader.directionalLights[i].specular, 1,
+      glm::value_ptr(directional_lights[i].specular));
+  }
+
+  // Bind the shadow depth map
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  // 0 because texture unit GL_TEXTURE0
+  glUniform1i(ompShader.shadowMap, 0);
 
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
+
+  // Unbind texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
@@ -913,20 +1263,25 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
+    wood_cube_placement.scale) * 
     matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    wood_cube_placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    wood_cube_placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    wood_cube_placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is -12, 0, -4
   matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(-12.f, 0.f, -4.f)) * matModel;
+    wood_cube_placement.translate) * matModel;
 
+  // Directional light space matrix
+  matLightspace = lightProj * lightView * matModel;
   // Modify object relative to the eye
   matModelview = matView * matModel;
 
@@ -941,29 +1296,50 @@ static void render() {
     glm::value_ptr(matProjection));
   // Shininess is 64.0, a MAGIC NUMBER
   glUniform1f(pcShader.materialShininess, 64.f);
-  // For each light, input into shader
+  // Directional light shadow transform
+  glUniformMatrix4fv(pcShader.lightspace, 1, GL_FALSE,
+    glm::value_ptr(matLightspace));
+  // For each point light, input into shader
   // TODO: Number of lights is 3
   for(int i = 0; i < 3; i++) {
     // Give light position in view space
     glUniform3fv(pcShader.pointLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].position, 1.f)
+          matView * glm::vec4(point_lights[i].placement.translate, 1.f)
         )
       )
     );
     glUniform3fv(pcShader.pointLights[i].ambient, 1,
-      glm::value_ptr(lights[i].ambient));
+      glm::value_ptr(point_lights[i].ambient));
     glUniform3fv(pcShader.pointLights[i].diffuse, 1,
-      glm::value_ptr(lights[i].diffuse));
+      glm::value_ptr(point_lights[i].diffuse));
     glUniform3fv(pcShader.pointLights[i].specular, 1,
-      glm::value_ptr(lights[i].specular));
+      glm::value_ptr(point_lights[i].specular));
     // Attenuation
     // Range of 50, from:
     // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
-    glUniform1f(pcShader.pointLights[i].constant, lights[i].constant);
-    glUniform1f(pcShader.pointLights[i].linear, lights[i].linear);
-    glUniform1f(pcShader.pointLights[i].quadratic, lights[i].quadratic);
+    glUniform1f(pcShader.pointLights[i].constant, point_lights[i].constant);
+    glUniform1f(pcShader.pointLights[i].linear, point_lights[i].linear);
+    glUniform1f(pcShader.pointLights[i].quadratic, point_lights[i].quadratic);
+  }
+  // For each directional light, input into shader
+  // TODO: 1 is a magic number
+  for(int i = 0; i < 1; i++) {
+    // Give direction of directional light in view space
+    glUniform3fv(pcShader.directionalLights[i].direction, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matRotation * glm::vec4(directional_lights[i].direction, 1.f)
+        )
+      )
+    );
+    glUniform3fv(pcShader.directionalLights[i].ambient, 1,
+      glm::value_ptr(directional_lights[i].ambient));
+    glUniform3fv(pcShader.directionalLights[i].diffuse, 1,
+      glm::value_ptr(directional_lights[i].diffuse));
+    glUniform3fv(pcShader.directionalLights[i].specular, 1,
+      glm::value_ptr(directional_lights[i].specular));
   }
 
   // Bind vertex array object
@@ -978,6 +1354,11 @@ static void render() {
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, woodcube_specularMapID);
   glUniform1i(pcShader.materialSpecular, 1);
+  // TODO: 4 shadow maps in one shadow map?
+  // Shadow Map
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  glUniform1i(pcShader.shadowMap, 2);
 
   // Draw the cube
   // Divide by 3 because per vertex
@@ -988,6 +1369,8 @@ static void render() {
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
@@ -1006,20 +1389,25 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
+    face_cube_placement.scale) * 
     matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    face_cube_placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    face_cube_placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    face_cube_placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is -12, 0, -4
   matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(-12.f, 0.f, 4.f)) * matModel;
+    face_cube_placement.translate) * matModel;
 
+  // Directional light space matrix
+  matLightspace = lightProj * lightView * matModel;
   // Modify object relative to the eye
   matModelview = matView * matModel;
 
@@ -1031,6 +1419,9 @@ static void render() {
     glm::value_ptr(matModelview));
   glUniformMatrix4fv(ofpcShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
+  // Directional light shadow transform
+  glUniformMatrix4fv(ofpcShader.lightspace, 1, GL_FALSE,
+    glm::value_ptr(matLightspace));
   // For each light, input into shader
   // TODO: Number of lights is 3
   for(int i = 0; i < 3; i++) {
@@ -1038,20 +1429,38 @@ static void render() {
     glUniform3fv(ofpcShader.pointLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].position, 1.f)
+          matView * glm::vec4(point_lights[i].placement.translate, 1.f)
         )
       )
     );
     glUniform3fv(ofpcShader.pointLights[i].ambient, 1,
-      glm::value_ptr(lights[i].ambient));
+      glm::value_ptr(point_lights[i].ambient));
     glUniform3fv(ofpcShader.pointLights[i].diffuse, 1,
-      glm::value_ptr(lights[i].diffuse));
+      glm::value_ptr(point_lights[i].diffuse));
     glUniform3fv(ofpcShader.pointLights[i].specular, 1,
-      glm::value_ptr(lights[i].specular));
+      glm::value_ptr(point_lights[i].specular));
     // Attenuation
-    glUniform1f(ofpcShader.pointLights[i].constant, lights[i].constant);
-    glUniform1f(ofpcShader.pointLights[i].linear, lights[i].linear);
-    glUniform1f(ofpcShader.pointLights[i].quadratic, lights[i].quadratic);
+    glUniform1f(ofpcShader.pointLights[i].constant, point_lights[i].constant);
+    glUniform1f(ofpcShader.pointLights[i].linear, point_lights[i].linear);
+    glUniform1f(ofpcShader.pointLights[i].quadratic, point_lights[i].quadratic);
+  }
+  // For each directional light, input into shader
+  // TODO: 1 is a magic number
+  for(int i = 0; i < 1; i++) {
+    // Give direction of directional light in view space
+    glUniform3fv(ofpcShader.directionalLights[i].direction, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matRotation * glm::vec4(directional_lights[i].direction, 1.f)
+        )
+      )
+    );
+    glUniform3fv(ofpcShader.directionalLights[i].ambient, 1,
+      glm::value_ptr(directional_lights[i].ambient));
+    glUniform3fv(ofpcShader.directionalLights[i].diffuse, 1,
+      glm::value_ptr(directional_lights[i].diffuse));
+    glUniform3fv(ofpcShader.directionalLights[i].specular, 1,
+      glm::value_ptr(directional_lights[i].specular));
   }
 
   // Bind vertex array object
@@ -1070,6 +1479,10 @@ static void render() {
   glBindTexture(GL_TEXTURE_2D, facecube_specularMapID);
   // 1 because texture unit GL_TEXTURE1
   glUniform1i(ofpcShader.materialSpecular, 1);
+  // Bind shadow depth map
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  glUniform1i(ofpcShader.shadowMap, 2);
 
   // Draw one object
   glDrawArrays(GL_TRIANGLES, 0, convexbox_bufSize / 3);
@@ -1079,6 +1492,8 @@ static void render() {
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, 0);
 
   // Unbind vertex array object
   glBindVertexArray(0);
@@ -1103,20 +1518,25 @@ static void render() {
 
   // Put object into world
   matModel = glm::scale(glm::mat4(1.f),
-    glm::vec3(1.f, 1.f, 1.f)) * 
+    phong_globe_placement.scale) * 
     matModel;
   
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_globe_placement.rotate.x,
     glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_globe_placement.rotate.y,
     glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f), 0.f,
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_globe_placement.rotate.z,
     glm::vec3(0.f, 0.f, 1.f)) * matModel;
 
   // Object position is -8, 0, 4
   matModel = glm::translate(glm::mat4(1.f),
-    glm::vec3(-8.f, 0.f, 4)) * matModel;
+    phong_globe_placement.translate) * matModel;
 
+  // Directional light space matrix
+  matLightspace = lightProj * lightView * matModel;
   // Modify object relative to the eye
   matModelview = matView * matModel;
 
@@ -1129,26 +1549,54 @@ static void render() {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, world_texBufID);
   glUniform1i(phongShader.materialDiffuse, 0);
-  // For each light, input into shader
+  // Bind shadow depth map
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  glUniform1i(phongShader.shadowMap, 1);
+  // Directional light shadow transform
+  glUniformMatrix4fv(phongShader.lightspace, 1, GL_FALSE,
+    glm::value_ptr(matLightspace));
+  // For each point light, input into shader
   // TODO: If same shader, no need to call uniform repeatedly
   for(int i = 0; i < 3; i++) {
     glUniform3fv(phongShader.pointLights[i].position, 1,
       glm::value_ptr(
         glm::vec3(
-          matView * glm::vec4(lights[i].position, 1.f)
+          matView * glm::vec4(point_lights[i].placement.translate, 1.f)
         )
       )
     );
     glUniform3fv(phongShader.pointLights[i].ambient, 1,
-      glm::value_ptr(lights[i].ambient));
+      glm::value_ptr(point_lights[i].ambient));
     glUniform3fv(phongShader.pointLights[i].diffuse, 1,
-      glm::value_ptr(lights[i].diffuse));
+      glm::value_ptr(point_lights[i].diffuse));
     glUniform3fv(phongShader.pointLights[i].specular, 1,
-      glm::value_ptr(lights[i].specular));
+      glm::value_ptr(point_lights[i].specular));
     // Attenuation
-    glUniform1f(phongShader.pointLights[i].constant, lights[i].constant);
-    glUniform1f(phongShader.pointLights[i].linear, lights[i].linear);
-    glUniform1f(phongShader.pointLights[i].quadratic, lights[i].quadratic);
+    glUniform1f(phongShader.pointLights[i].constant,
+      point_lights[i].constant);
+    glUniform1f(phongShader.pointLights[i].linear,
+      point_lights[i].linear);
+    glUniform1f(phongShader.pointLights[i].quadratic,
+      point_lights[i].quadratic);
+  }
+  // For each directional light, input into shader
+  // TODO: 1 is a magic number
+  for(int i = 0; i < 1; i++) {
+    // Give direction of directional light in view space
+    glUniform3fv(phongShader.directionalLights[i].direction, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matRotation * glm::vec4(directional_lights[i].direction, 1.f)
+        )
+      )
+    );
+    glUniform3fv(phongShader.directionalLights[i].ambient, 1,
+      glm::value_ptr(directional_lights[i].ambient));
+    glUniform3fv(phongShader.directionalLights[i].diffuse, 1,
+      glm::value_ptr(directional_lights[i].diffuse));
+    glUniform3fv(phongShader.directionalLights[i].specular, 1,
+      glm::value_ptr(directional_lights[i].specular));
   }
 
   // Draw one object
@@ -1157,6 +1605,8 @@ static void render() {
 
   // Unbind texture
   glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, 0);
 
   // Unbind vertex array object
@@ -1340,6 +1790,7 @@ int main(int argc, char **argv) {
 
   // Loop until the user closes the window
   while(!glfwWindowShouldClose(window)) {
+    // TODO: Add FPS counter
     // Render scene
     render();
     // Swap front and back buffers

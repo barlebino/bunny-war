@@ -5,6 +5,28 @@
 
 #include "phong_shader.hpp"
 
+// Put light locations at index lightNum into direction light struct
+// Assumes phongShader->pid is initialized
+void getPhongDirectionalLightLocations(
+  struct PhongShader *phongShader, int lightNum) {
+  GLint pid;
+  std::string varname, lightNumString;
+  struct PhongDirectionalLight *pdLight;
+
+  pid = phongShader->pid;
+  pdLight = &(phongShader->directionalLights[lightNum]);
+  lightNumString = std::to_string(lightNum);
+
+  varname = "directionalLights[" + lightNumString + "].direction";
+  pdLight->direction = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].ambient";
+  pdLight->ambient = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].diffuse";
+  pdLight->diffuse = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].specular";
+  pdLight->specular = glGetUniformLocation(pid, varname.c_str());
+}
+
 // Put light locations at index lightNum
 // Assumes phongShader->pid is initialized
 void getPhongPointLightLocations(
@@ -55,24 +77,19 @@ void getPhongShaderLocations(struct PhongShader *phongShader) {
     "projection");
   phongShader->materialDiffuse = glGetUniformLocation(phongShader->pid,
     "material.diffuse");
-  phongShader->lightPosition = glGetUniformLocation(phongShader->pid,
-    "light.position");
-  phongShader->lightAmbient = glGetUniformLocation(phongShader->pid,
-    "light.ambient");
-  phongShader->lightDiffuse = glGetUniformLocation(phongShader->pid,
-    "light.diffuse");
-  phongShader->lightSpecular = glGetUniformLocation(phongShader->pid,
-    "light.specular");
-  phongShader->lightConstant = glGetUniformLocation(phongShader->pid,
-    "light.constant");
-  phongShader->lightLinear = glGetUniformLocation(phongShader->pid,
-    "light.linear");
-  phongShader->lightQuadratic = glGetUniformLocation(phongShader->pid,
-    "light.quadratic");
+  // Shadow mapping uniforms
+  phongShader->shadowMap = glGetUniformLocation(phongShader->pid,
+    "shadowMap");
+  phongShader->lightspace = glGetUniformLocation(phongShader->pid,
+    "lightspace");
 
-  // Get all point light Uniforms
+  // Get all point light uniforms
   for(int i = 0; i < NUM_POINT_LIGHTS; i++) {
     getPhongPointLightLocations(phongShader, i);
+  }
+  // Get all directional light uniforms
+  for(int i = 0; i < NUM_DIRECTIONAL_LIGHTS; i++) {
+    getPhongDirectionalLightLocations(phongShader, i);
   }
 }
 
