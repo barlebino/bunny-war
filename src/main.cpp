@@ -364,7 +364,7 @@ static void init() {
   glGenTextures(1, &fbo_color_texture);
   glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   // Multiply by level for super sample anti-aliasing
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_width * ssaaLevel,
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_width * ssaaLevel,
     g_height * ssaaLevel, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -407,7 +407,7 @@ static void init() {
   // Color texture
   glGenTextures(1, &shadow_color_texture);
   glBindTexture(GL_TEXTURE_2D, shadow_color_texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, shadow_width, shadow_height,
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, shadow_width, shadow_height,
     0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
