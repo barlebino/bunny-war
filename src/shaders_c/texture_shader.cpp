@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -10,11 +12,10 @@ void getTextureShaderLocations(struct TextureShader *textureShader) {
   textureShader->vertPos = glGetAttribLocation(textureShader->pid, "vertPos");
   textureShader->texCoord = glGetAttribLocation(textureShader->pid, "texCoord");
 
-  // Per-object matrices to pass to shaders
-  textureShader->modelview = glGetUniformLocation(textureShader->pid,
-    "modelview");
-  textureShader->projection = glGetUniformLocation(textureShader->pid,
-    "projection");
+  // Uniforms
+  textureShader->exposure = glGetUniformLocation(textureShader->pid,
+    "exposure");
+  printf("textureShader->exposure: %d\n", textureShader->exposure);
 
   // Get the location of the sampler2D in fragment shader (???)
   textureShader->texLoc = glGetUniformLocation(textureShader->pid, "texCol");
