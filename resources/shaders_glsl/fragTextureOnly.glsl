@@ -1,6 +1,7 @@
 #version 330 core
 
 uniform sampler2D texCol;
+uniform float exposure;
 
 in vec2 vert_texCoord;
 
@@ -12,5 +13,7 @@ void main() {
   if(texColor.a < 0.1) {
     discard;
   }
-  color = texColor;
+  vec3 hdrColor = texColor.rgb;
+  vec3 mapped = vec3(1.0) - exp(-hdrColor * exposure);
+  color = vec4(mapped, 1.0);
 }

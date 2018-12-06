@@ -10,8 +10,7 @@ struct TextureShader {
   GLint vertPos;
   GLint texCoord;
   // Uniforms
-  GLint modelview;
-  GLint projection;
+  GLint exposure;
   GLint texLoc; // sampler2D
 };
 
