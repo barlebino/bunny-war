@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -15,8 +13,7 @@ void getTextureShaderLocations(struct TextureShader *textureShader) {
   // Uniforms
   textureShader->exposure = glGetUniformLocation(textureShader->pid,
     "exposure");
-  printf("textureShader->exposure: %d\n", textureShader->exposure);
-
+  
   // Get the location of the sampler2D in fragment shader (???)
   textureShader->texLoc = glGetUniformLocation(textureShader->pid, "texCol");
   textureShader->bloomBuffer =
