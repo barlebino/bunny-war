@@ -427,18 +427,6 @@ static void init() {
   // Create framebuffer with depth only for shadows
   glGenFramebuffers(1, &shadow_fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
-  /*
-  // Color texture
-  glGenTextures(1, &shadow_color_texture);
-  glBindTexture(GL_TEXTURE_2D, shadow_color_texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, shadow_width, shadow_height,
-    0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 
-    shadow_color_texture, 0);
-  glBindTexture(GL_TEXTURE_2D, 0);
-  */
   // Depth texture
   glGenTextures(1, &shadow_depth_texture);
   glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
