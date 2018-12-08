@@ -33,6 +33,7 @@
 #include "shaders_c/onefacephongcube_shader.hpp"
 #include "shaders_c/phong_shader.hpp"
 #include "shaders_c/shadowdepth_shader.hpp"
+#include "shaders_c/blur_shader.hpp"
 
 // Placement struct
 // Contains scale, rotation, and translate matrices
@@ -93,6 +94,7 @@ struct DirectionalLight directional_lights[1];
 
 // VAO IDs
 unsigned rect_vaoID;
+unsigned blur_rect_vaoID;
 unsigned skybox_vaoID;
 unsigned ls_vaoID;
 unsigned omp_bunny_vaoID;
@@ -139,6 +141,7 @@ struct PhongCubeShader pcShader;
 struct OneFacePhongCubeShader ofpcShader;
 struct PhongShader phongShader;
 struct ShadowDepthShader sdShader;
+struct BlurShader blurShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -147,6 +150,7 @@ int g_height = 960;
 // Framebuffer for postprocessing
 unsigned int fbo;
 unsigned int fbo_color_texture;
+unsigned int fbo_bright_color_texture; // Bloom
 unsigned int fbo_depth_stencil_texture;
 
 // Framebuffer with depth only for shadow mapping
@@ -155,6 +159,10 @@ unsigned int shadow_color_texture; // TESTING
 unsigned int shadow_depth_texture;
 int shadow_width = 1280;
 int shadow_height = 960;
+
+// Ping pong framebuffers for bloom
+unsigned int pingpongFBO[2];
+unsigned int pingpongBuffer[2];
 
 // World texture
 unsigned world_texBufID;
@@ -374,6 +382,21 @@ static void init() {
   // Unbind texture
   glBindTexture(GL_TEXTURE_2D, 0);
 
+  // Bright color texture for fbo, for bloom
+  glGenTextures(1, &fbo_bright_color_texture);
+  glBindTexture(GL_TEXTURE_2D, fbo_bright_color_texture);
+  // Multiply by level for super sample anti-aliasing
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R11F_G11F_B10F, 
+    g_width * ssaaLevel, g_height * ssaaLevel, 0,
+    GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  // Attach texture to fbo
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, 
+    fbo_bright_color_texture, 0);
+  // Unbind texture
+  glBindTexture(GL_TEXTURE_2D, 0);
+
   // TODO: Remove depth and stencil textures
   // Depth and stencil texture for fbo
   glGenTextures(1, &fbo_depth_stencil_texture);
@@ -428,6 +451,31 @@ static void init() {
   glBindTexture(GL_TEXTURE_2D, 0);
   // Unbind shadow framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  // Ping pong framebuffers for bloom
+  glGenFramebuffers(2, pingpongFBO);
+  // Color buffers for ping pong
+  glGenTextures(2, pingpongBuffer);
+  for(int i = 0; i < 2; i++) {
+    glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
+    glBindTexture(GL_TEXTURE_2D, pingpongBuffer[i]);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_R11F_G11F_B10F, g_width / 2,
+        g_height / 2, 0, GL_RGB, GL_FLOAT, NULL
+    );
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(
+        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+        pingpongBuffer[i], 0
+    );
+    // Unbind texture
+    glBindTexture(GL_TEXTURE_2D, 0);
+    // Unbind framebuffer to normal framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  }
 
   // -------- Initialize all of the meshes --------
 
@@ -588,10 +636,20 @@ static void init() {
   // Put locations of attribs and uniforms into sdShader
   getShadowDepthShaderLocations(&sdShader);
 
+  // ------ Gaussian blur shader ------
+  blurShader.pid = initShader(
+    "../resources/shaders_glsl/vertBlur.glsl",
+    "../resources/shaders_glsl/fragBlur.glsl");
+  getBlurShaderLocations(&blurShader);
+
   // -------- Initialize VAOS --------
   
   // Texture-only rectangle (screen)
   makeTextureShaderVAO(&rect_vaoID, &textureShader,
+    rect_posBufID, rect_texCoordBufID, rect_eleBufID);
+
+  // Ping pong rectangle (Gaussian blur)
+  makeBlurShaderVAO(&blur_rect_vaoID, &blurShader,
     rect_posBufID, rect_texCoordBufID, rect_eleBufID);
 
   // Skybox VAO (sky)
@@ -771,6 +829,7 @@ static void lightRender() {
   glViewport(0, 0, width, height);
   glEnable(GL_DEPTH_TEST);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+  glClearColor(0.f, 0.f, 0.f, 1.f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   
   // Set permanent matrices
@@ -956,7 +1015,12 @@ static void render() {
   glEnable(GL_DEPTH_TEST);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
+  // Render to two colorbuffers
+  // glDrawBuffers is framebuffer state
+  unsigned int hdrAttachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+  glDrawBuffers(2, hdrAttachments);
   // Clear framebuffer
+  glClearColor(0.f, 0.f, 0.f, 1.f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
   if(!cameraFreeze) {
@@ -1692,15 +1756,54 @@ static void render() {
 
   // Unbind shader program
   glUseProgram(0);
+  
+  // Perform Guassian blur on color attachment
+  int numBlurs = 6;
+  glDisable(GL_DEPTH_TEST);
+  // Stencil
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+  // Shader program
+  glUseProgram(blurShader.pid);
+  // VAO
+  glBindVertexArray(blur_rect_vaoID);
+  // Only uses one texture
+  glActiveTexture(GL_TEXTURE0);
+  for(int i = 0; i < numBlurs; i++) {
+    // Blur horizontally
+    // Copy color buffer to ping pong color buffer #0
+    glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i % 2]);
+    //glViewport(0, 0, width * ssaaLevel, height * ssaaLevel);
+    glViewport(0, 0, width / 2, height / 2);
+    // Uniform for type of blur
+    glUniform1i(blurShader.horizontal, i % 2);
+    // TODO: Initial coniditons, copy operation before for loop?
+    if(i == 0) {
+      // TODO: change to blur the bright texture
+      glBindTexture(GL_TEXTURE_2D, fbo_bright_color_texture);
+    } else {
+      glBindTexture(GL_TEXTURE_2D, pingpongBuffer[(i + 1) % 2]);
+    }
+    glUniform1i(blurShader.texLoc, 0);
+    // Draw
+    glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
+      (const void *) 0);
+  }
+  // Unbind
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glBindVertexArray(0);
+  glUseProgram(0);
 
   // Paste from side framebuffer to default framebuffer
-
-  // Enable gamma correction
-  glEnable(GL_FRAMEBUFFER_SRGB);
 
   // Bind normal framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glViewport(0, 0, width, height);
+  // Enable gamma correction
+  glEnable(GL_FRAMEBUFFER_SRGB);
+  // Clear
+  glClearColor(0.f, 0.f, 0.f, 1.f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glDisable(GL_DEPTH_TEST);
 
@@ -1717,16 +1820,16 @@ static void render() {
   // Bind vertex array object
   glBindVertexArray(rect_vaoID);
 
-  // Calculate placement matrix (do nothing)
-  matModel = glm::mat4(1.f);
-
   // Fill in shader uniforms
   // TODO: Automatic exposure adjustment
   glUniform1f(textureShader.exposure, 1.f);
-  // Bind texture
+  // Bind textures
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   glUniform1i(textureShader.texLoc, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, pingpongBuffer[0]);
+  glUniform1i(textureShader.bloomBuffer, 1);
 
   // Draw screen
   glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,

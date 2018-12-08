@@ -19,6 +19,8 @@ void getTextureShaderLocations(struct TextureShader *textureShader) {
 
   // Get the location of the sampler2D in fragment shader (???)
   textureShader->texLoc = glGetUniformLocation(textureShader->pid, "texCol");
+  textureShader->bloomBuffer =
+    glGetUniformLocation(textureShader->pid, "bloomBuffer");
 }
 
 // Create VAO then put ID into vaoID
