@@ -33,7 +33,8 @@ in vec3 frag_pos_light_space;
 // all points in frag_pos_light_space perfect [-1, 1] cube
 // assuming ortho. TODO: not sure about proj yet
 
-out vec4 out_color;
+layout (location = 0) out vec4 out_color;
+layout (location = 1) out vec4 bright_color;
 
 uniform Material material;
 uniform PointLight pointLights[NUM_POINT_LIGHTS];
@@ -122,4 +123,11 @@ void main() {
   }
   // Turn final light into vec4
   out_color = vec4(total_light, 1.0);
+  // bright color filter from learnopengl
+  float brightness = dot(out_color.rgb, vec3(0.2126, 0.7152, 0.0722));
+  if(brightness > 1.0) {
+    bright_color = vec4(out_color.rgb, 1.0);
+  } else {
+    bright_color = vec4(0.0, 0.0, 0.0, 1.0);
+  }
 }
