@@ -372,7 +372,7 @@ static void init() {
   glGenTextures(1, &fbo_color_texture);
   glBindTexture(GL_TEXTURE_2D, fbo_color_texture);
   // Multiply by level for super sample anti-aliasing
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, g_width * ssaaLevel,
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R11F_G11F_B10F, g_width * ssaaLevel,
     g_height * ssaaLevel, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -427,16 +427,6 @@ static void init() {
   // Create framebuffer with depth only for shadows
   glGenFramebuffers(1, &shadow_fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
-  // Color texture
-  glGenTextures(1, &shadow_color_texture);
-  glBindTexture(GL_TEXTURE_2D, shadow_color_texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, shadow_width, shadow_height,
-    0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 
-    shadow_color_texture, 0);
-  glBindTexture(GL_TEXTURE_2D, 0);
   // Depth texture
   glGenTextures(1, &shadow_depth_texture);
   glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
@@ -449,6 +439,9 @@ static void init() {
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
     shadow_depth_texture, 0);
   glBindTexture(GL_TEXTURE_2D, 0);
+  // No color buffer
+  glDrawBuffer(GL_NONE);
+  glReadBuffer(GL_NONE);
   // Unbind shadow framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -923,6 +916,7 @@ static void lightRender() {
   // Render cubes
   glBindVertexArray(cubeDepthModel.vaoID);
   // Get wood cube
+  // TODO: Does not take rotation or scale into account
   model = glm::translate(glm::mat4(1.f),
     wood_cube_placement.translate);
   modelviewproj = proj * view * model;
@@ -1836,6 +1830,8 @@ static void render() {
     (const void *) 0);
 
   // Unbind texture
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, 0);
 
