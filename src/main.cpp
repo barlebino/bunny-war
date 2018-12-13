@@ -72,7 +72,8 @@ struct DepthModel sphereDepthModel;
 struct DepthModel bunnyDepthModel;
 struct DepthModel cubeDepthModel;
 
-int ssaaLevel = 2;
+// Super sample anti-aliasing
+int ssaaLevel = 1;
 
 GLFWwindow *window; // Main application window
 
@@ -155,7 +156,6 @@ unsigned int fbo_depth_stencil_texture;
 
 // Framebuffer with depth only for shadow mapping
 unsigned int shadow_fbo;
-unsigned int shadow_color_texture; // TESTING
 unsigned int shadow_depth_texture;
 int shadow_width = 1280;
 int shadow_height = 960;
@@ -163,6 +163,12 @@ int shadow_height = 960;
 // Ping pong framebuffers for bloom
 unsigned int pingpongFBO[2];
 unsigned int pingpongBuffer[2];
+
+// G-Buffer for deferred rendering
+unsigned int deferred_fbo;
+unsigned int deferred_pos_texture;
+unsigned int deferred_nor_texture;
+unsigned int deferred_col_texture;
 
 // World texture
 unsigned world_texBufID;
@@ -382,6 +388,7 @@ static void init() {
   // Unbind texture
   glBindTexture(GL_TEXTURE_2D, 0);
 
+  // TODO: No need for large bright texture; one render pass into pingpong?
   // Bright color texture for fbo, for bloom
   glGenTextures(1, &fbo_bright_color_texture);
   glBindTexture(GL_TEXTURE_2D, fbo_bright_color_texture);
@@ -422,8 +429,6 @@ static void init() {
   // Unbind
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-  // TODO: Convert to only depth attachment
-  // TESTING COLOR ATTACHMENT
   // Create framebuffer with depth only for shadows
   glGenFramebuffers(1, &shadow_fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
@@ -442,6 +447,7 @@ static void init() {
   // No color buffer
   glDrawBuffer(GL_NONE);
   glReadBuffer(GL_NONE);
+  // TODO: Check for completion
   // Unbind shadow framebuffer
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -466,9 +472,52 @@ static void init() {
     );
     // Unbind texture
     glBindTexture(GL_TEXTURE_2D, 0);
+    // TODO: Check for completion
     // Unbind framebuffer to normal framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
+
+  /*
+  unsigned int deferred_fbo;
+  unsigned int deferred_pos_texture;
+  unsigned int deferred_nor_texture;
+  unsigned int deferred_col_texture;
+  */
+  // G-Buffer for deferred rendering
+  glGenFramebuffers(1, &deferred_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, deferred_fbo);
+  // Position buffer -- create then attach
+  glGenTextures(1, &deferred_pos_texture);
+  glBindTexture(GL_TEXTURE_2D, deferred_pos_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, g_width, g_height, 0,
+    GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+    deferred_pos_texture, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  // Normal buffer -- create then attach
+  glGenTextures(1, &deferred_nor_texture);
+  glBindTexture(GL_TEXTURE_2D, deferred_nor_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, g_width, g_height, 0,
+    GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D,
+    deferred_nor_texture, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  // Color buffer -- create then attach
+  glGenTextures(1, &deferred_col_texture);
+  glBindTexture(GL_TEXTURE_2D, deferred_col_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_width, g_height, 0,
+    GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D,
+    deferred_col_texture, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  // Unbind G-Buffer
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   // -------- Initialize all of the meshes --------
 
@@ -814,7 +863,7 @@ static void handleInput(int width, int height) {
   }
 }
 
-// TODO: For only one directional light
+// TODO: Right now this is for only one directional light
 static void lightRender() {
   int width, height;
   glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
@@ -950,6 +999,12 @@ static void lightRender() {
   // Unbind, done rendering depth objects
   glUseProgram(0);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+// Render to the G-Buffer
+static void geometryPass() {
+  // Create matrices
+  
 }
 
 static void render() {
