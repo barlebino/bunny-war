@@ -35,6 +35,7 @@
 #include "shaders_c/shadowdepth_shader.hpp"
 #include "shaders_c/blur_shader.hpp"
 #include "shaders_c/deferred_c/deferred_omp_shader.hpp"
+#include "shaders_c/deferred_c/lighting_pass_shader.hpp"
 
 // Placement struct
 // Contains scale, rotation, and translate matrices
@@ -76,6 +77,7 @@ struct DepthModel cubeDepthModel;
 // VAOs for deferred rendering
 // TODO: Common VAO for different shaders
 unsigned dfr_bunny_vaoID;
+unsigned dfr_rect_vaoID;
 
 // Super sample anti-aliasing
 int ssaaLevel = 1;
@@ -85,11 +87,14 @@ GLFWwindow *window; // Main application window
 // Location of camera
 glm::vec3 camLocation = glm::vec3(0.f, 0.f, 2.f);
 // Rotation of camera
-glm::vec2 camRotation = glm::vec2(0.f, 0.f);
+//glm::vec2 camRotation = glm::vec2(0.f, 0.f);
+glm::vec2 camRotation = glm::vec2(0.f, 3.14f / 2.f);
 // Forward direction
-glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
+//glm::vec3 forward = glm::vec3(0.f, 0.f, -1.f);
+glm::vec3 forward = glm::vec3(-1.f, 0.f, 0.f);
 // Sideways direction
-glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
+//glm::vec3 sideways = glm::vec3(1.f, 0.f, 0.f);
+glm::vec3 sideways = glm::vec3(0.f, 0.f, -1.f);
 
 // Input
 char keys[6] = {0, 0, 0, 0, 0, 0};
@@ -149,6 +154,7 @@ struct PhongShader phongShader;
 struct ShadowDepthShader sdShader;
 struct BlurShader blurShader;
 struct DeferredOmpShader dompShader;
+struct LightingPassShader lpShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -492,8 +498,8 @@ static void init() {
   // Position buffer -- create then attach
   glGenTextures(1, &deferred_pos_texture);
   glBindTexture(GL_TEXTURE_2D, deferred_pos_texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, g_width, g_height, 0,
-    GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, g_width * ssaaLevel, 
+    g_height * ssaaLevel, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
@@ -502,8 +508,8 @@ static void init() {
   // Normal buffer -- create then attach
   glGenTextures(1, &deferred_nor_texture);
   glBindTexture(GL_TEXTURE_2D, deferred_nor_texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, g_width, g_height, 0,
-    GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, g_width * ssaaLevel,
+    g_height * ssaaLevel, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D,
@@ -512,8 +518,8 @@ static void init() {
   // Color buffer -- create then attach
   glGenTextures(1, &deferred_col_texture);
   glBindTexture(GL_TEXTURE_2D, deferred_col_texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_width, g_height, 0,
-    GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_width * ssaaLevel,
+    g_height * ssaaLevel, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D,
@@ -522,8 +528,8 @@ static void init() {
   // Depth buffer -- create then attach
   glGenTextures(1, &deferred_depth_texture);
   glBindTexture(GL_TEXTURE_2D, deferred_depth_texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
-    g_width, g_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, g_width * ssaaLevel,
+    g_height * ssaaLevel, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
@@ -705,6 +711,12 @@ static void init() {
     "../resources/shaders_glsl/deferred_glsl/fragDeferredOmp.glsl");
   getDeferredOmpShaderLocations(&dompShader);
 
+  // ------ Deferred Lighting Pass Shader ------
+  lpShader.pid = initShader(
+    "../resources/shaders_glsl/deferred_glsl/vertLightingPass.glsl",
+    "../resources/shaders_glsl/deferred_glsl/fragLightingPass.glsl");
+  getLightingPassShaderLocations(&lpShader);
+
   // -------- Initialize VAOS --------
   
   // Texture-only rectangle (screen)
@@ -761,6 +773,10 @@ static void init() {
   // Bunny deferred VAO
   makeDeferredOmpShaderVAO(&dfr_bunny_vaoID, &dompShader,
     bunny_posBufID, bunny_norBufID, bunny_eleBufID);
+
+  // Result of G-Buffer VAO
+  makeLightingPassShaderVAO(&dfr_rect_vaoID, &lpShader,
+    rect_posBufID, rect_texCoordBufID, rect_eleBufID);
 
   // -------- Initialize Lights --------
   Placement tempPlacement;
@@ -1052,7 +1068,7 @@ static void geometryPass() {
   };
   glDrawBuffers(3, gpAttachments);
   // Clear framebuffer
-  glClearColor(0.f, 0.f, 0.f, 1.f);
+  glClearColor(0.f, 0.f, 0.f, 0.f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   // Projection matrix
   aspect = width / (float) height;
@@ -1204,6 +1220,194 @@ static void render() {
     sideways) * matRotation;
   matRotation = glm::rotate(glm::mat4(1.f), -camRotation.y,
     glm::vec3(0.f, 1.f, 0.f)) * matRotation;
+
+  // Draw the G-Buffer
+  
+  // Will always pass the stencil test
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  // Never write to the stencil buffer
+  glStencilMask(0x00);
+  
+  glUseProgram(lpShader.pid);
+  glBindVertexArray(dfr_rect_vaoID);
+  // Bind G-Buffer
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, deferred_pos_texture);
+  glUniform1i(lpShader.gpos, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, deferred_nor_texture);
+  glUniform1i(lpShader.gnor, 1);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, deferred_col_texture);
+  glUniform1i(lpShader.gcol, 2);
+  // Draw screen
+  glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Unbind
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glBindVertexArray(0);
+  glUseProgram(0);
+
+  // Copy depth buffer from G-Buffer
+  // TODO: Different dimension framebuffers
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, deferred_fbo);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+  glBlitFramebuffer(0, 0, g_width * ssaaLevel, g_height * ssaaLevel,
+    0, 0, g_width * ssaaLevel, g_height * ssaaLevel,
+    GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+  /*
+  printf("camLocation: [%f, %f, %f]\n",
+    camLocation.r,
+    camLocation.g,
+    camLocation.b
+  );
+  printf("camRotation: [%f, %f]\n",
+    camRotation.r,
+    camRotation.g
+  );
+  printf("forward: [%f, %f, %f]\n",
+    forward.r,
+    forward.g,
+    forward.b
+  );
+  printf("sideways: [%f, %f, %f]\n",
+    sideways.r,
+    sideways.g,
+    sideways.b
+  );
+  printf("\n");
+  */
+
+  /*
+  // Draw the phong bunny
+
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    phong_bunny_placement.scale) * 
+    matModel;
+
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.x,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.y,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.z,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+
+  // Object position is defined by placement struct
+  matModel = glm::translate(glm::mat4(1.f),
+    phong_bunny_placement.translate) * matModel;
+
+  // Directional light space matrix
+  matLightspace = lightProj * lightView * matModel;
+  // Set modelview matrix
+  matModelview = matView * matModel;
+
+  // Bind shader program
+  glUseProgram(ompShader.pid);
+
+  // Bind vertex array object
+  glBindVertexArray(omp_bunny_vaoID);
+
+  // Fill in matrices
+  // Fill in vertex shader uniforms
+  glUniformMatrix4fv(ompShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(ompShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  // Fill in fragment shader uniforms
+  glUniform3fv(ompShader.materialAmbient, 1,
+    glm::value_ptr(copper.ambient));
+  glUniform3fv(ompShader.materialDiffuse, 1,
+    glm::value_ptr(copper.diffuse));
+  glUniform3fv(ompShader.materialSpecular, 1,
+    glm::value_ptr(copper.specular));
+  glUniform1f(ompShader.materialShininess,
+    copper.shininess);
+  // Directional light shadow transform
+  glUniformMatrix4fv(ompShader.lightspace, 1, GL_FALSE,
+    glm::value_ptr(matLightspace));
+  // For each point light, input into shader
+  // TODO: If same shader, no need to call uniform repeatedly
+  // TODO: 3 is a magic number
+  for(int i = 0; i < 3; i++) {
+    // Give position of light in view space
+    // View space transformation
+    glUniform3fv(ompShader.pointLights[i].position, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matView * glm::vec4(point_lights[i].placement.translate, 1.f)
+        )
+      )
+    );
+    glUniform3fv(ompShader.pointLights[i].ambient, 1,
+      glm::value_ptr(point_lights[i].ambient));
+    glUniform3fv(ompShader.pointLights[i].diffuse, 1,
+      glm::value_ptr(point_lights[i].diffuse));
+    glUniform3fv(ompShader.pointLights[i].specular, 1,
+      glm::value_ptr(point_lights[i].specular));
+    // Attenuation
+    // Range of 50, from:
+    // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
+    glUniform1f(ompShader.pointLights[i].constant, point_lights[i].constant);
+    glUniform1f(ompShader.pointLights[i].linear, point_lights[i].linear);
+    glUniform1f(ompShader.pointLights[i].quadratic, point_lights[i].quadratic);
+  }
+  // For each directional light, input into shader
+  // TODO: 1 is a magic number
+  for(int i = 0; i < 1; i++) {
+    // Give direction of directional light in view space
+    glUniform3fv(ompShader.directionalLights[i].direction, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matRotation * glm::vec4(directional_lights[i].direction, 1.f)
+        )
+      )
+    );
+    glUniform3fv(ompShader.directionalLights[i].ambient, 1,
+      glm::value_ptr(directional_lights[i].ambient));
+    glUniform3fv(ompShader.directionalLights[i].diffuse, 1,
+      glm::value_ptr(directional_lights[i].diffuse));
+    glUniform3fv(ompShader.directionalLights[i].specular, 1,
+      glm::value_ptr(directional_lights[i].specular));
+  }
+
+  // Bind the shadow depth map
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  // 0 because texture unit GL_TEXTURE0
+  glUniform1i(ompShader.shadowMap, 0);
+
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+
+  // Unbind texture
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  // Unbind vertex array object
+  glBindVertexArray(0);
+
+  // Unbind shader program
+  glUseProgram(0);
+  */
 
   // Draw the first light source
 
@@ -1365,128 +1569,6 @@ static void render() {
   glUseProgram(0);
 
   // TODO: Change order of render (VAO, attach uniforms, shader binding...)
-
-  // Draw the phong bunny
-
-  // Do nothing to the stencil buffer ever
-  glStencilFunc(GL_ALWAYS, 1, 0xFF);
-  glStencilMask(0x00);
-
-  // Placement matrix
-  matModel = glm::mat4(1.f);
-
-  // Put object into world
-  matModel = glm::scale(glm::mat4(1.f),
-    phong_bunny_placement.scale) * 
-    matModel;
-
-  matModel = glm::rotate(glm::mat4(1.f),
-    phong_bunny_placement.rotate.x,
-    glm::vec3(1.f, 0.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f),
-    phong_bunny_placement.rotate.y,
-    glm::vec3(0.f, 1.f, 0.f)) * matModel;
-  matModel = glm::rotate(glm::mat4(1.f),
-    phong_bunny_placement.rotate.z,
-    glm::vec3(0.f, 0.f, 1.f)) * matModel;
-
-  // Object position is defined by placement struct
-  matModel = glm::translate(glm::mat4(1.f),
-    phong_bunny_placement.translate) * matModel;
-
-  // Directional light space matrix
-  matLightspace = lightProj * lightView * matModel;
-  // Set modelview matrix
-  matModelview = matView * matModel;
-
-  // Bind shader program
-  glUseProgram(ompShader.pid);
-
-  // Bind vertex array object
-  glBindVertexArray(omp_bunny_vaoID);
-
-  // Fill in matrices
-  // Fill in vertex shader uniforms
-  glUniformMatrix4fv(ompShader.modelview, 1, GL_FALSE,
-    glm::value_ptr(matModelview));
-  glUniformMatrix4fv(ompShader.projection, 1, GL_FALSE,
-    glm::value_ptr(matProjection));
-  // Fill in fragment shader uniforms
-  glUniform3fv(ompShader.materialAmbient, 1,
-    glm::value_ptr(copper.ambient));
-  glUniform3fv(ompShader.materialDiffuse, 1,
-    glm::value_ptr(copper.diffuse));
-  glUniform3fv(ompShader.materialSpecular, 1,
-    glm::value_ptr(copper.specular));
-  glUniform1f(ompShader.materialShininess,
-    copper.shininess);
-  // Directional light shadow transform
-  glUniformMatrix4fv(ompShader.lightspace, 1, GL_FALSE,
-    glm::value_ptr(matLightspace));
-  // For each point light, input into shader
-  // TODO: If same shader, no need to call uniform repeatedly
-  // TODO: 3 is a magic number
-  for(int i = 0; i < 3; i++) {
-    // Give position of light in view space
-    // View space transformation
-    glUniform3fv(ompShader.pointLights[i].position, 1,
-      glm::value_ptr(
-        glm::vec3(
-          matView * glm::vec4(point_lights[i].placement.translate, 1.f)
-        )
-      )
-    );
-    glUniform3fv(ompShader.pointLights[i].ambient, 1,
-      glm::value_ptr(point_lights[i].ambient));
-    glUniform3fv(ompShader.pointLights[i].diffuse, 1,
-      glm::value_ptr(point_lights[i].diffuse));
-    glUniform3fv(ompShader.pointLights[i].specular, 1,
-      glm::value_ptr(point_lights[i].specular));
-    // Attenuation
-    // Range of 50, from:
-    // http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
-    glUniform1f(ompShader.pointLights[i].constant, point_lights[i].constant);
-    glUniform1f(ompShader.pointLights[i].linear, point_lights[i].linear);
-    glUniform1f(ompShader.pointLights[i].quadratic, point_lights[i].quadratic);
-  }
-  // For each directional light, input into shader
-  // TODO: 1 is a magic number
-  for(int i = 0; i < 1; i++) {
-    // Give direction of directional light in view space
-    glUniform3fv(ompShader.directionalLights[i].direction, 1,
-      glm::value_ptr(
-        glm::vec3(
-          matRotation * glm::vec4(directional_lights[i].direction, 1.f)
-        )
-      )
-    );
-    glUniform3fv(ompShader.directionalLights[i].ambient, 1,
-      glm::value_ptr(directional_lights[i].ambient));
-    glUniform3fv(ompShader.directionalLights[i].diffuse, 1,
-      glm::value_ptr(directional_lights[i].diffuse));
-    glUniform3fv(ompShader.directionalLights[i].specular, 1,
-      glm::value_ptr(directional_lights[i].specular));
-  }
-
-  // Bind the shadow depth map
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
-  // 0 because texture unit GL_TEXTURE0
-  glUniform1i(ompShader.shadowMap, 0);
-
-  // Draw one object
-  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
-    (const void *) 0);
-
-  // Unbind texture
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  // Unbind vertex array object
-  glBindVertexArray(0);
-
-  // Unbind shader program
-  glUseProgram(0);
 
   // Draw the wood cube
 
