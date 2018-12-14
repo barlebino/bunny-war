@@ -1072,7 +1072,7 @@ static void geometryPass() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   // Projection matrix
   aspect = width / (float) height;
-  matProjection = glm::perspective(70.f, aspect, 1.f, 100.f);
+  matProjection = glm::perspective(70.f, aspect, .1f, 100.f);
   // View matrix
   matView = glm::mat4(1.f);
   matView = glm::translate(glm::mat4(1.f), -camLocation) *
@@ -1114,7 +1114,7 @@ static void geometryPass() {
   glUniformMatrix4fv(dompShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(dompShader.materialDiffuse, 1,
-    glm::value_ptr(copper.diffuse));
+    glm::value_ptr(copper.ambient));
   glUniform1f(dompShader.materialShininess,
     copper.shininess);
   // Draw one object
@@ -1240,6 +1240,24 @@ static void render() {
   glActiveTexture(GL_TEXTURE2);
   glBindTexture(GL_TEXTURE_2D, deferred_col_texture);
   glUniform1i(lpShader.gcol, 2);
+  // For each directional light, input into shader
+  // TODO: 1 is a magic number
+  for(int i = 0; i < 1; i++) {
+    // Give direction of directional light in view space
+    glUniform3fv(lpShader.directionalLights[i].direction, 1,
+      glm::value_ptr(
+        glm::vec3(
+          matRotation * glm::vec4(directional_lights[i].direction, 1.f)
+        )
+      )
+    );
+    glUniform3fv(lpShader.directionalLights[i].ambient, 1,
+      glm::value_ptr(directional_lights[i].ambient));
+    glUniform3fv(lpShader.directionalLights[i].diffuse, 1,
+      glm::value_ptr(directional_lights[i].diffuse));
+    glUniform3fv(lpShader.directionalLights[i].specular, 1,
+      glm::value_ptr(directional_lights[i].specular));
+  }
   // Draw screen
   glDrawElements(GL_TRIANGLES, rect_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);

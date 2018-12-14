@@ -4,7 +4,38 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <string>
+
 #include "lighting_pass_shader.hpp"
+
+// Put light locations at index lightNum into direction light struct
+// Assumes lpShader->pid is initialized
+void getLightingPassDirectionalLightLocations(
+  struct LightingPassShader *lpShader, int lightNum) {
+  GLint pid;
+  std::string varname, lightNumString;
+  struct LightingPassDirectionalLight *lpdLight;
+
+  pid = lpShader->pid;
+  lpdLight = &(lpShader->directionalLights[lightNum]);
+  lightNumString = std::to_string(lightNum);
+
+  varname = "directionalLights[" + lightNumString + "].direction";
+  lpdLight->direction = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].ambient";
+  lpdLight->ambient = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].diffuse";
+  lpdLight->diffuse = glGetUniformLocation(pid, varname.c_str());
+  varname = "directionalLights[" + lightNumString + "].specular";
+  lpdLight->specular = glGetUniformLocation(pid, varname.c_str());
+}
+
+// Put light locations at index lightNum
+// Assumes lpShader->pid is initialized
+void getLightingPassPointLightLocations(
+  struct LightingPassShader *lpShader, int lightNum) {
+  
+}
 
 // Put attrib and uniform locations into struct
 // Assumes lpShader->pid is initialized
@@ -23,6 +54,11 @@ void getLightingPassShaderLocations(struct LightingPassShader *lpShader) {
   printf("lpShader->gpos: %d\n", lpShader->gpos);
   printf("lpShader->gnor: %d\n", lpShader->gnor);
   printf("lpShader->gcol: %d\n", lpShader->gcol);
+
+  // Get all directional light uniforms
+  for(int i = 0; i < NUM_DIRECTIONAL_LIGHTS; i++) {
+    getLightingPassDirectionalLightLocations(lpShader, i);
+  }
 }
 
 // Create VAO then put ID into vaoID
