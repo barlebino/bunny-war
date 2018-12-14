@@ -34,6 +34,7 @@
 #include "shaders_c/phong_shader.hpp"
 #include "shaders_c/shadowdepth_shader.hpp"
 #include "shaders_c/blur_shader.hpp"
+#include "shaders_c/deferred_c/deferred_omp_shader.hpp"
 
 // Placement struct
 // Contains scale, rotation, and translate matrices
@@ -71,6 +72,10 @@ struct DepthModel {
 struct DepthModel sphereDepthModel;
 struct DepthModel bunnyDepthModel;
 struct DepthModel cubeDepthModel;
+
+// VAOs for deferred rendering
+// TODO: Common VAO for different shaders
+unsigned dfr_bunny_vaoID;
 
 // Super sample anti-aliasing
 int ssaaLevel = 1;
@@ -143,6 +148,7 @@ struct OneFacePhongCubeShader ofpcShader;
 struct PhongShader phongShader;
 struct ShadowDepthShader sdShader;
 struct BlurShader blurShader;
+struct DeferredOmpShader dompShader;
 
 // Height of window ???
 int g_width = 1280;
@@ -169,6 +175,7 @@ unsigned int deferred_fbo;
 unsigned int deferred_pos_texture;
 unsigned int deferred_nor_texture;
 unsigned int deferred_col_texture;
+unsigned int deferred_depth_texture;
 
 // World texture
 unsigned world_texBufID;
@@ -404,6 +411,8 @@ static void init() {
   // Unbind texture
   glBindTexture(GL_TEXTURE_2D, 0);
 
+  // TODO: Can use same depth texture in different framebuffers?
+  // (for deferred rendering), reuse of textures, memory
   // TODO: Remove depth and stencil textures
   // Depth and stencil texture for fbo
   glGenTextures(1, &fbo_depth_stencil_texture);
@@ -477,12 +486,6 @@ static void init() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
 
-  /*
-  unsigned int deferred_fbo;
-  unsigned int deferred_pos_texture;
-  unsigned int deferred_nor_texture;
-  unsigned int deferred_col_texture;
-  */
   // G-Buffer for deferred rendering
   glGenFramebuffers(1, &deferred_fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, deferred_fbo);
@@ -515,6 +518,18 @@ static void init() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D,
     deferred_col_texture, 0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  // Depth buffer -- create then attach
+  glGenTextures(1, &deferred_depth_texture);
+  glBindTexture(GL_TEXTURE_2D, deferred_depth_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+    g_width, g_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+    deferred_depth_texture, 0);
   glBindTexture(GL_TEXTURE_2D, 0);
   // Unbind G-Buffer
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -684,6 +699,12 @@ static void init() {
     "../resources/shaders_glsl/fragBlur.glsl");
   getBlurShaderLocations(&blurShader);
 
+  // ------ Deferred One Material Phong Shader ------
+  dompShader.pid = initShader(
+    "../resources/shaders_glsl/deferred_glsl/vertDeferredOmp.glsl",
+    "../resources/shaders_glsl/deferred_glsl/fragDeferredOmp.glsl");
+  getDeferredOmpShaderLocations(&dompShader);
+
   // -------- Initialize VAOS --------
   
   // Texture-only rectangle (screen)
@@ -734,6 +755,12 @@ static void init() {
   makeShadowDepthShaderVAO(&cubeDepthModel.vaoID, &sdShader,
     convexbox_posBufID, 0); // Not indexed
   cubeDepthModel.indexed = false;
+
+  // ------ VAOs for deferred rendering ------
+
+  // Bunny deferred VAO
+  makeDeferredOmpShaderVAO(&dfr_bunny_vaoID, &dompShader,
+    bunny_posBufID, bunny_norBufID, bunny_eleBufID);
 
   // -------- Initialize Lights --------
   Placement tempPlacement;
@@ -1003,8 +1030,85 @@ static void lightRender() {
 
 // Render to the G-Buffer
 static void geometryPass() {
+  int width, height;
+  float aspect;
+
   // Create matrices
-  
+  glm::mat4 matModel;
+  glm::mat4 matView;
+  glm::mat4 matModelview;
+  glm::mat4 matProjection;
+
+  glBindFramebuffer(GL_FRAMEBUFFER, deferred_fbo);
+  glfwGetFramebufferSize(window, &width, &height);
+  glEnable(GL_DEPTH_TEST);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+  // Render to three framebuffers for G-Buffer
+  unsigned int gpAttachments[3] = {
+    GL_COLOR_ATTACHMENT0,
+    GL_COLOR_ATTACHMENT1,
+    GL_COLOR_ATTACHMENT2
+  };
+  glDrawBuffers(3, gpAttachments);
+  // Clear framebuffer
+  glClearColor(0.f, 0.f, 0.f, 1.f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  // Projection matrix
+  aspect = width / (float) height;
+  matProjection = glm::perspective(70.f, aspect, 1.f, 100.f);
+  // View matrix
+  matView = glm::mat4(1.f);
+  matView = glm::translate(glm::mat4(1.f), -camLocation) *
+    matView;
+  matView = glm::rotate(glm::mat4(1.f), -camRotation.x,
+    sideways) * matView;
+  matView = glm::rotate(glm::mat4(1.f), -camRotation.y,
+    glm::vec3(0.f, 1.f, 0.f)) * matView;
+
+  // Draw the phong bunny
+  // Do nothing to the stencil buffer ever
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    phong_bunny_placement.scale) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.x,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.y,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_bunny_placement.rotate.z,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+  matModel = glm::translate(glm::mat4(1.f),
+    phong_bunny_placement.translate) * matModel;
+  matModelview = matView * matModel;
+  // Bind shader program
+  glUseProgram(dompShader.pid);
+  // Bind vertex array object
+  glBindVertexArray(dfr_bunny_vaoID);
+  // Fill in matrices
+  glUniformMatrix4fv(dompShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(dompShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  glUniform3fv(dompShader.materialDiffuse, 1,
+    glm::value_ptr(copper.diffuse));
+  glUniform1f(dompShader.materialShininess,
+    copper.shininess);
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Unbind VAO and shader program
+  glBindVertexArray(0);
+  glUseProgram(0);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 static void render() {
@@ -1037,6 +1141,8 @@ static void render() {
   // Get current frame buffer size ???
   glfwGetFramebufferSize(window, &width, &height);
 
+  // TESTING DEFERRED rendering
+  geometryPass();
   // Draw scene from directional light POV
   lightRender();
   // TODO: calculate light viewproj only once (repetitive!)
