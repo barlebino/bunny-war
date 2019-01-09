@@ -1,6 +1,7 @@
 // TODO: Change to bind program -> bind vao -> make mat -> fill mat
 // TODO: does sphere have normal data?
 // TODO: Placement structs for non-lights
+// Info: Projection matrices map a specified volume to the unit cube
 
 #include <iostream>
 
@@ -1152,6 +1153,8 @@ static void render() {
   glm::mat4 matRotation;
   // Matrix for directional light space
   glm::mat4 matLightspace;
+  // Matrix for deferred shadow mapping
+  glm::mat4 matViewToLight;
 
   // TODO: Framebuffer size before binding framebuffer???
   // Get current frame buffer size ???
@@ -1223,6 +1226,21 @@ static void render() {
 
   // Draw the G-Buffer
   
+  // Prepare view-to-light matrix for deferred shadow mapping
+  matViewToLight = glm::mat4(1.f);
+  // Undo view transformation
+  // Undo rotation
+  matViewToLight = glm::rotate(glm::mat4(1.f), camRotation.y,
+    glm::vec3(0.f, 1.f, 0.f)) * matViewToLight;
+  matViewToLight = glm::rotate(glm::mat4(1.f), camRotation.x,
+    sideways) * matViewToLight;
+  // Undo translation
+  matViewToLight = glm::translate(glm::mat4(1.f), camLocation) *
+    matViewToLight;
+  // Now go from world space to light space
+  matViewToLight = lightView * matViewToLight;
+  matViewToLight = lightProj * matViewToLight;
+
   // Will always pass the stencil test
   glStencilFunc(GL_ALWAYS, 1, 0xFF);
   // Never write to the stencil buffer
@@ -1240,6 +1258,14 @@ static void render() {
   glActiveTexture(GL_TEXTURE2);
   glBindTexture(GL_TEXTURE_2D, deferred_col_texture);
   glUniform1i(lpShader.gcol, 2);
+  // Bind the shadow depth map
+  glActiveTexture(GL_TEXTURE3);
+  glBindTexture(GL_TEXTURE_2D, shadow_depth_texture);
+  glUniform1i(lpShader.shadowMap, 3);
+  // View-to-light space
+  // TODO: Loop for every light?
+  glUniformMatrix4fv(lpShader.viewToLight, 1, GL_FALSE,
+    glm::value_ptr(matViewToLight));
   // For each directional light, input into shader
   // TODO: 1 is a magic number
   for(int i = 0; i < 1; i++) {

@@ -42,7 +42,8 @@ uniform PointLight pointLights[NUM_POINT_LIGHTS];
 uniform DirectionalLight directionalLights[NUM_DIRECTIONAL_LIGHTS];
 uniform sampler2D shadowMap;
 
-// TODO: frag_pos_light_space ony for directionalLights[0]
+// TODO: frag_pos_light_space only for directionalLights[0]
+// position given in light space
 float calcShadow(vec3 frag_pos_light_space) {
   // TODO: perspective divide w/ vec4 frag_pos_light_space
   vec3 projCoords = frag_pos_light_space * 0.5 + 0.5; // [-1, 1] -> [0, 1]

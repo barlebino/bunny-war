@@ -36,6 +36,8 @@ struct LightingPassShader {
   GLint gpos;
   GLint gnor;
   GLint gcol;
+  GLint shadowMap;
+  GLint viewToLight; // used to check the shadow map
   // TODO: Shadow mapping uniforms
   // ALL OF THE LIGHTS
   struct LightingPassPointLight pointLights[NUM_POINT_LIGHTS];
