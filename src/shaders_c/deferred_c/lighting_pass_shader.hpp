@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+// TODO: Make into MAX_POINT_LIGHTS instead
 // TODO: Define this somewhere else
 #define NUM_POINT_LIGHTS 3
 #define NUM_DIRECTIONAL_LIGHTS 1

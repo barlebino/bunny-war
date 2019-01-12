@@ -53,14 +53,6 @@ void getLightingPassShaderLocations(struct LightingPassShader *lpShader) {
   lpShader->viewToLight = glGetUniformLocation(
     lpShader->pid, "viewToLight");
 
-  printf("lpShader->vertPos: %d\n", lpShader->vertPos);
-  printf("lpShader->texCoord: %d\n", lpShader->texCoord);
-  printf("lpShader->gpos: %d\n", lpShader->gpos);
-  printf("lpShader->gnor: %d\n", lpShader->gnor);
-  printf("lpShader->gcol: %d\n", lpShader->gcol);
-  printf("lpShader->shadowMap: %d\n", lpShader->shadowMap);
-  printf("lpShader->viewToLight: %d\n", lpShader->viewToLight);
-
   // Get all directional light uniforms
   for(int i = 0; i < NUM_DIRECTIONAL_LIGHTS; i++) {
     getLightingPassDirectionalLightLocations(lpShader, i);

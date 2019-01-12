@@ -1114,6 +1114,7 @@ static void geometryPass() {
     glm::value_ptr(matModelview));
   glUniformMatrix4fv(dompShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
+  // TODO: Diffuse only
   glUniform3fv(dompShader.materialDiffuse, 1,
     glm::value_ptr(copper.ambient));
   glUniform1f(dompShader.materialShininess,
@@ -1225,7 +1226,7 @@ static void render() {
     glm::vec3(0.f, 1.f, 0.f)) * matRotation;
 
   // Draw the G-Buffer
-  
+
   // Prepare view-to-light matrix for deferred shadow mapping
   matViewToLight = glm::mat4(1.f);
   // Undo view transformation
