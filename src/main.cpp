@@ -519,7 +519,7 @@ static void init() {
   // Color buffer -- create then attach
   glGenTextures(1, &deferred_col_texture);
   glBindTexture(GL_TEXTURE_2D, deferred_col_texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_width * ssaaLevel,
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, g_width * ssaaLevel,
     g_height * ssaaLevel, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -914,6 +914,7 @@ static void lightRender() {
   glfwGetFramebufferSize(window, &width, &height);
   glViewport(0, 0, width, height);
   glEnable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
   glClearColor(0.f, 0.f, 0.f, 1.f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -1059,6 +1060,7 @@ static void geometryPass() {
   glBindFramebuffer(GL_FRAMEBUFFER, deferred_fbo);
   glfwGetFramebufferSize(window, &width, &height);
   glEnable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
   // Render to three framebuffers for G-Buffer
@@ -1188,9 +1190,11 @@ static void render() {
   
   // Buffer stuff (???)
   glEnable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
   // Render to two colorbuffers
+  // One for normal and the other for very bright
   // glDrawBuffers is framebuffer state
   unsigned int hdrAttachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
   glDrawBuffers(2, hdrAttachments);
