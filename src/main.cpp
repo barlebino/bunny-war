@@ -412,6 +412,9 @@ static void init() {
     GL_RGB, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  // Prevents bloom from wrapping around the screen
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   // Attach texture to fbo
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, 
     fbo_bright_color_texture, 0);
@@ -1310,29 +1313,6 @@ static void render() {
     0, 0, g_width * ssaaLevel, g_height * ssaaLevel,
     GL_DEPTH_BUFFER_BIT, GL_NEAREST);
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-  /*
-  printf("camLocation: [%f, %f, %f]\n",
-    camLocation.r,
-    camLocation.g,
-    camLocation.b
-  );
-  printf("camRotation: [%f, %f]\n",
-    camRotation.r,
-    camRotation.g
-  );
-  printf("forward: [%f, %f, %f]\n",
-    forward.r,
-    forward.g,
-    forward.b
-  );
-  printf("sideways: [%f, %f, %f]\n",
-    sideways.r,
-    sideways.g,
-    sideways.b
-  );
-  printf("\n");
-  */
 
   /*
   // Draw the phong bunny

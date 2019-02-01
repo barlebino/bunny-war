@@ -21,6 +21,7 @@ struct DirectionalLight {
 #define NUM_POINT_LIGHTS 3
 #define NUM_DIRECTIONAL_LIGHTS 1
 
+// Default layout, in, uniform order?
 uniform sampler2D gpos;
 uniform sampler2D gnor;
 uniform sampler2D gcol;
@@ -31,7 +32,9 @@ uniform sampler2D shadowMap; // only for directional light
 uniform mat4 viewToLight; // view space to light space
 
 in vec2 frag_texCoord;
-out vec4 color;
+
+layout (location = 0) out vec4 out_color;
+layout (location = 1) out vec4 bright_color;
 
 // position given in view space
 float calcShadow(vec3 pos, vec3 nor) {
@@ -105,6 +108,12 @@ void main() {
       calcDirectionalLight(directionalLights[i], viewDir, pos, nor, col);
   }
   // Turn final light into vec4
-  color = vec4(total_light, 1.0);
-  // TODO: Paste into bright color buffer
+  out_color = vec4(total_light, 1.0);
+  // bright color filter from learnopengl
+  float brightness = dot(out_color.rgb, vec3(0.2126, 0.7152, 0.0722));
+  if(brightness > 1.0) {
+    bright_color = vec4(out_color.rgb, 1.0);
+  } else {
+    bright_color = vec4(0.0, 0.0, 0.0, 1.0);
+  }
 }
