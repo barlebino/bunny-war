@@ -1,4 +1,4 @@
-An unnamed graphics engine with the temporary name "bunny"
+will be a multiplayer game with bunnies
 
 To use:
 
