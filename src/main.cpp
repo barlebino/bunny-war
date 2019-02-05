@@ -115,6 +115,7 @@ unsigned facecube_vaoID;
 unsigned phongglobe_vaoID;
 
 unsigned oc_bunny_vaoID;
+unsigned oc_sphere_vaoID;
 
 // Sphere data
 unsigned sphere_posBufID;
@@ -370,6 +371,8 @@ GLuint initShader(const char *vsfn, const char *fsfn) {
 }
 
 static void init() {
+  // Graphics initialization
+
   // Set background color
   glClearColor(.125f, .375f, .5f, 0.f);
   // Enable z-buffer test
@@ -382,6 +385,12 @@ static void init() {
   resizeMesh();
   sendMesh(&bunny_posBufID, &bunny_eleBufID, NULL,
     &bunny_eleBufSize, &bunny_norBufID);
+  // Sphere mesh
+  getMesh("../resources/objs/sphere.obj");
+  resizeMesh();
+  // Send mesh to GPU and store buffer IDs
+  sendMesh(&sphere_posBufID, &sphere_eleBufID, &sphere_texCoordBufID,
+    &sphere_eleBufSize, &sphere_norBufID);
 
   // Initialize shader for bunny
   ocShader.pid = initShader(
@@ -399,10 +408,14 @@ static void init() {
   };
 
   // Bunny placement struct is already initialized
+  // Sphere placement struct is already initialized
 
   // Make bunny VAO
   makeOneColorShaderVAO(&oc_bunny_vaoID, &ocShader,
     bunny_posBufID, bunny_eleBufID);
+  // Make sphere VAO
+  makeOneColorShaderVAO(&oc_sphere_vaoID, &ocShader,
+    sphere_posBufID, sphere_eleBufID);
 
   return;
 
@@ -1205,6 +1218,8 @@ static void render() {
   matView = glm::rotate(glm::mat4(1.f), -camRotation.y,
     glm::vec3(0.f, 1.f, 0.f)) * matView;
 
+  // Draw the bunny
+
   // Placement matrix
   matModel = glm::mat4(1.f);
   // Put object into world
@@ -1233,6 +1248,43 @@ static void render() {
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
     glm::value_ptr(glm::vec3(1.f, 1.f, 1.f)));
+  // Draw one object
+  glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
+    (const void *) 0);
+  // Unbinds
+  glBindVertexArray(0);
+  glUseProgram(0);
+
+  // Draw the sphere (currently used as a point of reference)
+
+  // Placement matrix
+  matModel = glm::mat4(1.f);
+  // Put object into world
+  matModel = glm::scale(glm::mat4(1.f),
+    phong_globe_placement.scale) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_globe_placement.rotate.x,
+    glm::vec3(1.f, 0.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_globe_placement.rotate.y,
+    glm::vec3(0.f, 1.f, 0.f)) * matModel;
+  matModel = glm::rotate(glm::mat4(1.f),
+    phong_globe_placement.rotate.z,
+    glm::vec3(0.f, 0.f, 1.f)) * matModel;
+  matModel = glm::translate(glm::mat4(1.f),
+    phong_globe_placement.translate) * matModel;
+  matModelview = matView * matModel;
+  // Bind shader program
+  glUseProgram(ocShader.pid);
+  // Bind sphere VAO
+  glBindVertexArray(oc_sphere_vaoID);
+  // Fill matrices
+  glUniformMatrix4fv(ocShader.modelview, 1, GL_FALSE,
+    glm::value_ptr(matModelview));
+  glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
+    glm::value_ptr(matProjection));
+  glUniform3fv(ocShader.in_color, 1,
+    glm::value_ptr(glm::vec3(0.f, 0.f, 0.f)));
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
