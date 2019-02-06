@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <pthread.h>
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -222,6 +224,13 @@ struct Placement phong_globe_placement = {
   glm::vec3(0.f, 0.f, 0.f), // rotate
   glm::vec3(-8.f, 0.f, 6.f) // translate
 };
+
+void *server_listener(void *ptr) {
+  while(1) {
+    printf("camLocation: (%f, %f, %f)\n",
+      camLocation.x, camLocation.y, camLocation.z);
+  }
+}
 
 // For debugging
 void printMatrix(glm::mat4 mat) {
@@ -2220,8 +2229,13 @@ int main(int argc, char **argv) {
   glDepthMask(GL_TRUE);
   glStencilMask(0xFF);
 
-  // Initialize scene
+  // Initialize graphics/scene
   init();
+
+  // Initialize threading
+  pthread_t listener_thread;
+  int ret;
+  ret = pthread_create(&listener_thread, NULL, server_listener, NULL);
 
   // Loop until the user closes the window
   while(!glfwWindowShouldClose(window)) {
@@ -2238,6 +2252,9 @@ int main(int argc, char **argv) {
   // Quit program
   glfwDestroyWindow(window);
   glfwTerminate();
+
+  // Stops the listener thread
+  pthread_cancel(listener_thread);
 
   return 0;
 }
