@@ -213,6 +213,9 @@ unsigned int facecube_specularMapID;
 
 // Should begin program?
 volatile bool connected = false;
+// Color of bunny
+volatile int bunny_color_id = 0;
+glm::vec3 bunny_color = glm::vec3(1.f, 1.f, 1.f);
 
 // Debug
 bool cameraFreeze = false;
@@ -274,15 +277,15 @@ void *server_listener(void *ptr) {
   int server_message;
   int n;
   // repeatedly tell server you are willing to connect
-  // timeout information
+  // timeout information, every 1000 usec
   struct timeval read_timeout;
-  read_timeout.tv_sec = 0;
-  read_timeout.tv_usec = 1000;
+  read_timeout.tv_sec = 1;
+  read_timeout.tv_usec = 0;
   setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &read_timeout,
     sizeof(struct timeval));
   int count = 0;
   while(1) {
-    printf("sending... %d\n", count);
+    printf("connecting... %d\n", count);
     count++;
     // TODO: currently polling
     n = sendto(sock, &client_message, sizeof(int), 0,
@@ -296,10 +299,13 @@ void *server_listener(void *ptr) {
   }
 
   connected = true;
+  printf("connected\n");
 
   while(1) {
-    printf("camLocation: (%f, %f, %f)\n",
-      camLocation.x, camLocation.y, camLocation.z);
+    // TODO: currently does not care where message came from
+    n = recvfrom(sock, &server_message, sizeof(int), 0, NULL, NULL);
+    // bunny_color_id = ntohl(server_message);
+    printf("got %d from server\n", ntohl(server_message));
   }
 }
 
@@ -326,6 +332,10 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action,
     if(action == GLFW_RELEASE) {
       cameraFreeze = !cameraFreeze;
       printf("rotate: %f\n", face_cube_placement.rotate.y);
+    }
+  } else if(key == GLFW_KEY_C) { // toggle the color of the bunny
+    if(action == GLFW_RELEASE) {
+      bunny_color_id = 1;
     }
   } else if(key == GLFW_KEY_W) {
     if(action == GLFW_PRESS) {
@@ -1272,6 +1282,12 @@ static void render() {
     phong_bunny_placement.rotate.y + .01f;
   if(phong_bunny_placement.rotate.y > 6.28f)
     phong_bunny_placement.rotate.y = 0.f;
+  // Bunny color update
+  if(bunny_color_id == 0) {
+    bunny_color = glm::vec3(1.f, 1.f, 1.f);
+  } else if(bunny_color_id == 1) {
+    bunny_color = glm::vec3(1.f, 0.f, 0.f);
+  }
 
   glm::mat4 matModel;
   glm::mat4 matView;
@@ -1327,7 +1343,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(glm::vec3(1.f, 1.f, 1.f)));
+    glm::value_ptr(bunny_color));
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
@@ -2319,7 +2335,7 @@ int main(int argc, char **argv) {
     (void *) &si);
 
   // TODO: remove busy waiting
-  while(connected == false) {}
+  while(connected == false);
 
   // Loop until the user closes the window
   while(!glfwWindowShouldClose(window)) {
