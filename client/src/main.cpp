@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <stdint.h>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -45,6 +47,8 @@
 #include "shaders_c/deferred_c/deferred_omp_shader.hpp"
 #include "shaders_c/deferred_c/lighting_pass_shader.hpp"
 
+#include "float_pack.hpp"
+
 // Placement struct
 // Contains scale, rotation, and translate matrices
 struct Placement {
@@ -79,7 +83,7 @@ struct DepthModel {
 
 // Network struct definitions
 struct ServInfo {
-  int player_num;
+  int port_no;
   char *host_ip;
 };
 
@@ -213,9 +217,8 @@ unsigned int facecube_specularMapID;
 
 // Should begin program?
 volatile bool connected = false;
-// Color of bunny
-volatile int bunny_color_id = 0;
-glm::vec3 bunny_color = glm::vec3(1.f, 1.f, 1.f);
+// Rotation of bunny
+volatile float bunny_yrot = 0.f;
 
 // Debug
 bool cameraFreeze = false;
@@ -239,7 +242,7 @@ struct Placement face_cube_placement = {
 struct Placement phong_globe_placement = {
   glm::vec3(1.f, 1.f, 1.f), // scale
   glm::vec3(0.f, 0.f, 0.f), // rotate
-  glm::vec3(-8.f, 0.f, 6.f) // translate
+  glm::vec3(-12.f, 0.f, 0.f) // translate
 };
 
 // This thread will end via cancel by main thread
@@ -250,21 +253,15 @@ void *server_listener(void *ptr) {
 
   // Get server info
   struct ServInfo *si = (struct ServInfo *) ptr;
-  printf("si->player_num: %d\n", si->player_num);
+  printf("si->port_no: %d\n", si->port_no);
   printf("si->host_ip: %s\n", si->host_ip);
 
   // Initialize sockaddr_in6 struct
   memset(&server, 0, sizeof(server));
   server.sin6_family = AF_INET6;
-  if(si->player_num == 1)
-    server.sin6_port = htons(atoi("9001"));
-  else if(si->player_num == 2) {
-    server.sin6_port = htons(atoi("9002"));
-  } else {
-    fprintf(stderr, "invalid player number\n");
-    exit(1);
-  }
+  server.sin6_port = htons(si->port_no);
   inet_pton(AF_INET6, si->host_ip, &(server.sin6_addr));
+
   int length = sizeof(struct sockaddr_in6);
 
   sock = socket(AF_INET6, SOCK_DGRAM, 0);
@@ -273,8 +270,8 @@ void *server_listener(void *ptr) {
     exit(1);
   }
 
-  int client_message = htonl(-1);
-  int server_message;
+  uint32_t client_message = htonl(-1);
+  uint32_t server_message;
   int n;
   // repeatedly tell server you are willing to connect
   // timeout information, every 1000 usec
@@ -288,10 +285,11 @@ void *server_listener(void *ptr) {
     printf("connecting... %d\n", count);
     count++;
     // TODO: currently polling
-    n = sendto(sock, &client_message, sizeof(int), 0,
+    n = sendto(sock, &client_message, sizeof(uint32_t), 0,
       (struct sockaddr *) &server, length);
     // TODO: currently does not care where message came from
-    n = recvfrom(sock, &server_message, sizeof(int), 0, NULL, NULL);
+    n = recvfrom(sock, &server_message, sizeof(uint32_t), 0, NULL, NULL);
+    printf("got %d bytes\n", n);
     // Quit if got data from server
     if(n > 0) {
       break;
@@ -301,11 +299,26 @@ void *server_listener(void *ptr) {
   connected = true;
   printf("connected\n");
 
+  // process data given by server
+  bunny_yrot = unpack754_32(server_message);
+  
+  // turn off timeout
+  read_timeout.tv_sec = 0;
+  read_timeout.tv_usec = 1000;
+  setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &read_timeout,
+    sizeof(struct timeval));
+
   while(1) {
+    // TODO: currently polling
+    n = sendto(sock, &client_message, sizeof(uint32_t), 0,
+      (struct sockaddr *) &server, length);
     // TODO: currently does not care where message came from
-    n = recvfrom(sock, &server_message, sizeof(int), 0, NULL, NULL);
-    // bunny_color_id = ntohl(server_message);
-    printf("got %d from server\n", ntohl(server_message));
+    n = recvfrom(sock, &server_message, sizeof(uint32_t), 0, NULL, NULL);
+    if(n > 0) {
+      // process data given by server
+      bunny_yrot = unpack754_32(server_message);
+      printf("bunny_yrot: %f\n", bunny_yrot);
+    }
   }
 }
 
@@ -332,10 +345,6 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action,
     if(action == GLFW_RELEASE) {
       cameraFreeze = !cameraFreeze;
       printf("rotate: %f\n", face_cube_placement.rotate.y);
-    }
-  } else if(key == GLFW_KEY_C) { // toggle the color of the bunny
-    if(action == GLFW_RELEASE) {
-      bunny_color_id = 1;
     }
   } else if(key == GLFW_KEY_W) {
     if(action == GLFW_PRESS) {
@@ -1278,16 +1287,16 @@ static void render() {
 
   // TODO: Update physics
   // Bunny update
+  /*
   phong_bunny_placement.rotate.y =
     phong_bunny_placement.rotate.y + .01f;
   if(phong_bunny_placement.rotate.y > 6.28f)
     phong_bunny_placement.rotate.y = 0.f;
-  // Bunny color update
-  if(bunny_color_id == 0) {
-    bunny_color = glm::vec3(1.f, 1.f, 1.f);
-  } else if(bunny_color_id == 1) {
-    bunny_color = glm::vec3(1.f, 0.f, 0.f);
-  }
+  */
+
+  // Get bunny rotation from volatile variable,
+  // can be changed by recv thread
+  phong_bunny_placement.rotate.y = bunny_yrot;
 
   glm::mat4 matModel;
   glm::mat4 matView;
@@ -1343,7 +1352,7 @@ static void render() {
   glUniformMatrix4fv(ocShader.projection, 1, GL_FALSE,
     glm::value_ptr(matProjection));
   glUniform3fv(ocShader.in_color, 1,
-    glm::value_ptr(bunny_color));
+    glm::value_ptr(glm::vec3(1.f, 1.f, 1.f)));
   // Draw one object
   glDrawElements(GL_TRIANGLES, bunny_eleBufSize, GL_UNSIGNED_INT,
     (const void *) 0);
@@ -2325,11 +2334,11 @@ int main(int argc, char **argv) {
   int ret;
 
   if(argc != 3) {
-    fprintf(stderr, "usage: ./lab-01 [player number] [host ip]\n");
+    fprintf(stderr, "usage: ./lab-01 [port number] [host ip]\n");
     exit(0);
   }
 
-  si.player_num = atoi(argv[1]);
+  si.port_no = atoi(argv[1]);
   si.host_ip = argv[2];
   ret = pthread_create(&listener_thread, NULL, server_listener, 
     (void *) &si);

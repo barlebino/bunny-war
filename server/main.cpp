@@ -9,12 +9,18 @@
 #include <unistd.h>
 #include <string.h>
 
+#include <stdint.h>
+
+#include "float_pack.hpp"
+
 /*
 static int bunny_color_id = 0;
 static int const max_players = 3;
 static int num_players = 0;
 static struct sockaddr_in6 clients[3];
 */
+
+static volatile float bunny_yrot = 0.f;
 
 int main(int argc, char **argv) {
   if(argc < 2) {
@@ -44,20 +50,33 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
+  // TODO: Create thread that updates physics
+  //pthread_t physics_thread;
+
   // listen for clients and process as necessary
   // TODO: only gives "go run" commands to clients
   int n;
   struct sockaddr_in6 client_info;
   unsigned int client_info_len;
-  int client_message, server_message = htonl(-1);
+  uint32_t server_message = 1;
+  uint32_t client_message;
+
+  // Sends bunny rotation information to whoever requests it
+  int count = 0;
   while(1) {
-    n = recvfrom(player_socket, &client_message, sizeof(int), 0,
+    n = recvfrom(player_socket, &client_message, sizeof(uint32_t), 0,
       (struct sockaddr *) &client_info, &client_info_len);
-    n = sendto(player_socket, &server_message, sizeof(int), 0,
+    server_message = pack754_32(bunny_yrot);
+    n = sendto(player_socket, &server_message, sizeof(uint32_t), 0,
       (struct sockaddr *) &client_info, client_info_len);
+    // Update bunny rotation
+    bunny_yrot = bunny_yrot + .00001f;
+    if(bunny_yrot > 6.28f)
+      bunny_yrot = 0.f;
+    printf("bunny_yrot: %f\n", bunny_yrot);
   }
 
-  return 1;
+  return 0;
   
   {
     // get first message from the player
